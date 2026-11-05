@@ -1,0 +1,5 @@
+node_modules/
+pixelfx/records/
+*.gif
+!docs/**/*.gif
+.DS_Store

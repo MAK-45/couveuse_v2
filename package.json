@@ -1,0 +1,15 @@
+{
+  "name": "couveuse",
+  "private": true,
+  "type": "module",
+  "description": "Couveuse: a pixel-art ice-light blob (birth, idle, actions, objects, loops, clock) with a web editor that exports seamless GIF / PNG sprite sheets / JSON.",
+  "scripts": {
+    "build": "node app/build.mjs",
+    "test": "node tests/seams.mjs",
+    "check:fx": "node pixelfx/tools/check.mjs spawn/ice-spirit-gestation creature/ice-blob-idle creature/ice-blob-actions creature/ice-scene-objects creature/ice-blob-loops creature/ice-blob-clock",
+    "render": "node pixelfx/tools/render.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0"
+  }
+}
