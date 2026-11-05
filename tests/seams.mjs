@@ -31,9 +31,11 @@ for (const name of actions.ACTIONS) {
   report(`action ${name}`, diff(render(actions, o, 0), id0), diff(render(actions, o, (N - 1) * T / N), idL));
 }
 // the portals' other ways home, with their own lengths
-for (const [mode, loops] of [["fly", 3], ["loop", 4]]) {
-  const o = { ...actions.meta.options, action: "portal", portalMode: mode, loops }, T = o.duration * o.loops, N = Ni * o.loops;
-  report(`action portal ${mode}`, diff(render(actions, o, 0), id0), diff(render(actions, o, (N - 1) * T / N), idL));
+// and portals it must go round to reach (the blue one above it, opening upwards)
+const behindIt = { portalAX: -60, portalAY: -70, portalBX: 110, portalBY: -40, portalBAngle: "315", portalRoom: [-160, -115, 160, 85] };
+for (const [mode, loops, more] of [["fly", 3, {}], ["loop", 4, {}], ["back", 4, behindIt]]) {
+  const o = { ...actions.meta.options, action: "portal", portalMode: mode, loops, ...more }, T = o.duration * o.loops, N = Ni * o.loops;
+  report(`action portal ${mode}${more.portalRoom ? " round" : ""}`, diff(render(actions, o, 0), id0), diff(render(actions, o, (N - 1) * T / N), idL));
 }
 
 for (const [ap, vn] of clock.APPEAR.map((a, i) => [a, clock.VANISH[i]])) {

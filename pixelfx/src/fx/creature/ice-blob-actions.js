@@ -644,12 +644,16 @@ function portalRamp(c) {
   }
   return RAMPS.get(key);
 }
-// draw only what lies in front of the given planes (local space): the blob going into a portal
+// draw only what isn't behind the given portals (local space): the blob going into a portal. A plane hides what
+// lies behind it across the portal's width only (half), so a body passing beside a portal stays whole.
 function clipped(p, planes, fn) {
   if (!planes || !planes.length) return fn();
   const ok = (sx, sy) => {
     const x = p.fromX(sx + 0.5, sy + 0.5), y = p.fromY(sx + 0.5, sy + 0.5);
-    for (const q of planes) if ((x - q.x) * q.nx + (y - q.y) * q.ny < 0) return false;
+    for (const q of planes) {
+      if ((x - q.x) * q.nx + (y - q.y) * q.ny >= 0) continue;
+      if (q.half == null || Math.abs((x - q.x) * q.tx + (y - q.y) * q.ty) <= q.half) return false;
+    }
     return true;
   };
   const keep = {};
@@ -673,20 +677,50 @@ A.portal = (o) => {
     const f = phi(pi, po), c = Math.cos(f), s = Math.sin(f), dx = x - pi.x, dy = y - pi.y;
     return [po.x + dx * c - dy * s, po.y + dx * s + dy * c];
   };
-  const plane = (P) => ({ x: P.x, y: P.y, nx: P.nx, ny: P.ny });
-  // a leg of the trip: a curve from a point (or out of a portal) to a point (or into a portal). Legs that meet at
-  // a portal leave and arrive along its normal with the same handle, so the speed carries through.
-  const leg = (p0, from, p3, to, lift = 0) => {
-    const a = from ? [p0[0] + from.nx * h, p0[1] + from.ny * h] : null, b = to ? [p3[0] + to.nx * h, p3[1] + to.ny * h] : null;
+  const plane = (P) => ({ x: P.x, y: P.y, nx: P.nx, ny: P.ny, tx: P.tx, ty: P.ty, half: L + S * 0.6 });
+  // a leg of the trip: a curve from p0 to p3, leaving along d0 and arriving along d3 (travel directions, scaled to
+  // the handle h) when given. Legs that meet share the junction's direction and handle, so the speed carries
+  // through: out of a portal along its normal, into one against it, and through a waypoint along its heading.
+  const leg = (p0, d0, p3, d3, from = null, to = null, lift = 0) => {
+    const a = d0 ? [p0[0] + d0[0], p0[1] + d0[1]] : null, b = d3 ? [p3[0] - d3[0], p3[1] - d3[1]] : null;
     const p1 = a || [lerp(p0[0], (b || p3)[0], 1 / 3), lerp(p0[1], (b || p3)[1], 1 / 3) - lift];
     const p2 = b || [lerp(p3[0], (a || p0)[0], 1 / 3), lerp(p3[1], (a || p0)[1], 1 / 3) - lift];
     return { P: [p0, p1, p2, p3], from, to, R0: from ? phi(other(from), from) : 0 };
+  };
+  const out = (P) => [P.nx * h, P.ny * h], into = (P) => [-P.nx * h, -P.ny * h];
+  const unit = (x, y, k = h) => { const d = Math.hypot(x, y) || 1; return [(x / d) * k, (y / d) * k]; };
+  // a portal only lets it in from the side it opens on: from behind or beside, it goes round its edge first
+  const behind = (X, P) => (X[0] - P.x) * P.nx + (X[1] - P.y) * P.ny < S * 0.5;
+  const roundEdge = (X, P) => {
+    const side = Math.sign((X[0] - P.x) * P.tx + (X[1] - P.y) * P.ty) || 1, w = L + S * 2.5;
+    return [P.x + P.tx * side * w + P.nx * S * 2, P.y + P.ty * side * w + P.ny * S * 2, side];
+  };
+  const pathTo = (X, P) => {
+    if (!behind(X, P)) return [leg(X, null, [P.x, P.y], into(P), null, P)];
+    const [wx, wy, side] = roundEdge(X, P), d = unit(P.nx * 0.8 - P.tx * side * 0.6, P.ny * 0.8 - P.ty * side * 0.6);
+    return [leg(X, null, [wx, wy], d), leg([wx, wy], d, [P.x, P.y], into(P), null, P)];
+  };
+  const pathFrom = (P, X) => {
+    if (!behind(X, P)) return [leg([P.x, P.y], out(P), X, null, P)];
+    const [wx, wy, side] = roundEdge(X, P), d = unit(-P.nx * 0.8 + P.tx * side * 0.6, -P.ny * 0.8 + P.ty * side * 0.6);
+    return [leg([P.x, P.y], out(P), [wx, wy], d, P), leg([wx, wy], d, X, null)];
   };
   const bez = (P, u) => {
     const v = 1 - u, a = v * v * v, b = 3 * v * v * u, c = 3 * v * u * u, d = u * u * u;
     return [a * P[0][0] + b * P[1][0] + c * P[2][0] + d * P[3][0], a * P[0][1] + b * P[1][1] + c * P[2][1] + d * P[3][1]];
   };
   const H = [0, 0], Ac = [PA.x, PA.y], Bc = [PB.x, PB.y], Q = [PB.x + PB.nx * o.portalExit * S, PB.y + PB.ny * o.portalExit * S];
+  // where it stops out of the orange portal stays inside the scene when the scene is known (and in front of the portal)
+  if (Array.isArray(o.portalRoom)) {
+    // no room straight out: lean the way out towards the scene, then come closer, until it fits
+    const [x0, y0, x1, y1] = o.portalRoom, m = S * 1.3, fits = (x, y) => x >= x0 + m && x <= x1 - m && y >= y0 + m && y <= y1 - m;
+    let found = fits(Q[0], Q[1]);
+    for (let d = Math.max(o.portalExit, 1.7) * S; !found && d >= S * 1.7; d -= S * 0.25)
+      for (const deg of [15, -15, 30, -30, 45, -45, 60, -60, 75, -75]) {
+        const r = (deg * Math.PI) / 180, c = Math.cos(r), sn = Math.sin(r), x = PB.x + (PB.nx * c - PB.ny * sn) * d, y = PB.y + (PB.nx * sn + PB.ny * c) * d;
+        if (fits(x, y)) { Q[0] = x; Q[1] = y; found = true; break; }
+      }
+  }
   const mode = o.portalMode === "fly" || o.portalMode === "loop" ? o.portalMode : "back";
   // the timetable, in the action's progress
   const shots = o.portalShots > 0, OA = [0.02, 0.11], OB = [0.11, 0.2], MV = [0.22, 0.86], CL = [0.88, 0.98];
@@ -695,15 +729,15 @@ A.portal = (o) => {
   let holdW = null;
   if (mode === "loop") {
     const n = Math.max(1, Math.min(8, Math.round(o.portalLoops)));
-    const legs = [leg(H, null, Ac, PA)];
-    for (let i = 1; i < n; i++) legs.push(leg(Bc, PB, Ac, PA));
-    legs.push(leg(Bc, PB, H, null));
+    const legs = [...pathTo(H, PA)];
+    for (let i = 1; i < n; i++) legs.push(leg(Bc, out(PB), Ac, into(PA), PB, PA));
+    legs.push(...pathFrom(PB, H));
     runs.push({ t0: MV[0], t1: MV[1], legs });
   } else {
     const span = MV[1] - MV[0], hold = clamp(o.portalHold, 0, 0.6) * span, r = (span - hold) / 2;
-    runs.push({ t0: MV[0], t1: MV[0] + r, legs: [leg(H, null, Ac, PA), leg(Bc, PB, Q, null)] });
+    runs.push({ t0: MV[0], t1: MV[0] + r, legs: [...pathTo(H, PA), ...pathFrom(PB, Q)] });
     holdW = [MV[0] + r, MV[0] + r + hold];
-    runs.push({ t0: MV[0] + r + hold, t1: MV[1], legs: mode === "fly" ? [leg(Q, null, H, null, o.portalArc * S)] : [leg(Q, null, Bc, PB), leg(Ac, PA, H, null)] });
+    runs.push({ t0: MV[0] + r + hold, t1: MV[1], legs: mode === "fly" ? [leg(Q, null, H, null, null, null, o.portalArc * S)] : [...pathTo(Q, PB), ...pathFrom(PA, H)] });
   }
   // how open each portal is (0 shut .. 1 open), and its shot
   const openOf = (P, a) => {
@@ -763,7 +797,8 @@ A.portal = (o) => {
     const [x, y] = through(pi, po, C.x, C.y), k = stretchOf(vy, u) / stretchOf(wy, u);
     return { ...C.ex, dx: x - C.ix, dy: y - C.iy, rot: wrap(C.rot + tiltOf(vx) + f - tiltOf(wx)), sy: (C.ex.sy || 1) * k, sx: 1 / Math.sqrt(k), quiet: 1 };
   };
-  const near = (C, P) => Math.hypot(C.x - P.x, C.y - P.y) < L + 3 * S;
+  // going through: close to the portal and inside its width
+  const near = (C, P) => Math.hypot(C.x - P.x, C.y - P.y) < L + 3 * S && Math.abs((C.x - P.x) * P.tx + (C.y - P.y) * P.ty) < L + S * 0.3;
   const portalAt = (p, C, t, P, front) => {
     const a = prog(o, t), g = openOf(P, a);
     if (g <= 0.005) return;
@@ -826,11 +861,12 @@ A.portal = (o) => {
       main.clip = [];
       const list = [main];
       if (C && C.leg) {
-        for (const [P, enter] of [[C.leg.to, true], [C.leg.from, false]]) {
+        for (const P of [C.leg.to, C.leg.from]) {
           if (!P || !near(C, P)) continue;
           main.clip.push(plane(P));
           const cp = copyM(P, other(P));
-          cp.clip = [plane(other(P))];
+          // what's seen through the other portal never shows behind it, beside it included
+          cp.clip = [{ ...plane(other(P)), half: null }];
           list.push(cp);
         }
       }

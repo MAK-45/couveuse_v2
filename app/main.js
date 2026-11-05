@@ -819,6 +819,7 @@ function effOpts(src = V) {
     o.tpX = ((V.tpTX / 100) * SW - pl.cx) / k; o.tpY = ((V.tpTY / 100) * SH - pl.cy) / k;
     o.portalAX = ((V.portalATX / 100) * SW - pl.cx) / k; o.portalAY = ((V.portalATY / 100) * SH - pl.cy) / k;
     o.portalBX = ((V.portalBTX / 100) * SW - pl.cx) / k; o.portalBY = ((V.portalBTY / 100) * SH - pl.cy) / k;
+    o.portalRoom = [-pl.cx / k, -pl.cy / k, (SW - pl.cx) / k, (SH - pl.cy) / k];
     for (const key of SCENE_LENGTHS) o[key] = (V[key] / 100) * h;
     // the comet's loops stay inside the scene
     const m = V.size * k * 1.3, room = V.cometSide === "left" ? pl.cx : SW - pl.cx;
