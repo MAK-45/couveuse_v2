@@ -155,9 +155,14 @@ const ACTION_LIST = [
   ["comet", "Comète", "file en grande boucle"],
   ["melt", "Fonte", "fond en flaque, se reforme"],
   ["curious", "Curiosité", "regarde, se penche, observe"],
+  ["portal", "Portails", "passe d’un portail bleu à un orange"],
 ];
 // how long each action lasts by default, in loops of the blob's rest
-const LOOPS_DEF = { walk: 4, comet: 3, freeze: 3, drop: 3, melt: 3, scared: 3, curious: 3 };
+const LOOPS_DEF = { portal: 4, walk: 4, comet: 3, freeze: 3, drop: 3, melt: 3, scared: 3, curious: 3 };
+// where a portal is set: the side it opens towards (degrees, y down)
+const PORTAL_FACES = [["270", "Le sol (s’ouvre vers le haut)"], ["90", "Le plafond (s’ouvre vers le bas)"], ["0", "Un mur à gauche (s’ouvre vers la droite)"],
+  ["180", "Un mur à droite (s’ouvre vers la gauche)"], ["315", "Une pente, vers le haut à droite"], ["225", "Une pente, vers le haut à gauche"],
+  ["45", "Un surplomb, vers le bas à droite"], ["135", "Un surplomb, vers le bas à gauche"]];
 const ACTION_PARAMS = {
   walk: [["walkRoute", "Trajet", { button: "Autre trajet" }],
     ["walkStops", "Nombre d’étapes", 1, 10, 1, ""], ["walkZoneW", "Largeur de la zone parcourue", 10, 100, 1, " % de la largeur"], ["walkZoneH", "Hauteur de la zone parcourue", 10, 100, 1, " % de la hauteur"],
@@ -198,6 +203,17 @@ const ACTION_PARAMS = {
     ["meltRipples", "Ondes sur la flaque", 0, 6, 1, ""], ["meltEyes", "Yeux", { select: [["open", "Ouverts"], ["closed", "Fermés"], ["happy", "Plissés"]] }]],
   curious: [["curiousGlances", "Coups d’œil", 1, 8, 1, ""], ["curiousPeek", "Se penche jusqu’à", 0, 30, 0.5, " % de la scène"], ["curiousLean", "Inclinaison", 0, 0.8, 0.01, ""],
     ["curiousEyes", "Yeux qui s’écarquillent", 1, 2, 0.05, "×"]],
+  portal: [["portalMode", "Trajet", { select: [["back", "Aller par les portails, retour par les portails"], ["fly", "Aller par les portails, retour en volant"], ["loop", "Chute sans fin à travers les portails"]] }],
+    ["portalATX", "Portail bleu : horizontale", 0, 100, 0.5, " %"], ["portalATY", "Portail bleu : verticale", 0, 100, 0.5, " %"],
+    ["portalAAngle", "Portail bleu : posé sur", { select: PORTAL_FACES }], ["portalColorA", "Portail bleu : couleur", { color: true }],
+    ["portalBTX", "Portail orange : horizontale", 0, 100, 0.5, " %"], ["portalBTY", "Portail orange : verticale", 0, 100, 0.5, " %"],
+    ["portalBAngle", "Portail orange : posé sur", { select: PORTAL_FACES }], ["portalColorB", "Portail orange : couleur", { color: true }],
+    ["portalSize", "Taille des portails", 0.8, 3, 0.05, "× le blob"], ["portalDepth", "Ouverture (perspective)", 0.1, 0.8, 0.01, ""],
+    ["portalShots", "Tire les portails", { select: [["1", "Oui, un tir de lumière"], ["0", "Non, ils s’ouvrent seuls"]] }],
+    ["portalHold", "Temps passé de l’autre côté", 0, 0.6, 0.01, " part"], ["portalExit", "Distance à la sortie", 0.5, 5, 0.1, "× le blob"],
+    ["portalLook", "Regarde autour à la sortie", 0, 2, 0.05, ""], ["portalArc", "Hauteur du vol de retour", 0, 6, 0.1, "× le blob"],
+    ["portalLoops", "Passages (chute sans fin)", 1, 8, 1, ""], ["portalSwirl", "Tourbillon dans les portails", 0, 2, 0.05, ""],
+    ["portalSparks", "Étincelles", 0, 3, 0.05, ""], ["portalGlow", "Lueur", 0, 2, 0.05, ""], ["portalSplash", "Éclat à l’ouverture", 0, 2, 0.05, ""]],
   inflate: [["inflateSize", "Taille gonflé", 1.1, 3, 0.05, "×"], ["inflateHold", "Temps gonflé", 0, 0.4, 0.01, ""], ["inflateJiggle", "Tremblement au dégonflage", 0, 2.5, 0.05, ""]],
 };
 function actionGroups() {
@@ -219,15 +235,18 @@ const ACTION_KEYS = new Set(Object.keys(PFX.actions.meta.options).filter((k) => 
 // distances an action covers are set on the scene (points in %, lengths in % of the scene's height) and turned
 // into the effect's own pixels when drawn, so the blob can reach any corner whatever the scene's size
 const SCENE_ACTION_DEF = { walkZoneW: 90, walkZoneH: 70, tpTX: 85, tpTY: 25, jumpHeight: 30, splitDistance: 14, burstRadius: 28, auraRise: 5, spinRise: 5,
-  danceAmp: 5, scareRetreat: 18, dropFloor: 92, cometRadius: 30, meltDrop: 10, curiousPeek: 8 };
-for (const [id] of [["walk"], ["jump"], ["aura"], ["morph"], ["spin"], ["split"], ["burst"], ["teleport"], ["nap"], ["inflate"], ["dance"], ["scared"], ["freeze"], ["drop"], ["rainbow"], ["comet"], ["melt"], ["curious"]])
+  danceAmp: 5, scareRetreat: 18, dropFloor: 92, cometRadius: 30, meltDrop: 10, curiousPeek: 8,
+  portalATX: 30, portalATY: 86, portalBTX: 90, portalBTY: 40 };
+for (const [id] of ACTION_LIST)
   SCENE_ACTION_DEF["loops_" + id] = LOOPS_DEF[id] || 2;
 // lengths set in % of the scene's height, turned into the effect's own pixels
 const SCENE_LENGTHS = ["jumpHeight", "splitDistance", "burstRadius", "auraRise", "spinRise", "danceAmp", "scareRetreat", "cometRadius", "meltDrop", "curiousPeek"];
 for (const k of Object.keys(SCENE_ACTION_DEF)) ACTION_KEYS.add(k);
 const actionDef = () => ({ ...Object.fromEntries([...ACTION_KEYS].filter((k) => k in PFX.actions.meta.options).map((k) => [k, PFX.actions.meta.options[k]])), ...SCENE_ACTION_DEF });
 // where an action wants to go, as a scene point, if it has one
-const TARGETS = { teleport: ["tpTX", "tpTY"] };
+const TARGETS = { teleport: ["tpTX", "tpTY"], portal: [["portalATX", "portalATY"], ["portalBTX", "portalBTY"]] };
+// an action's targets as a list of key pairs (one or more)
+const targetKeys = (a) => { const t = TARGETS[a]; return !t ? [] : Array.isArray(t[0]) ? t : [t]; };
 // ---- the objects tab: things the blob makes in its scene, which stay and float with it
 ANIMS.objects = { name: "Objets", fx: PFX.objects, file: "objets", id: "creature/ice-scene-objects", mode: "scene", groups: null };
 const SHAPE_LIST = [["cube", "Cube"], ["sphere", "Sphère"], ["pyramid", "Pyramide"], ["crystal", "Cristal"], ["column", "Colonne"], ["gem", "Gemme"]];
@@ -539,8 +558,8 @@ const fmt = (v, step, unit) => (step < 1 ? (+v).toFixed(step < 0.5 ? 2 : 1) : St
 const fmtRow = (k, v, step, unit) => {
   if (k === "posX") return `${(+v).toFixed(1)} % · ${Math.round((v / 100) * V.sceneW)} px`;
   if (k === "posY") return `${(+v).toFixed(1)} % · ${Math.round((v / 100) * V.sceneH)} px`;
-  if (k === "walkTX" || k === "tpTX") return `${(+v).toFixed(1)} % · ${Math.round((v / 100) * V.sceneW)} px`;
-  if (k === "walkTY" || k === "tpTY") return `${(+v).toFixed(1)} % · ${Math.round((v / 100) * V.sceneH)} px`;
+  if (k === "walkTX" || k === "tpTX" || k === "portalATX" || k === "portalBTX") return `${(+v).toFixed(1)} % · ${Math.round((v / 100) * V.sceneW)} px`;
+  if (k === "walkTY" || k === "tpTY" || k === "portalATY" || k === "portalBTY") return `${(+v).toFixed(1)} % · ${Math.round((v / 100) * V.sceneH)} px`;
   if (unit === " % de la scène") return `${(+v).toFixed(1)} % · ${Math.round((v / 100) * V.sceneH)} px`;
   if (k === "scale") return `${v}× · ${V.canvas * v} px`;
   if (k === "zoom") return +v === 0 ? "ajusté" : `${v}×`;
@@ -630,7 +649,7 @@ function buildControls() {
       const place = document.createElement("div");
       place.className = "row";
       place.innerHTML = `<div class="inline"><button type="button" id="center">Centrer</button><button type="button" id="fit">Ajuster à la scène</button><label class="check"><input type="checkbox" id="in-guides">Cadre et repères</label></div>
-        <p class="note">${TARGETS[V.action] && S.anim === "actions" ? "Glisse la créature pour la placer, et la cible pour choisir où va l’action." : S.anim === "actions" && V.action === "walk" ? "Le cadre en pointillés montre la zone de la balade et ses étapes." : "Glisse la créature dans l’aperçu pour la placer, ou utilise les flèches."}</p>`;
+        <p class="note">${V.action === "portal" && S.anim === "actions" ? "Glisse la créature pour la placer, et les deux cibles pour placer les portails (le trait montre le portail, la flèche le côté où il s’ouvre)." : TARGETS[V.action] && S.anim === "actions" ? "Glisse la créature pour la placer, et la cible pour choisir où va l’action." : S.anim === "actions" && V.action === "walk" ? "Le cadre en pointillés montre la zone de la balade et ses étapes." : "Glisse la créature dans l’aperçu pour la placer, ou utilise les flèches."}</p>`;
       rows.appendChild(place);
     }
     if (g.palette) {
@@ -798,6 +817,8 @@ function effOpts(src = V) {
     const pl = placement(), k = V.scale, h = SH / k;
     o.loops = V["loops_" + V.action] || 2;
     o.tpX = ((V.tpTX / 100) * SW - pl.cx) / k; o.tpY = ((V.tpTY / 100) * SH - pl.cy) / k;
+    o.portalAX = ((V.portalATX / 100) * SW - pl.cx) / k; o.portalAY = ((V.portalATY / 100) * SH - pl.cy) / k;
+    o.portalBX = ((V.portalBTX / 100) * SW - pl.cx) / k; o.portalBY = ((V.portalBTY / 100) * SH - pl.cy) / k;
     for (const key of SCENE_LENGTHS) o[key] = (V[key] / 100) * h;
     // the comet's loops stay inside the scene
     const m = V.size * k * 1.3, room = V.cometSide === "left" ? pl.cx : SW - pl.cx;
@@ -917,8 +938,15 @@ function drawGuides() {
     }
     ctx.setLineDash([4, 3]); ctx.globalAlpha = 0.7;
   }
-  const tg = target();
-  if (tg) {
+  for (const { p: tg, keys } of targets()) {
+    // a portal: its plane, across the way it opens
+    const face = keys[0] === "portalATX" ? +V.portalAAngle : keys[0] === "portalBTX" ? +V.portalBAngle : null;
+    if (face !== null) {
+      const a = (face * Math.PI) / 180, L = V.size * V.scale * (+V.portalSize || 1.5), tx = -Math.sin(a), ty = Math.cos(a);
+      ctx.save(); ctx.setLineDash([]); ctx.globalAlpha = 0.9; ctx.strokeStyle = keys[0] === "portalATX" ? V.portalColorA : V.portalColorB;
+      ctx.beginPath(); ctx.moveTo(tg[0] + 0.5 - tx * L, tg[1] + 0.5 - ty * L); ctx.lineTo(tg[0] + 0.5 + tx * L, tg[1] + 0.5 + ty * L);
+      ctx.moveTo(tg[0] + 0.5, tg[1] + 0.5); ctx.lineTo(tg[0] + 0.5 + Math.cos(a) * 12, tg[1] + 0.5 + Math.sin(a) * 12); ctx.stroke(); ctx.restore();
+    }
     ctx.beginPath(); ctx.moveTo(pl.cx + 0.5, pl.cy + 0.5); ctx.lineTo(tg[0] + 0.5, tg[1] + 0.5); ctx.stroke();
     ctx.setLineDash([]); ctx.globalAlpha = 0.95;
     ctx.beginPath(); ctx.arc(tg[0] + 0.5, tg[1] + 0.5, 6, 0, Math.PI * 2); ctx.stroke();
@@ -946,9 +974,9 @@ function walkZone() {
   return { x0: Math.min(x0, x1), x1: Math.max(x0, x1), y0: Math.min(y0, y1), y1: Math.max(y0, y1) };
 }
 // the current action's destination in scene pixels, if it has one
-function target() {
-  const tk = S.anim === "actions" ? TARGETS[V.action] : S.anim === "clock" && V.clkPos === "free" ? ["clkPX", "clkPY"] : null;
-  return tk ? [Math.round((V[tk[0]] / 100) * SW), Math.round((V[tk[1]] / 100) * SH)] : null;
+function targets() {
+  const list = S.anim === "actions" ? targetKeys(V.action) : S.anim === "clock" && V.clkPos === "free" ? [["clkPX", "clkPY"]] : [];
+  return list.map((tk) => ({ keys: tk, p: [Math.round((V[tk[0]] / 100) * SW), Math.round((V[tk[1]] / 100) * SH)] }));
 }
 // ---- drag the creature, or the action's destination, in the preview
 function toScene(ev) {
@@ -958,12 +986,13 @@ function toScene(ev) {
 }
 let drag = null;
 view.addEventListener("pointerdown", (ev) => {
-  const [x, y] = toScene(ev), pl = placement(), tg = target(), hit = Math.max(10, 14 / (view.getBoundingClientRect().width / SW));
+  let tgHit = null;
+  const [x, y] = toScene(ev), pl = placement(), tgs = targets(), hit = Math.max(10, 14 / (view.getBoundingClientRect().width / SW));
   const obHit = S.anim === "objects" ? [...S.objects.list].reverse().find((ob) => Math.hypot(x - (ob.x / 100) * SW, y - (ob.y / 100) * SH) <= Math.max(hit, ob.size * V.scale * 1.5 + 3)) : null;
   if (obHit) {
     drag = { obj: obHit.id, dx: (obHit.x / 100) * SW - x, dy: (obHit.y / 100) * SH - y };
     if (S.objects.sel !== obHit.id) { S.objects.sel = obHit.id; refreshV(); buildControls(); changed(); }
-  } else if (tg && Math.hypot(x - tg[0], y - tg[1]) <= hit) drag = { target: S.anim === "clock" ? ["clkPX", "clkPY"] : TARGETS[V.action], dx: tg[0] - x, dy: tg[1] - y };
+  } else if ((tgHit = tgs.find(({ p: tg }) => Math.hypot(x - tg[0], y - tg[1]) <= hit))) drag = { target: tgHit.keys, dx: tgHit.p[0] - x, dy: tgHit.p[1] - y };
   else {
     drag = { dx: pl.cx - x, dy: pl.cy - y };
     if (Math.hypot(x - pl.cx, y - pl.cy) > V.size * V.scale * 1.5) drag = { dx: 0, dy: 0 };

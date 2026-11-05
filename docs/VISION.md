@@ -45,7 +45,7 @@ produit doit donc pouvoir se combiner : même scène, même place, mêmes raccor
 
 ## Ce qui existe (six onglets)
 
-Naissance · Blob né (repos) · Actions (18, retour au repos) · Objets (scène vivante, apparition,
+Naissance · Blob né (repos) · Actions (19, retour au repos) · Objets (scène vivante, apparition,
 disparition) · Boucles (18 activités sans fin : dormir, magie, jongler…) · Heure (affiche une heure choisie
 ou celle de l’export, puis revient au repos).
 

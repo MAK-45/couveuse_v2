@@ -30,6 +30,11 @@ for (const name of actions.ACTIONS) {
   const o = { ...actions.meta.options, action: name }, T = o.duration * o.loops, N = Ni * o.loops;
   report(`action ${name}`, diff(render(actions, o, 0), id0), diff(render(actions, o, (N - 1) * T / N), idL));
 }
+// the portals' other ways home, with their own lengths
+for (const [mode, loops] of [["fly", 3], ["loop", 4]]) {
+  const o = { ...actions.meta.options, action: "portal", portalMode: mode, loops }, T = o.duration * o.loops, N = Ni * o.loops;
+  report(`action portal ${mode}`, diff(render(actions, o, 0), id0), diff(render(actions, o, (N - 1) * T / N), idL));
+}
 
 for (const [ap, vn] of clock.APPEAR.map((a, i) => [a, clock.VANISH[i]])) {
   const o = { ...clock.meta.options, clkAppear: ap, clkVanish: vn }, T = o.duration * o.loops, N = Ni * o.loops;

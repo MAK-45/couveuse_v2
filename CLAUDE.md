@@ -34,7 +34,7 @@ After any change to an effect or to `app/`, run `npm run build && npm test`.
   Only our effects are ours:
   - `pixelfx/src/fx/spawn/ice-spirit-gestation.js` — tab **Naissance** (birth, box-drawn)
   - `pixelfx/src/fx/creature/ice-blob-idle.js` — tab **Blob né**; the blob itself (exports `blobBack`, `blobFront`, `state`, `ambient`, `NONE`)
-  - `pixelfx/src/fx/creature/ice-blob-actions.js` — tab **Actions** (18 actions; exports `hsl`, `fromHsl`, `walkRoute`)
+  - `pixelfx/src/fx/creature/ice-blob-actions.js` — tab **Actions** (19 actions; exports `hsl`, `fromHsl`, `walkRoute`, `portalSpots`)
   - `pixelfx/src/fx/creature/ice-scene-objects.js` — tab **Objets** (solids, appear/remove; exports `drawObject`)
   - `pixelfx/src/fx/creature/ice-blob-loops.js` — tab **Boucles** (18 endless activities)
   - `pixelfx/src/fx/creature/ice-blob-clock.js` — tab **Heure** (shows the time)

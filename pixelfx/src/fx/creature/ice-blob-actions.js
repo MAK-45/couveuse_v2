@@ -3,9 +3,9 @@
 // with the idle going on underneath, and every change it makes is zero at both ends: the first and last frames
 // are the idle's first frame, so an idle GIF and any action GIF chain end to end.
 import { fit, clamp, lerp, seg, bump, ease, noise2, rng, TAU, WHITE, hex, toHex } from "../../core/index.js";
-import { meta as idleMeta, blobBack, blobFront, ambient } from "./ice-blob-idle.js";
+import { meta as idleMeta, blobBack, blobFront, ambient, state as idleState } from "./ice-blob-idle.js";
 
-export const ACTIONS = ["walk", "jump", "aura", "morph", "spin", "split", "burst", "teleport", "nap", "inflate", "dance", "scared", "freeze", "drop", "rainbow", "comet", "melt", "curious"];
+export const ACTIONS = ["walk", "jump", "aura", "morph", "spin", "split", "burst", "teleport", "nap", "inflate", "dance", "scared", "freeze", "drop", "rainbow", "comet", "melt", "curious", "portal"];
 
 export const meta = {
   name: "Ice blob actions",
@@ -40,6 +40,10 @@ export const meta = {
     cometLoops: 1, cometRadius: 70, cometSide: "right", cometTrail: 1, cometSpin: 1,
     meltDrop: 16, meltWidth: 2.1, meltHold: 0.35, meltRipples: 3, meltEyes: "open",
     curiousGlances: 4, curiousLean: 0.35, curiousPeek: 18, curiousEyes: 1.3,
+    // portals: a blue one and an orange one (offsets from its spot, in its own pixels; angle = where a portal faces, y down)
+    portalMode: "back", portalAX: -70, portalAY: 50, portalAAngle: "270", portalBX: 120, portalBY: -30, portalBAngle: "180",
+    portalColorA: "#2f8cff", portalColorB: "#ff8a1c", portalSize: 1.5, portalDepth: 0.3, portalShots: 1, portalHold: 0.25,
+    portalExit: 2.2, portalLook: 1, portalArc: 2.5, portalLoops: 3, portalSwirl: 1, portalSparks: 1, portalGlow: 1, portalSplash: 1,
   },
 };
 
@@ -627,6 +631,241 @@ A.curious = (o) => {
   };
 };
 
+// portals: it shoots a blue portal and an orange one into the scene, dives into the first and comes out of the
+// second. While it goes through, half of it is at each portal: the part behind a portal's plane is cut away and
+// shown coming out of the other one, turned the way that portal faces. Then it comes home (back through the
+// portals, flying, or falling through them again and again first) and the portals close.
+const RAMPS = new Map();
+function portalRamp(c) {
+  const key = String(c);
+  if (!RAMPS.has(key)) {
+    const [h, s] = hsl(c), sat = Math.max(0.55, s);
+    RAMPS.set(key, [0.12, 0.26, 0.45, 0.62, 0.8, 0.93].map((l) => hex(fromHsl(h, sat, l))));
+  }
+  return RAMPS.get(key);
+}
+// draw only what lies in front of the given planes (local space): the blob going into a portal
+function clipped(p, planes, fn) {
+  if (!planes || !planes.length) return fn();
+  const ok = (sx, sy) => {
+    const x = p.fromX(sx + 0.5, sy + 0.5), y = p.fromY(sx + 0.5, sy + 0.5);
+    for (const q of planes) if ((x - q.x) * q.nx + (y - q.y) * q.ny < 0) return false;
+    return true;
+  };
+  const keep = {};
+  for (const k of ["put", "add", "blendPx"]) {
+    keep[k] = Object.prototype.hasOwnProperty.call(p, k) ? p[k] : undefined;
+    const f = p[k];
+    p[k] = function (sx, sy, ...r) { if (ok(sx, sy)) f.call(this, sx, sy, ...r); };
+  }
+  try { return fn(); } finally { for (const k in keep) { if (keep[k]) p[k] = keep[k]; else delete p[k]; } }
+}
+
+A.portal = (o) => {
+  const S = o.size, h = 2 * S, L = S * Math.max(0.6, o.portalSize), W = Math.max(1.5, L * clamp(o.portalDepth, 0.05, 1));
+  const mk = (x, y, deg, col, id) => { const a = ((+deg || 0) * Math.PI) / 180; return { id, x, y, a, nx: Math.cos(a), ny: Math.sin(a), tx: -Math.sin(a), ty: Math.cos(a), ramp: portalRamp(col) }; };
+  const PA = mk(o.portalAX, o.portalAY, o.portalAAngle, o.portalColorA, 0), PB = mk(o.portalBX, o.portalBY, o.portalBAngle, o.portalColorB, 1);
+  const other = (P) => (P === PA ? PB : PA);
+  const wrap = (v) => v - TAU * Math.round(v / TAU);
+  // the turn from going into pi to coming out of po
+  const phi = (pi, po) => wrap(po.a - pi.a - Math.PI);
+  const through = (pi, po, x, y) => {
+    const f = phi(pi, po), c = Math.cos(f), s = Math.sin(f), dx = x - pi.x, dy = y - pi.y;
+    return [po.x + dx * c - dy * s, po.y + dx * s + dy * c];
+  };
+  const plane = (P) => ({ x: P.x, y: P.y, nx: P.nx, ny: P.ny });
+  // a leg of the trip: a curve from a point (or out of a portal) to a point (or into a portal). Legs that meet at
+  // a portal leave and arrive along its normal with the same handle, so the speed carries through.
+  const leg = (p0, from, p3, to, lift = 0) => {
+    const a = from ? [p0[0] + from.nx * h, p0[1] + from.ny * h] : null, b = to ? [p3[0] + to.nx * h, p3[1] + to.ny * h] : null;
+    const p1 = a || [lerp(p0[0], (b || p3)[0], 1 / 3), lerp(p0[1], (b || p3)[1], 1 / 3) - lift];
+    const p2 = b || [lerp(p3[0], (a || p0)[0], 1 / 3), lerp(p3[1], (a || p0)[1], 1 / 3) - lift];
+    return { P: [p0, p1, p2, p3], from, to, R0: from ? phi(other(from), from) : 0 };
+  };
+  const bez = (P, u) => {
+    const v = 1 - u, a = v * v * v, b = 3 * v * v * u, c = 3 * v * u * u, d = u * u * u;
+    return [a * P[0][0] + b * P[1][0] + c * P[2][0] + d * P[3][0], a * P[0][1] + b * P[1][1] + c * P[2][1] + d * P[3][1]];
+  };
+  const H = [0, 0], Ac = [PA.x, PA.y], Bc = [PB.x, PB.y], Q = [PB.x + PB.nx * o.portalExit * S, PB.y + PB.ny * o.portalExit * S];
+  const mode = o.portalMode === "fly" || o.portalMode === "loop" ? o.portalMode : "back";
+  // the timetable, in the action's progress
+  const shots = o.portalShots > 0, OA = [0.02, 0.11], OB = [0.11, 0.2], MV = [0.22, 0.86], CL = [0.88, 0.98];
+  const openAt = (w) => (shots ? w[0] + (w[1] - w[0]) * 0.55 : w[0]);
+  const runs = [];
+  let holdW = null;
+  if (mode === "loop") {
+    const n = Math.max(1, Math.min(8, Math.round(o.portalLoops)));
+    const legs = [leg(H, null, Ac, PA)];
+    for (let i = 1; i < n; i++) legs.push(leg(Bc, PB, Ac, PA));
+    legs.push(leg(Bc, PB, H, null));
+    runs.push({ t0: MV[0], t1: MV[1], legs });
+  } else {
+    const span = MV[1] - MV[0], hold = clamp(o.portalHold, 0, 0.6) * span, r = (span - hold) / 2;
+    runs.push({ t0: MV[0], t1: MV[0] + r, legs: [leg(H, null, Ac, PA), leg(Bc, PB, Q, null)] });
+    holdW = [MV[0] + r, MV[0] + r + hold];
+    runs.push({ t0: MV[0] + r + hold, t1: MV[1], legs: mode === "fly" ? [leg(Q, null, H, null, o.portalArc * S)] : [leg(Q, null, Bc, PB), leg(Ac, PA, H, null)] });
+  }
+  // how open each portal is (0 shut .. 1 open), and its shot
+  const openOf = (P, a) => {
+    if (a <= 0 || a >= 1) return 0;
+    const w = P === PA ? OA : OB;
+    return Math.min(seg(a, openAt(w), w[1]), 1 - seg(a, CL[0], CL[1]));
+  };
+  // where it is (local space, idle included), how it's turned, which leg
+  const core = (t) => {
+    const a = prog(o, t);
+    if (a <= 0 || a >= 1) return null;
+    const id = idleState(o, t, null), ix = id.x, iy = id.y;
+    const out = { a, ix, iy, x: ix, y: iy, rot: 0, leg: null, ex: {} };
+    for (const P of [PA, PB]) {
+      // a little kick back as it fires, eyes on where it aims
+      const w = P === PA ? OA : OB, k = bump(a, w[0], w[1]);
+      if (k > 0) {
+        const dx = P.x - ix, dy = P.y - iy, d = Math.hypot(dx, dy) || 1;
+        out.x -= (dx / d) * 3 * bump(a, w[0], openAt(w) + 0.02) * (shots ? 1 : 0);
+        out.y -= (dy / d) * 3 * bump(a, w[0], openAt(w) + 0.02) * (shots ? 1 : 0);
+        out.ex.lookX = (dx / d) * 1.3 * k; out.ex.lookY = (dy / d) * 0.9 * k;
+      }
+    }
+    for (const r of runs) {
+      if (a < r.t0 || a > r.t1) continue;
+      const s = E(seg(a, r.t0, r.t1)), n = r.legs.length, j = Math.min(n - 1, Math.floor(s * n)), u = s * n - j, lg = r.legs[j];
+      const [px, py] = bez(lg.P, u), c = Math.min(E(clamp(s * n)), E(clamp((1 - s) * n)));
+      out.x = px + (1 - c) * ix; out.y = py + (1 - c) * iy;
+      out.rot = lg.R0 * (1 - E(u)); out.leg = lg;
+      return out;
+    }
+    if (holdW && a >= holdW[0] && a <= holdW[1]) {
+      // out the other side: it looks about, a little hop of joy
+      const k = seg(a, holdW[0], holdW[1]), hop = bump(k, 0.2, 0.5) * o.portalLook;
+      out.x = Q[0] + ix; out.y = Q[1] + iy - hop * 7;
+      out.ex = { lookX: Math.sin(TAU * k) * 1.3 * o.portalLook, lookY: -0.3 * Math.sin(Math.PI * k) * o.portalLook, happy: hop > 0.2 ? 1 : 0, sy: 1 + bump(k, 0.5, 0.65) * -0.1 * o.portalLook };
+      return out;
+    }
+    return out;
+  };
+  const e = 0.004;
+  const tiltOf = (vx) => clamp(-vx / 60, -0.4, 0.4) * o.tilt;
+  const stretchOf = (vy, u) => 1 + Math.abs(clamp(vy / 40, -1, 1) * o.stretch) * 0.12 - 0.04 * o.stretch * Math.cos(TAU * u * Math.max(0, Math.round(o.hoverTurns)) * 2);
+  const mainM = (t) => {
+    const C = core(t);
+    if (!C) return {};
+    return { ...C.ex, dx: C.x - C.ix, dy: C.y - C.iy, rot: C.rot, quiet: 1 };
+  };
+  // the same blob seen through a portal: placed and turned by the portal pair, and its own tilt and stretch
+  // (which come from how it moves on screen) set to match the main one's, so both halves join
+  const copyM = (pi, po) => (t) => {
+    const C = core(t);
+    if (!C) return {};
+    const D = o.duration, C0 = core(t - e * D) || C, C1 = core(t + e * D) || C;
+    const vx = (C1.x - C0.x) / (2 * e * D), vy = (C1.y - C0.y) / (2 * e * D), f = phi(pi, po), c = Math.cos(f), s = Math.sin(f);
+    const wx = vx * c - vy * s, wy = vx * s + vy * c, u = (((t / D) % 1) + 1) % 1;
+    const [x, y] = through(pi, po, C.x, C.y), k = stretchOf(vy, u) / stretchOf(wy, u);
+    return { ...C.ex, dx: x - C.ix, dy: y - C.iy, rot: wrap(C.rot + tiltOf(vx) + f - tiltOf(wx)), sy: (C.ex.sy || 1) * k, sx: 1 / Math.sqrt(k), quiet: 1 };
+  };
+  const near = (C, P) => Math.hypot(C.x - P.x, C.y - P.y) < L + 3 * S;
+  const portalAt = (p, C, t, P, front) => {
+    const a = prog(o, t), g = openOf(P, a);
+    if (g <= 0.005) return;
+    const R = P.ramp, Lg = L * ease.outBack(g, 1.4), Wg = Math.max(1, W * Math.min(1, g * 1.4)), gl = o.portalGlow;
+    if (!front) {
+      p.glow(P.x, P.y, Lg * 1.5, R[2], 0.28 * g * gl);
+      p.glowLine(P.x - P.tx * Lg, P.y - P.ty * Lg, P.x + P.tx * Lg, P.y + P.ty * Lg, Wg + 5, R[3], 0.22 * g * gl);
+    }
+    const E2 = Math.ceil(Math.max(Lg, Wg)) + 1, x0 = Math.floor(P.x - E2), y0 = Math.floor(P.y - E2);
+    const inside = (x, y) => { const dx = x - P.x, dy = y - P.y, u = (dx * P.tx + dy * P.ty) / Lg, v = (dx * P.nx + dy * P.ny) / Wg; return u * u + v * v <= 1; };
+    const turn = a * TAU * 3 * o.portalSwirl;
+    for (let y = y0; y <= y0 + 2 * E2; y++)
+      for (let x = x0; x <= x0 + 2 * E2; x++) {
+        const px = x + 0.5, py = y + 0.5;
+        if (!inside(px, py)) continue;
+        const dx = px - P.x, dy = py - P.y, u = (dx * P.tx + dy * P.ty) / Lg, v = (dx * P.nx + dy * P.ny) / Wg, th = Math.atan2(v, u);
+        const rim = !inside(px - 1, py) || !inside(px + 1, py) || !inside(px, py - 1) || !inside(px, py + 1);
+        if (rim) {
+          // the near half of the rim (the side it goes into) passes in front of the blob
+          if ((v < 0) !== front) continue;
+          const spark = Math.sin(th * 4 - turn * 2 + P.id * 2) > 0.86;
+          p.px(px, py, spark ? WHITE : v >= 0 ? R[5] : R[4]);
+          continue;
+        }
+        if (front) continue;
+        // inside: a swirl of its colour, deeper towards the middle
+        const rr = Math.hypot(u, v), sw = Math.sin(th * 2 + rr * 7 * o.portalSwirl - turn) + (noise2(u * 2.5 + Math.cos(turn) * 0.6, v * 2.5 + Math.sin(turn) * 0.6, o.seed + 77 + P.id) - 0.5) * 1.4;
+        let i = rr > 0.8 ? 4 : rr > 0.55 ? 3 : rr > 0.3 ? 2 : 1;
+        if (o.portalSwirl > 0 && sw > 0.55) i = Math.min(5, i + 1);
+        p.dot(px, py, R[i], clamp(g * 2.5));
+      }
+    if (front) {
+      // the flash and splash of light when it opens
+      const sk = a < 0.5 ? g : 0;
+      if (sk > 0 && sk < 1 && o.portalSplash > 0) {
+        const r = Lg * (1 + 0.8 * ease.outCubic(sk)), al = (1 - sk) * o.portalSplash;
+        for (let j = 0, m = Math.ceil(r * 3); j < m; j++) {
+          const th = (j / m) * TAU, x = P.x + P.tx * Math.cos(th) * r + P.nx * Math.sin(th) * Wg * (1 + sk), y = P.y + P.ty * Math.cos(th) * r + P.ny * Math.sin(th) * Wg * (1 + sk);
+          p.dot(x, y, sk < 0.3 ? WHITE : R[4], clamp(al));
+        }
+        p.glow(P.x, P.y, Lg * 1.2, WHITE, 0.4 * clamp(al));
+      }
+      // sparks drifting out of its face
+      const n = Math.round(10 * o.portalSparks);
+      for (let i = 0; i < n; i++) {
+        const q = rng(o.seed, 811 + P.id * 97, i), k = (a * 7 * q.range(0.6, 1.4) + q.range(0, 1)) % 1, side = q.range(-0.85, 0.85);
+        const out = k * S * q.range(0.8, 1.8), x = P.x + P.tx * side * Lg + P.nx * (out + 1) + Math.sin(k * 9 + i) * 1.5 * P.tx, y = P.y + P.ty * side * Lg + P.ny * (out + 1) + Math.sin(k * 9 + i) * 1.5 * P.ty;
+        const al = (1 - k) * g;
+        if (al < 0.15) continue;
+        p.dot(x, y, k < 0.25 ? WHITE : R[i % 2 ? 4 : 5], clamp(al * 1.5));
+        if (i % 3 === 0) p.glow(x, y, 4, R[3], 0.3 * al);
+      }
+    }
+  };
+  return {
+    pts: [Ac, Bc],
+    mods: mainM,
+    copies(t) {
+      const C = core(t), main = (tt) => mainM(tt);
+      main.clip = [];
+      const list = [main];
+      if (C && C.leg) {
+        for (const [P, enter] of [[C.leg.to, true], [C.leg.from, false]]) {
+          if (!P || !near(C, P)) continue;
+          main.clip.push(plane(P));
+          const cp = copyM(P, other(P));
+          cp.clip = [plane(other(P))];
+          list.push(cp);
+        }
+      }
+      return list;
+    },
+    back(p, C, t) {
+      const c = core(t);
+      if (!c) return;
+      portalAt(p, c, t, PA, false); portalAt(p, c, t, PB, false);
+    },
+    front(p, C, t, st) {
+      const c = core(t);
+      if (!c) return;
+      portalAt(p, c, t, PA, true); portalAt(p, c, t, PB, true);
+      if (!shots) return;
+      // the shots: a bolt of each portal's colour from the blob to where the portal opens
+      for (const P of [PA, PB]) {
+        const w = P === PA ? OA : OB, k = seg(c.a, w[0], openAt(w));
+        if (k <= 0 || k >= 1) continue;
+        const R = P.ramp, fx = st.x, fy = st.y;
+        const at = (q) => { const kk = ease.inQuad(clamp(q)); return [lerp(fx, P.x, kk), lerp(fy, P.y, kk)]; };
+        const [hx, hy] = at(k), [ex, ey] = at(k - 0.22);
+        // a streak of its colour, a bright head
+        p.line(ex, ey, hx, hy, (v) => (v > 0.8 ? WHITE : v > 0.45 ? R[5] : R[4]), (v) => v);
+        p.glowLine(ex, ey, hx, hy, 4, R[3], 0.4);
+        p.disc(hx, hy, 2.2, R[4], 1);
+        for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [-1, 0], [0, -1]]) p.px(hx + dx, hy + dy, dx || dy ? R[5] : WHITE);
+        p.glow(hx, hy, 12, R[3], 0.7);
+        p.glow(hx, hy, 5, WHITE, 0.4);
+        p.glow(fx, fy, S * 1.4, R[3], 0.4 * bump(k, 0, 0.5));
+      }
+    },
+  };
+};
+
 // the motes around it follow where it goes (not when it blinks out and in)
 function drift(act, t) {
   if (act.copies) return [0, 0];
@@ -658,7 +897,7 @@ function actionOf(o) {
 export function drawBack(p, t, o) {
   const C0 = actionOf(o), C = fit(C0.palette ? C0.palette(t) : o.palette, 8), act = actionOf(o), list = act.copies ? act.copies(t) : [(tt) => act.mods(tt)];
   let st = null;
-  list.forEach((M, i) => { const s = blobBack(p, t, o, M, C); if (i === 0) st = s; });
+  list.forEach((M, i) => { const s = clipped(p, M.clip, () => blobBack(p, t, o, M, C)); if (i === 0) st = s; });
   ambient(p, t, o, false, C, drift(act, t));
   if (act.back) act.back(p, C, t, st);
 }
@@ -668,10 +907,12 @@ export function draw(p, t, o) {
   let st = null;
   // copies drawn back to front by height, so the lower ones cover the higher
   const order = list.map((M, i) => [M, M(t).dy || 0, i]).sort((x, y) => x[1] - y[1]);
-  for (const [M, , i] of order) { const s = blobFront(p, t, o, M, C); if (i === 0) st = s; }
+  for (const [M, , i] of order) { const s = clipped(p, M.clip, () => blobFront(p, t, o, M, C)); if (i === 0) st = s; }
   ambient(p, t, o, true, C, drift(act, t));
   if (act.front) act.front(p, C, t, st);
 }
 
 /** The stroll's stops, as offsets from its spot in its own pixels (first and last are home). */
 export function walkRoute(o) { return A.walk(o).pts; }
+/** Where the two portals are, as offsets from its spot in its own pixels: [blue, orange]. */
+export function portalSpots(o) { return A.portal(o).pts; }
