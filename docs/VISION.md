@@ -56,6 +56,14 @@ chaîne, orage, atome ; couleurs de l’électricité réglables à part : cœur
 - Toujours plus d’actions et d’activités, chacune paramétrable, avec plus de portée dans la scène.
 - La scène continuera d’évoluer : d’autres événements y auront lieu.
 
+## Toujours demander : depuis le repos ou boucle libre ?
+
+Avant chaque nouvelle animation, demander à l’auteur ce qu’il veut :
+- une **boucle parfaite qui part du blob né et y revient** (première et dernière images = celles du blob né,
+  pour enchaîner les GIF), comme Actions, Heure et Électricité ;
+- ou une **animation en boucle libre**, qui boucle sur elle-même sans raccord mais n’a pas à partir du blob né,
+  comme Boucles.
+
 ## Pour juger une modification
 
 - Est-ce que `npm test` passe toujours (boucles et enchaînements exacts) ?

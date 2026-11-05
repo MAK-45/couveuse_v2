@@ -3,6 +3,18 @@
 Pixel-art creature of ice-light (a "blob") and a single-page web editor that tunes it and exports
 **seamless** GIF / PNG sprite sheets / JSON. The UI is in **French**; code and comments are in English.
 
+## Always ask first: from rest, or free loop?
+
+Before building **any new animation** (a new tab, action, loop, effect or animation inside a tab), **ask the author**
+which kind they want, and wait for the answer — never pick for them:
+- **From the Blob né's rest and back** (chains): the first and last frames are exactly the Blob né's, like Actions,
+  Heure and Électricité, so GIFs placed end to end chain (rest → animation → rest). Test it against the idle's frames.
+- **Free endless loop**: it only has to loop on itself with no seam, like Boucles; it need not start or end on the
+  Blob né's frame. Test frame t against t + T.
+
+Ask in French, e.g. « Tu veux une boucle parfaite qui part du blob né et y revient (pour enchaîner les GIF), ou une
+animation en boucle libre qui n’a pas besoin de partir du blob né ? »
+
 ## What the author wants (full version: docs/VISION.md — read it before adding a feature)
 
 Bring a little creature of ice-light to life in a scene and produce all its animations from **one web
@@ -85,6 +97,8 @@ If `npm test` reports a FAIL, fix the effect — never loosen the test.
 - Small, focused changes; run the seam tests after each one.
 
 ## Adding things (recipes in .claude/commands/)
+
+First ask: from rest and back, or free loop? (see « Always ask first » above)
 
 - `/new-action` an action that leaves and comes back to rest.
 - `/new-loop` an endless activity.

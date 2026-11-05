@@ -1,5 +1,8 @@
 Add a new action to the **Actions** tab: $ARGUMENTS
 
+Before anything: ask the author whether they want it to start and end on the Blob né's rest (chains, like Actions)
+or to be a free endless loop (like Boucles), and wait for the answer. Ask in French.
+
 The blob leaves its rest, does the action, and is back at rest exactly (first/last frames = the idle's).
 
 1. Read docs/SEAMLESS.md and look at two existing entries in `pixelfx/src/fx/creature/ice-blob-actions.js` (e.g. `A.jump`, `A.freeze`).
