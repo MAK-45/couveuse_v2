@@ -8,7 +8,7 @@ Pixel-art creature of ice-light (a "blob") and a single-page web editor that tun
 Bring a little creature of ice-light to life in a scene and produce all its animations from **one web
 interface**, as **perfect endless loops**, to reuse elsewhere (GIFs pasted end to end, sprite sheets + JSON).
 - **Perfect loops, always**; and anything the blob *does* (actions, clock, objects appearing/disappearing)
-  starts and ends exactly at its rest, so GIFs chain. Only the Boucles tab is free of the rest frame.
+  (electricity too) starts and ends exactly at its rest, so GIFs chain. Only the Boucles tab is free of the rest frame.
 - **Everything is configurable**: every new action/effect comes with its own settings and good defaults.
 - **One scene** (16:9 by default, any size), reused and growing; actions use the whole scene; exports keep
   scene size and placements for what comes next.
@@ -38,7 +38,7 @@ After any change to an effect or to `app/`, run `npm run build && npm test`.
   - `pixelfx/src/fx/creature/ice-scene-objects.js` — tab **Objets** (solids, appear/remove; exports `drawObject`)
   - `pixelfx/src/fx/creature/ice-blob-loops.js` — tab **Boucles** (18 endless activities)
   - `pixelfx/src/fx/creature/ice-blob-clock.js` — tab **Heure** (shows the time)
-  - `pixelfx/src/fx/creature/ice-blob-electric.js` — tab **Électricité** (8 endless electric loops; own colours `elCore`/`elColor`/`elGlow`)
+  - `pixelfx/src/fx/creature/ice-blob-electric.js` — tab **Électricité** (8 electric animations, rest → electricity → rest like actions; own colours `elCore`/`elColor`/`elGlow`)
   - `ice-spirit-birth.js` is the first, abandoned birth version; ignore it.
 - `app/main.js` the whole UI (state, controls, render pipeline, GIF encoder, export). `app/index.template.html` HTML + CSS.
   `app/entry.js` lists what the page imports from pixelfx (global `PFX`). `app/build.mjs` inlines it all.
@@ -51,7 +51,7 @@ Read the relevant doc before a non-trivial change; don't load every file.
 
 1. Every periodic motion runs a **whole number of turns per loop** (`Math.round` the counts). Noise is read on a
    circle of time (`ln(x, y, u, seed, r)` with `u = t / D`), never on a line.
-2. Actions, clock, object appear/remove: every modifier is **exactly neutral at progress 0 and 1**
+2. Actions, clock, electricity, object appear/remove: every modifier is **exactly neutral at progress 0 and 1**
    (envelopes from `seg`/`plateau`/`bump`, integer rotations). Their length is a **whole number of idle loops**
    and the frame count is `loops * round(D * fps)`, so their first/last frames equal the idle's.
 3. The **lead-out** of an action is never shorter than a light drop's life (1.7 s): `prog()` does this. Drops born

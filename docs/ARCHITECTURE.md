@@ -28,7 +28,7 @@ and only supply `M` plus their own extra drawing (`back`/`front` hooks). `ambien
 | ice-blob-actions.js | Actions | `A.name = (o) => ({ mods(t), back?(p,C,t,st), front?(p,C,t,st), copies?(t), palette?(t) })` |
 | ice-blob-loops.js | Boucles | `L.name = (o) => ({ mods(t), back?, front? })`, phase via `phase(o, t)` |
 | ice-scene-objects.js | Objets | `objects[]` list; `mode` live / appear / remove; `appearing()` / `removing()` per style |
-| ice-blob-electric.js | Électricité | `L.name = (o) => ({ mods(t), charge(t), back?(p,C,V,t,st), front? })`; `V` = electricity colours, `charge` tints the blob; bolts via `zap()` reseeded `flick()` times a loop |
+| ice-blob-electric.js | Électricité | `L.name = (o) => ({ mods(t), charge(t), back?(p,C,V,t,st), front? })`; `V` = electricity colours, `charge` tints the blob; bolts via `zap()` reseeded `flick()` times a loop. Runs as an action: time is `prog()`, `presence()` fades it in/out and `settle()` brings every modifier back to neutral |
 | ice-blob-clock.js | Heure | 5x7 font, cells laid out by `layout()`, styles in `drawCells()`, timetable in `phases()` |
 
 `prog(o, t)` (actions, objects, clock) maps time to the action's progress 0..1 inside the lead-in/lead-out.

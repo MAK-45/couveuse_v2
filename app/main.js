@@ -527,18 +527,19 @@ const ELEC_PARAMS = {
   atom: [["atomRings", "Électrons", 1, 6, 1, ""], ["atomTurns", "Tours par boucle", 1, 6, 1, ""], ["atomRadius", "Rayon des orbites", 20, 120, 1, " px"],
     ["atomTrail", "Traînée", 0, 2.5, 0.05, ""], ["atomArcs", "Arcs vers le blob", 0, 3, 0.05, ""], ["atomRise", "Lévitation", 0, 30, 0.5, " px"]],
 };
-const ELEC_LOOPS = { charge: 2, chain: 2 };
+const ELEC_LOOPS = {};
 const ELEC_KEYS = new Set(Object.keys(PFX.elec.meta.options).filter((k) => !(k in PFX.blob.meta.options)));
 const elecDef = () => {
   const d = Object.fromEntries([...ELEC_KEYS].map((k) => [k, PFX.elec.meta.options[k]]));
-  for (const [id] of ELEC_LIST) d["loops_" + id] = ELEC_LOOPS[id] || 2;
+  for (const [id] of ELEC_LIST) d["loops_" + id] = ELEC_LOOPS[id] || 3;
   return d;
 };
 for (const k of Object.keys(elecDef())) ELEC_KEYS.add(k);
 function elecGroups() {
   const cur = ELEC_LIST.find((a) => a[0] === V.elec) || ELEC_LIST[0];
   return [
-    { title: "Électricité", hint: "ce qu’il en fait", pickerList: ELEC_LIST, pickerKey: "elec", rows: [["loops_" + cur[0], "Durée de la boucle", 1, 8, 1, ""]] },
+    { title: "Électricité", hint: "ce qu’il en fait", pickerList: ELEC_LIST, pickerKey: "elec", rows: [["loops_" + cur[0], "Durée de l’animation", 1, 8, 1, ""],
+      ["lead", "Repos avant et après", 0, 0.3, 0.01, ""], ["elRamp", "Montée et descente de l’électricité", 0.02, 0.45, 0.01, " part"]] },
     { title: cur[1], hint: "réglages", key: "elecparams", open: true, rows: ELEC_PARAMS[cur[0]] },
     ELEC_STYLE,
     { ...PLACE, rows: PLACE.rows.filter((r) => r[0] !== "canvas"), hint: "la même que le blob né" },
@@ -686,7 +687,7 @@ function buildControls() {
     controls.appendChild(d);
   }
   if (S.anim === "loops") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence et la place de l’onglet Blob né. Chaque boucle part de là où il se trouve et tourne sans fin, sans raccord visible.</p>`);
-  if (S.anim === "elec") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence et la place de l’onglet Blob né. Il découvre l’électricité et joue avec, sans fin : chaque animation tourne en boucle sans raccord visible. Les couleurs de l’électricité se règlent à part, dans « L’électricité ».</p>`);
+  if (S.anim === "elec") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence et la place de l’onglet Blob né. Il part de son repos, découvre l’électricité et joue avec, puis revient exactement à son repos : la première et la dernière image sont celles de la boucle du blob né. Mets les GIF bout à bout, ils s’enchaînent. Les couleurs de l’électricité se règlent à part, dans « L’électricité ».</p>`);
   if (S.anim === "clock") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence et la place de l’onglet Blob né. Il part de sa position de repos, affiche l’heure, puis revient exactement à son repos : la première et la dernière image sont celles de la boucle du blob né.</p>`);
   const groups = S.anim === "elec" ? elecGroups() : S.anim === "clock" ? clockGroups() : S.anim === "loops" ? loopGroups() : S.anim === "objects" ? objectGroups() : S.anim === "actions" ? actionGroups() : ANIMS[S.anim].groups;
   if (S.anim === "objects") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence et la place de l’onglet Blob né. Rien ne pèse dans la scène : les objets flottent et tournent au rythme de sa boucle, et chaque animation se raccorde aux autres.</p>`);
@@ -859,7 +860,7 @@ function edgeFade(f, EF = 8) {
 let N = 120, B = 176, SW = 480, SH = 270, E = ANIMS[S.anim].fx;
 const view = $("view"), ctx = view.getContext("2d");
 let img = null;
-const loopsOf = () => (S.anim === "elec" ? Math.max(1, Math.round(V["loops_" + V.elec] || 2)) : S.anim === "clock" ? Math.max(1, Math.round(V.loops || 3)) : S.anim === "loops" ? Math.max(1, Math.round(V["loops_" + V.loop] || 2)) : S.anim === "actions" ? Math.max(1, Math.round(V["loops_" + V.action] || 2)) : S.anim === "objects" ? Math.max(1, Math.round(V["loops_" + V.mode] || 1)) : 1);
+const loopsOf = () => (S.anim === "elec" ? Math.max(1, Math.round(V["loops_" + V.elec] || 3)) : S.anim === "clock" ? Math.max(1, Math.round(V.loops || 3)) : S.anim === "loops" ? Math.max(1, Math.round(V["loops_" + V.loop] || 2)) : S.anim === "actions" ? Math.max(1, Math.round(V["loops_" + V.action] || 2)) : S.anim === "objects" ? Math.max(1, Math.round(V["loops_" + V.mode] || 1)) : 1);
 const loopLen = () => V.duration * loopsOf();
 // an action is a whole number of the blob's loops, frame for frame
 const nFrames = () => Math.max(2, Math.round(V.duration * V.fps)) * loopsOf();
@@ -1193,9 +1194,9 @@ function makeJson() {
     pixelfx: { id: ANIMS[S.anim].id, name: ANIMS[S.anim].fx.meta.name, animation: S.anim, content: alone ? "creature" : "scene",
       fps: +(N / (loopLen() / V.speed)).toFixed(3), loop: true, frames: N, frameSize: [fw, fh],
       ...(S.anim === "loops" ? { activity: V.loop, restLoops: loopsOf(), seamless: true } : {}),
-      ...(S.anim === "elec" ? { activity: V.elec, restLoops: loopsOf(), seamless: true, electricity: { core: V.elCore, arc: V.elColor, glow: V.elGlow } } : {}),
+      ...(S.anim === "elec" ? { activity: V.elec, electricity: { core: V.elCore, arc: V.elColor, glow: V.elGlow } } : {}),
       ...(S.anim === "clock" ? { time: { h: OPTS.clkH, m: OPTS.clkM, s: OPTS.clkS, format: OPTS.clkFormat, center: [Math.round(placement().cx + OPTS.clkX * V.scale), Math.round(placement().cy + OPTS.clkY * V.scale)] } } : {}),
-      ...(S.anim === "birth" || S.anim === "loops" || S.anim === "elec" ? {} : { chain: { restFrames: N / loopsOf(), firstAndLastFrameAreRest: true, ...(S.anim === "actions" ? { action: V.action, restLoops: loopsOf() } : {}) } }),
+      ...(S.anim === "birth" || S.anim === "loops" ? {} : { chain: { restFrames: N / loopsOf(), firstAndLastFrameAreRest: true, ...(S.anim === "actions" ? { action: V.action, restLoops: loopsOf() } : S.anim === "elec" ? { electricity: V.elec, restLoops: loopsOf() } : {}) } }),
       pivot: alone && ANIMS[S.anim].mode === "box" ? [Math.floor(pl.D / 2), Math.floor(pl.D / 2)] : [pl.cx, pl.cy],
       // where this layer goes in the scene, for the animations that come next
       placeAt: alone && ANIMS[S.anim].mode === "box" ? [pl.x, pl.y] : [0, 0],

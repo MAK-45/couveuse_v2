@@ -15,7 +15,7 @@ produit doit donc pouvoir se combiner : même scène, même place, mêmes raccor
 
 1. **Boucle parfaite, toujours.** Aucune animation ne doit avoir de saut visible quand elle reboucle.
    C’est la contrainte numéro un, testée au pixel près (`npm test`).
-2. **Enchaînements.** Une animation qui fait faire quelque chose au blob (action, heure, apparition ou
+2. **Enchaînements.** Une animation qui fait faire quelque chose au blob (action, électricité, heure, apparition ou
    disparition d’objet) **part de sa position et de son état de repos, et y revient exactement**. Ainsi,
    collés bout à bout, les GIF s’enchaînent : repos → action → repos → autre action… Seules les boucles
    d’activités (onglet Boucles) sont libres : elles partent de sa position mais n’ont pas à retrouver l’image de repos.
@@ -47,8 +47,8 @@ produit doit donc pouvoir se combiner : même scène, même place, mêmes raccor
 
 Naissance · Blob né (repos) · Actions (19, retour au repos) · Objets (scène vivante, apparition,
 disparition) · Boucles (18 activités sans fin : dormir, magie, jongler…) · Heure (affiche une heure choisie
-ou celle de l’export, puis revient au repos) · Électricité (8 boucles sans fin où le blob découvre
-l’électricité et la manipule : étincelle, statique, boule de plasma, charge et décharge, deux pôles, éclair en
+ou celle de l’export, puis revient au repos) · Électricité (8 animations où le blob part de son repos,
+découvre l’électricité et la manipule, puis revient exactement à son repos, comme les actions : étincelle, statique, boule de plasma, charge et décharge, deux pôles, éclair en
 chaîne, orage, atome ; couleurs de l’électricité réglables à part : cœur, arc, lueur, avec des préréglages).
 
 ## Directions déjà évoquées pour la suite

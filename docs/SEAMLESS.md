@@ -2,7 +2,7 @@
 
 The promise to the user: any GIF loops forever with no visible jump, and GIFs placed end to end chain:
 
-    rest (Blob né) → action → rest → clock → rest …
+    rest (Blob né) → action → rest → clock → rest → electricity → rest …
     objects: live without X → appear X → live with X → remove X → live without X
     loops (Boucles): each one loops on itself (no chaining promise)
 

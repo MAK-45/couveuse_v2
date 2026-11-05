@@ -1,8 +1,10 @@
-// The blob and electricity, forever: it finds a stray spark and gets a jolt, bristles with static, holds a ball of
+// The blob and electricity: it finds a stray spark and gets a jolt, bristles with static, holds a ball of
 // plasma, charges up and lets it all go, carries the current between two poles, throws a bolt that chains through
 // floating crystals, catches the lightning from a little storm cloud, spins electrons round itself like an atom.
-// Everything runs over a whole number of the blob's own loops; bolts are re-drawn a whole number of times a loop
-// (their shapes are seeded by the loop's own clock), so the GIF loops with no seam.
+// Each one is an action: it starts on the rested blob's frame (tab Blob né), the electricity rises, plays, dies
+// away, and the blob is back exactly at rest on the last frame, so GIFs chain: rest -> electricity -> rest...
+// The length is a whole number of the blob's own loops; the electricity fades in and out with presence(), every
+// modifier is settled to neutral by it, and the lead-out is never shorter than a drop of light lives.
 // The electricity has its own three colours (core, arc, glow), apart from the blob's palette.
 import { fit, clamp, lerp, seg, bump, ease, noise2, rng, cycle, TAU, WHITE, hex, mix, bolt, forks } from "../../core/index.js";
 import { meta as idleMeta, blobBack, blobFront, ambient } from "./ice-blob-idle.js";
@@ -12,7 +14,7 @@ export const ELEC = ["discover", "static", "ball", "charge", "poles", "chain", "
 
 export const meta = {
   name: "Ice blob electricity",
-  desc: "The ice blob plays with electricity forever: a stray spark, static, a plasma ball, charge and discharge, two poles, a chain bolt, a storm cloud, an atom.",
+  desc: "The ice blob plays with electricity, from rest back to rest: a stray spark, static, a plasma ball, charge and discharge, two poles, a chain bolt, a storm cloud, an atom.",
   tags: ["creature", "blob", "loop", "electric", "lightning", "spark", "ice", "light"],
   size: [320, 180],
   origin: [160, 100],
@@ -22,7 +24,7 @@ export const meta = {
   bg: "black",
   options: {
     ...idleMeta.options,
-    elec: "discover", loops: 2,
+    elec: "discover", loops: 3, lead: 0.06, elRamp: 0.12,
     // the electricity itself, shared by every animation
     elCore: "#ffffff", elColor: "#8ff0ff", elGlow: "#3c78ff",
     elFlicker: 12, elJag: 0.28, elThick: 2, elGlowAmt: 1, elBranches: 1, elTint: 0.6, elSparks: 1,
@@ -47,8 +49,24 @@ export const meta = {
 
 const E = ease.inOutSine;
 const total = (o) => o.duration * Math.max(1, Math.round(o.loops));
-// the loop's phase, 0..1, at any time (negative too)
-const phase = (o, t) => (((t / total(o)) % 1) + 1) % 1;
+// the action's progress, 0..1: 0 during the lead-in, 1 after the lead-out (never shorter than a drop's life, 1.7 s)
+const prog = (o, t) => { const T = total(o); return seg((((t / T) % 1) + 1) % 1, o.lead, 1 - Math.max(o.lead, Math.min(0.45, 1.7 / T))); };
+// every animation reads its time through this: the action's progress
+const phase = prog;
+// how present the electricity is: 0 at rest (start and end), rising and dying away over elRamp of the action
+const presence = (o, t) => {
+  const a = prog(o, t), r = clamp(o.elRamp ?? 0.12, 0.02, 0.45);
+  return a <= 0 || a >= 1 ? 0 : E(seg(a, 0, r)) * (1 - E(seg(a, 1 - r, 1)));
+};
+// an animation's modifiers, drawn back to exactly neutral as the electricity leaves
+const NEUTRAL = { dx: 0, dy: 0, rot: 0, sx: 1, sy: 1, grow: 1, shut: 0, halo: 1, glow: 0, lookX: 0, lookY: 0, eyeScale: 1 };
+function settle(m, e, a) {
+  const out = { quiet: a > 0 && a < 1 ? 1 : 0 };
+  if (e <= 0) return out;
+  for (const k in NEUTRAL) if (k in m) out[k] = NEUTRAL[k] + (m[k] - NEUTRAL[k]) * e;
+  if (m.happy && e > 0.6) out.happy = m.happy;
+  return out;
+}
 const wrap = (x) => ((x % 1) + 1) % 1;
 const whole = (v, lo = 1) => Math.max(lo, Math.round(v));
 const ln = (x, y, u, s, r = 1) => noise2(x + Math.cos(TAU * u) * r, y + Math.sin(TAU * u) * r, s);
@@ -512,12 +530,17 @@ L.atom = (o) => {
 function actOf(o) { return (L[o.elec] || L.discover)(o); }
 
 function layer(p, t, o, front) {
-  const C = fit(o.palette, 8), V = volts(o), act = actOf(o), M = (tt) => act.mods(tt);
-  const ch = clamp((act.charge ? act.charge(t) : 0) * o.elTint), Cb = ch > 0.002 ? tinted(C, V, ch) : C;
+  const C = fit(o.palette, 8), V = volts(o), act = actOf(o), M = (tt) => settle(act.mods(tt), presence(o, tt), prog(o, tt));
+  const e = presence(o, t), ch = clamp((act.charge && e > 0 ? act.charge(t) : 0) * o.elTint * e), Cb = ch > 0.002 ? tinted(C, V, ch) : C;
   const st = front ? blobFront(p, t, o, M, Cb) : blobBack(p, t, o, M, Cb);
   ambient(p, t, o, front, C);
   const hook = front ? act.front : act.back;
-  if (hook) hook.call(act, p, C, V, t, st);
+  if (!hook || e <= 0) return;
+  // everything the electricity draws fades with it (dithered, so it stays crisp pixel art)
+  const f0 = p.fade;
+  p.fade = f0 * e;
+  hook.call(act, p, C, V, t, st);
+  p.fade = f0;
 }
 
 export function drawBack(p, t, o) { layer(p, t, o, false); }
