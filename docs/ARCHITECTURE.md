@@ -28,6 +28,7 @@ and only supply `M` plus their own extra drawing (`back`/`front` hooks). `ambien
 | ice-blob-actions.js | Actions | `A.name = (o) => ({ mods(t), back?(p,C,t,st), front?(p,C,t,st), copies?(t), palette?(t) })` |
 | ice-blob-loops.js | Boucles | `L.name = (o) => ({ mods(t), back?, front? })`, phase via `phase(o, t)` |
 | ice-scene-objects.js | Objets | `objects[]` list; `mode` live / appear / remove; `appearing()` / `removing()` per style |
+| ice-blob-electric.js | Électricité | `L.name = (o) => ({ mods(t), charge(t), back?(p,C,V,t,st), front? })`; `V` = electricity colours, `charge` tints the blob; bolts via `zap()` reseeded `flick()` times a loop |
 | ice-blob-clock.js | Heure | 5x7 font, cells laid out by `layout()`, styles in `drawCells()`, timetable in `phases()` |
 
 `prog(o, t)` (actions, objects, clock) maps time to the action's progress 0..1 inside the lead-in/lead-out.
@@ -39,7 +40,7 @@ Sections, in order (search for `// ----`):
 
 1. Constants: palettes, ratios, `SHARED_DEF` (scene/export settings shared by all tabs), `PER_DEF`.
 2. `ANIMS` registry: `{ name, fx, file, id, mode: "box" | "scene", groups }`. Tabs: birth, blob, actions,
-   objects, loops, clock. `mode: "box"` = drawn in its own square zone and blitted (birth only);
+   objects, loops, clock, elec. `mode: "box"` = drawn in its own square zone and blitted (birth only);
    `"scene"` = drawn across the whole scene at `1/scale` resolution and upscaled.
 3. Per-tab UI tables: `ACTION_LIST/ACTION_PARAMS`, `LOOP_LIST/LOOP_PARAMS`, `OBJ_ROWS`, `clockGroups()`…
    A row is `[key, label, min, max, step, unit]` (slider) or `[key, label, { select | color | button }]`.

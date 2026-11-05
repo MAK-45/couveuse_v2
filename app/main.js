@@ -485,6 +485,65 @@ function clockSpot() {
     default: return [0, -(S * 1.4 + h / 2 + 18)];
   }
 }
+// ---- the electricity tab: the blob finds electricity and plays with it, for ever
+ANIMS.elec = { name: "Électricité", fx: PFX.elec, file: "electricite", id: "creature/ice-blob-electric", mode: "scene", groups: null };
+const ELEC_LIST = [
+  ["discover", "Découverte", "une étincelle, il touche… zap !"], ["static", "Électricité statique", "hérissé, arcs sur la peau"],
+  ["ball", "Boule d’énergie", "tient une boule de plasma"], ["charge", "Charge et décharge", "se concentre, tout explose"],
+  ["poles", "Entre deux pôles", "le courant passe par lui"], ["chain", "Éclair en chaîne", "saute de cristal en cristal"],
+  ["storm", "Orage", "un nuage, la foudre"], ["atom", "Atome", "des électrons tournent autour"],
+];
+const ELEC_PRESETS = {
+  "Glace": ["#ffffff", "#8ff0ff", "#3c78ff"], "Foudre jaune": ["#fffbe0", "#ffe14a", "#ff8a1c"], "Plasma violet": ["#ffffff", "#d79bff", "#7a2cff"],
+  "Rose néon": ["#fff0fb", "#ff6ad5", "#c2187a"], "Vert toxique": ["#f4ffe8", "#8dff6a", "#1fa83c"], "Rouge colère": ["#fff1e8", "#ff5a3c", "#b0101c"],
+  "Blanc pur": ["#ffffff", "#e6f2ff", "#8aa6d6"],
+};
+const ELEC_STYLE = { title: "L’électricité", hint: "couleurs, allure des éclairs", key: "elstyle", open: true, elecPresets: true, rows: [
+  ["elCore", "Cœur de l’éclair", { color: true }], ["elColor", "Couleur de l’arc", { color: true }], ["elGlow", "Couleur de la lueur", { color: true }],
+  ["elTint", "Le blob prend la couleur du courant", 0, 1, 0.01, ""], ["elGlowAmt", "Intensité de la lueur", 0, 2.5, 0.05, ""],
+  ["elFlicker", "Crépitement (formes par seconde)", 2, 30, 0.5, ""], ["elJag", "Zigzag des éclairs", 0, 0.6, 0.01, ""],
+  ["elThick", "Épaisseur des éclairs", 1, 3, 1, " px"], ["elBranches", "Ramifications", 0, 3, 0.05, ""], ["elSparks", "Étincelles aux impacts", 0, 3, 0.05, ""],
+]};
+const ELEC_PARAMS = {
+  discover: [["discMood", "Après le choc", { select: [["amused", "Il rit, ravi"], ["scared", "Les yeux ronds, surpris"]] }],
+    ["discSide", "Où est l’étincelle", { select: [["alternate", "D’un côté puis de l’autre"], ["right", "À sa droite"], ["left", "À sa gauche"]] }],
+    ["discCount", "Rencontres par boucle", 1, 6, 1, ""], ["discDist", "Distance de l’étincelle", 30, 120, 1, " px"], ["discSize", "Taille de l’étincelle", 0.4, 3, 0.05, "×"],
+    ["discJolt", "Force du choc", 0, 2.5, 0.05, ""]],
+  static: [["statArcs", "Arcs sur la peau", 0, 12, 1, ""], ["statLen", "Longueur des arcs", 0.2, 2, 0.05, ""], ["statGround", "Décharges vers le sol par boucle", 0, 8, 1, ""],
+    ["statBristle", "Cheveux de lumière dressés", 0, 2.5, 0.05, ""], ["statPuff", "Gonflé, frémissant", 0, 2.5, 0.05, ""]],
+  ball: [["ballPos", "Où", { select: [["above", "Au-dessus de lui"], ["right", "À sa droite"], ["left", "À sa gauche"]] }], ["ballSize", "Taille de la boule", 5, 40, 0.5, " px"],
+    ["ballHeight", "Distance du blob", 0, 80, 1, " px"], ["ballTendrils", "Filaments dans la boule", 0, 16, 1, ""], ["ballSpin", "Tours des filaments par boucle", -4, 4, 1, ""],
+    ["ballPulses", "Pulsations par boucle", 1, 8, 1, ""], ["ballArc", "Fil de courant vers le blob", 0, 1, 0.05, ""]],
+  charge: [["chgCount", "Décharges par boucle", 1, 6, 1, ""], ["chgBolts", "Éclairs de la décharge", 0, 20, 1, ""], ["chgReach", "Portée des éclairs", 10, 160, 1, " px"],
+    ["chgCrouch", "Se ramasse sur lui-même", 0, 2.5, 0.05, ""], ["chgShake", "Tremblement", 0, 3, 0.05, ""], ["chgFlash", "Éclair de lumière", 0, 2, 0.05, ""]],
+  poles: [["polesShape", "Les pôles", { select: [["crystal", "Cristal"], ...SHAPE_OPTS.filter((s) => s[0] !== "crystal")] }], ["polesDist", "Écart des pôles", 30, 180, 1, " px"],
+    ["polesHeight", "Hauteur des pôles", -60, 60, 1, " px"], ["polesSize", "Taille des pôles", 4, 20, 0.5, " px"], ["polesFlow", "Impulsions par boucle", 1, 12, 1, ""],
+    ["polesSway", "Balancements par boucle", 0, 6, 1, ""]],
+  chain: [["chainShape", "Objets", { select: [["cycle", "Toutes les formes"], ...SHAPE_OPTS] }], ["chainCount", "Nombre d’objets", 2, 8, 1, ""],
+    ["chainRounds", "Éclairs par boucle", 1, 6, 1, ""], ["chainRadius", "Distance du blob", 30, 140, 1, " px"], ["chainSize", "Taille des objets", 3, 16, 0.5, " px"],
+    ["chainHold", "Temps où la chaîne reste allumée", 0.05, 0.45, 0.01, " part"]],
+  storm: [["stormMood", "La foudre", { select: [["catch", "Il l’attrape, ravi"], ["dodge", "Tombe à côté, il saute"]] }], ["stormStrikes", "Éclairs par boucle", 1, 8, 1, ""],
+    ["stormHeight", "Hauteur du nuage", 10, 120, 1, " px"], ["stormCloud", "Taille du nuage", 10, 60, 1, " px"], ["stormRain", "Gouttes de pluie par boucle", 0, 160, 1, ""]],
+  atom: [["atomRings", "Électrons", 1, 6, 1, ""], ["atomTurns", "Tours par boucle", 1, 6, 1, ""], ["atomRadius", "Rayon des orbites", 20, 120, 1, " px"],
+    ["atomTrail", "Traînée", 0, 2.5, 0.05, ""], ["atomArcs", "Arcs vers le blob", 0, 3, 0.05, ""], ["atomRise", "Lévitation", 0, 30, 0.5, " px"]],
+};
+const ELEC_LOOPS = { charge: 2, chain: 2 };
+const ELEC_KEYS = new Set(Object.keys(PFX.elec.meta.options).filter((k) => !(k in PFX.blob.meta.options)));
+const elecDef = () => {
+  const d = Object.fromEntries([...ELEC_KEYS].map((k) => [k, PFX.elec.meta.options[k]]));
+  for (const [id] of ELEC_LIST) d["loops_" + id] = ELEC_LOOPS[id] || 2;
+  return d;
+};
+for (const k of Object.keys(elecDef())) ELEC_KEYS.add(k);
+function elecGroups() {
+  const cur = ELEC_LIST.find((a) => a[0] === V.elec) || ELEC_LIST[0];
+  return [
+    { title: "Électricité", hint: "ce qu’il en fait", pickerList: ELEC_LIST, pickerKey: "elec", rows: [["loops_" + cur[0], "Durée de la boucle", 1, 8, 1, ""]] },
+    { title: cur[1], hint: "réglages", key: "elecparams", open: true, rows: ELEC_PARAMS[cur[0]] },
+    ELEC_STYLE,
+    { ...PLACE, rows: PLACE.rows.filter((r) => r[0] !== "canvas"), hint: "la même que le blob né" },
+  ];
+}
 const RENDER = { title: "Rendu", hint: "fond, export", render: true, rows: [
   ["zoom", "Zoom de l’aperçu", 0, 6, 1, "×"],
   ["gifScale", "Agrandissement du GIF", 1, 6, 1, "×"],
@@ -494,13 +553,15 @@ const SHARED_KEYS = new Set(Object.keys(SHARED_DEF));
 // ---- state: { anim, shared, birth, blob }, kept in this browser
 const KEY = "couveuse-v3";
 function animDef(a) { const o = ANIMS[a].fx.meta.options; return { ...o, ...PER_DEF, palette: [...o.palette] }; }
-function fresh() { return { anim: "blob", shared: { ...SHARED_DEF }, birth: animDef("birth"), blob: animDef("blob"), actions: actionDef(), objects: objectsDef(), loops: loopsDef(), clock: clockDef() }; }
+function fresh() { return { anim: "blob", shared: { ...SHARED_DEF }, birth: animDef("birth"), blob: animDef("blob"), actions: actionDef(), objects: objectsDef(), loops: loopsDef(), clock: clockDef(), elec: elecDef() }; }
 function clampInt(v, lo, hi) { v = Math.round(+v); return Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : lo; }
 function sanitize(v) {
   const f = fresh(), s = { anim: ANIMS[v && v.anim] ? v.anim : f.anim, shared: { ...f.shared, ...(v && v.shared) } };
   s.actions = { ...f.actions, ...((v && v.actions) || {}) };
   s.loops = { ...f.loops, ...((v && v.loops) || {}) };
   s.clock = { ...f.clock, ...((v && v.clock) || {}) };
+  s.elec = { ...f.elec, ...((v && v.elec) || {}) };
+  if (!ELEC_LIST.some((a) => a[0] === s.elec.elec)) s.elec.elec = f.elec.elec;
   s.objects = { ...f.objects, ...((v && v.objects) || {}) };
   if (!Array.isArray(s.objects.list)) s.objects.list = f.objects.list;
   s.objects.list = s.objects.list.filter((ob) => ob && typeof ob === "object").map((ob) => ({ ...OBJECT_DEF(), ...ob }));
@@ -533,11 +594,12 @@ function load() {
 let S = load();
 // V: what the current animation sees, the shared settings and its own together
 let V = {};
-const refreshV = () => (V = S.anim === "clock" ? { ...S.shared, ...S.blob, ...S.clock } : S.anim === "loops" ? { ...S.shared, ...S.blob, ...S.loops } : S.anim === "objects" ? objectsView() : S.anim === "actions" ? { ...S.shared, ...S.blob, ...S.actions } : { ...S.shared, ...S[S.anim] });
+const refreshV = () => (V = S.anim === "elec" ? { ...S.shared, ...S.blob, ...S.elec } : S.anim === "clock" ? { ...S.shared, ...S.blob, ...S.clock } : S.anim === "loops" ? { ...S.shared, ...S.blob, ...S.loops } : S.anim === "objects" ? objectsView() : S.anim === "actions" ? { ...S.shared, ...S.blob, ...S.actions } : { ...S.shared, ...S[S.anim] });
 refreshV();
 // the actions tab borrows the blob's look, timing and place: only the action is its own
 function setV(k, v) {
   if (S.anim === "clock" && !SHARED_KEYS.has(k)) { (CLOCK_KEYS.has(k) ? S.clock : S.blob)[k] = v; V[k] = v; return; }
+  if (S.anim === "elec" && !SHARED_KEYS.has(k)) { (ELEC_KEYS.has(k) ? S.elec : S.blob)[k] = v; V[k] = v; return; }
   if (S.anim === "loops" && !SHARED_KEYS.has(k)) { (LOOP_KEYS.has(k) ? S.loops : S.blob)[k] = v; V[k] = v; return; }
   if (S.anim === "objects" && !SHARED_KEYS.has(k)) {
     if (k.startsWith("ob_")) { const so = selObj(); if (so) so[k.slice(3)] = v; }
@@ -624,8 +686,9 @@ function buildControls() {
     controls.appendChild(d);
   }
   if (S.anim === "loops") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence et la place de l’onglet Blob né. Chaque boucle part de là où il se trouve et tourne sans fin, sans raccord visible.</p>`);
+  if (S.anim === "elec") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence et la place de l’onglet Blob né. Il découvre l’électricité et joue avec, sans fin : chaque animation tourne en boucle sans raccord visible. Les couleurs de l’électricité se règlent à part, dans « L’électricité ».</p>`);
   if (S.anim === "clock") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence et la place de l’onglet Blob né. Il part de sa position de repos, affiche l’heure, puis revient exactement à son repos : la première et la dernière image sont celles de la boucle du blob né.</p>`);
-  const groups = S.anim === "clock" ? clockGroups() : S.anim === "loops" ? loopGroups() : S.anim === "objects" ? objectGroups() : S.anim === "actions" ? actionGroups() : ANIMS[S.anim].groups;
+  const groups = S.anim === "elec" ? elecGroups() : S.anim === "clock" ? clockGroups() : S.anim === "loops" ? loopGroups() : S.anim === "objects" ? objectGroups() : S.anim === "actions" ? actionGroups() : ANIMS[S.anim].groups;
   if (S.anim === "objects") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence et la place de l’onglet Blob né. Rien ne pèse dans la scène : les objets flottent et tournent au rythme de sa boucle, et chaque animation se raccorde aux autres.</p>`);
   if (S.anim === "actions") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence, la durée et la place réglées dans l’onglet Blob né. Chaque action commence et finit sur la même image que la boucle du blob né : mets les GIF bout à bout, ils s’enchaînent.</p>`);
   groups.forEach((g, gi) => {
@@ -676,6 +739,18 @@ function buildControls() {
       const n = document.createElement("p");
       n.className = "note"; n.textContent = "De la plus sombre à la plus claire : les dernières teintes font le cœur et la peau éclairée.";
       rows.appendChild(n);
+    }
+    if (g.elecPresets) {
+      const pr = document.createElement("div");
+      pr.className = "presets";
+      for (const [name, cols] of Object.entries(ELEC_PRESETS)) {
+        const b = document.createElement("button");
+        b.className = "preset"; b.type = "button";
+        b.innerHTML = `<i style="background:linear-gradient(90deg,${[...cols].reverse().join(",")})"></i>${name}`;
+        b.onclick = () => { ["elCore", "elColor", "elGlow"].forEach((k, i) => setV(k, cols[i])); syncUI(); changed(); };
+        pr.appendChild(b);
+      }
+      rows.appendChild(pr);
     }
     for (const def of g.rows) rowFor(rows, def);
     if (g.place) {
@@ -784,7 +859,7 @@ function edgeFade(f, EF = 8) {
 let N = 120, B = 176, SW = 480, SH = 270, E = ANIMS[S.anim].fx;
 const view = $("view"), ctx = view.getContext("2d");
 let img = null;
-const loopsOf = () => (S.anim === "clock" ? Math.max(1, Math.round(V.loops || 3)) : S.anim === "loops" ? Math.max(1, Math.round(V["loops_" + V.loop] || 2)) : S.anim === "actions" ? Math.max(1, Math.round(V["loops_" + V.action] || 2)) : S.anim === "objects" ? Math.max(1, Math.round(V["loops_" + V.mode] || 1)) : 1);
+const loopsOf = () => (S.anim === "elec" ? Math.max(1, Math.round(V["loops_" + V.elec] || 2)) : S.anim === "clock" ? Math.max(1, Math.round(V.loops || 3)) : S.anim === "loops" ? Math.max(1, Math.round(V["loops_" + V.loop] || 2)) : S.anim === "actions" ? Math.max(1, Math.round(V["loops_" + V.action] || 2)) : S.anim === "objects" ? Math.max(1, Math.round(V["loops_" + V.mode] || 1)) : 1);
 const loopLen = () => V.duration * loopsOf();
 // an action is a whole number of the blob's loops, frame for frame
 const nFrames = () => Math.max(2, Math.round(V.duration * V.fps)) * loopsOf();
@@ -797,6 +872,7 @@ function effOpts(src = V) {
     for (const key of ["clkSeconds", "clkTick", "clkZero", "clkBlink", "clkBold"]) o[key] = +V[key];
     if (V.clkSource === "now") { const d = new Date(); o.clkH = d.getHours(); o.clkM = d.getMinutes(); o.clkS = d.getSeconds(); }
   }
+  if (S.anim === "elec" && src === V) o.loops = loopsOf();
   if (S.anim === "loops" && src === V) {
     const pl = placement(), k = V.scale, m = V.size * k * 1.3;
     o.loops = loopsOf();
@@ -1067,7 +1143,7 @@ const say = (m, err = false) => { status.textContent = m; status.classList.toggl
 const nextPaint = () => new Promise((r) => setTimeout(r, 0));
 const objName = () => { const so = selObj(); return V.mode === "live" || !so ? "objets-scene" : `objets-${V.mode === "appear" ? "apparition" : "disparition"}-${so.shape}-${so.id}`; };
 const clockName = () => { const o = OPTS; return "heure-" + String(o.clkH).padStart(2, "0") + String(o.clkM).padStart(2, "0"); };
-const base = () => `creature-glace-${S.anim === "clock" ? clockName() : S.anim === "loops" ? "boucle-" + V.loop : S.anim === "actions" ? "action-" + V.action : S.anim === "objects" ? objName() : ANIMS[S.anim].file}-${V.seed}` + (V.exportWhat === "creature" ? "-seule" : "-scene");
+const base = () => `creature-glace-${S.anim === "clock" ? clockName() : S.anim === "loops" ? "boucle-" + V.loop : S.anim === "elec" ? "electricite-" + V.elec : S.anim === "actions" ? "action-" + V.action : S.anim === "objects" ? objName() : ANIMS[S.anim].file}-${V.seed}` + (V.exportWhat === "creature" ? "-seule" : "-scene");
 function frameSize() { return V.exportWhat === "creature" && ANIMS[S.anim].mode === "box" ? [B * V.scale, B * V.scale] : [SW, SH]; }
 async function allFrames(label) {
   const out = [], alone = V.exportWhat === "creature", box = ANIMS[S.anim].mode === "box";
@@ -1117,8 +1193,9 @@ function makeJson() {
     pixelfx: { id: ANIMS[S.anim].id, name: ANIMS[S.anim].fx.meta.name, animation: S.anim, content: alone ? "creature" : "scene",
       fps: +(N / (loopLen() / V.speed)).toFixed(3), loop: true, frames: N, frameSize: [fw, fh],
       ...(S.anim === "loops" ? { activity: V.loop, restLoops: loopsOf(), seamless: true } : {}),
+      ...(S.anim === "elec" ? { activity: V.elec, restLoops: loopsOf(), seamless: true, electricity: { core: V.elCore, arc: V.elColor, glow: V.elGlow } } : {}),
       ...(S.anim === "clock" ? { time: { h: OPTS.clkH, m: OPTS.clkM, s: OPTS.clkS, format: OPTS.clkFormat, center: [Math.round(placement().cx + OPTS.clkX * V.scale), Math.round(placement().cy + OPTS.clkY * V.scale)] } } : {}),
-      ...(S.anim === "birth" || S.anim === "loops" ? {} : { chain: { restFrames: N / loopsOf(), firstAndLastFrameAreRest: true, ...(S.anim === "actions" ? { action: V.action, restLoops: loopsOf() } : {}) } }),
+      ...(S.anim === "birth" || S.anim === "loops" || S.anim === "elec" ? {} : { chain: { restFrames: N / loopsOf(), firstAndLastFrameAreRest: true, ...(S.anim === "actions" ? { action: V.action, restLoops: loopsOf() } : {}) } }),
       pivot: alone && ANIMS[S.anim].mode === "box" ? [Math.floor(pl.D / 2), Math.floor(pl.D / 2)] : [pl.cx, pl.cy],
       // where this layer goes in the scene, for the animations that come next
       placeAt: alone && ANIMS[S.anim].mode === "box" ? [pl.x, pl.y] : [0, 0],

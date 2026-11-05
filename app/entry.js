@@ -6,3 +6,4 @@ export * as actions from "../pixelfx/src/fx/creature/ice-blob-actions.js";
 export * as objects from "../pixelfx/src/fx/creature/ice-scene-objects.js";
 export * as loops from "../pixelfx/src/fx/creature/ice-blob-loops.js";
 export * as clock from "../pixelfx/src/fx/creature/ice-blob-clock.js";
+export * as elec from "../pixelfx/src/fx/creature/ice-blob-electric.js";

@@ -43,11 +43,13 @@ produit doit donc pouvoir se combiner : même scène, même place, mêmes raccor
 - Tout ce qui est nouveau (effets, objets, décors) reste **dans ce même style** : palette de 8 teintes,
   contours d’un pixel éclairés en haut à gauche, lueurs douces.
 
-## Ce qui existe (six onglets)
+## Ce qui existe (sept onglets)
 
 Naissance · Blob né (repos) · Actions (19, retour au repos) · Objets (scène vivante, apparition,
 disparition) · Boucles (18 activités sans fin : dormir, magie, jongler…) · Heure (affiche une heure choisie
-ou celle de l’export, puis revient au repos).
+ou celle de l’export, puis revient au repos) · Électricité (8 boucles sans fin où le blob découvre
+l’électricité et la manipule : étincelle, statique, boule de plasma, charge et décharge, deux pôles, éclair en
+chaîne, orage, atome ; couleurs de l’électricité réglables à part : cœur, arc, lueur, avec des préréglages).
 
 ## Directions déjà évoquées pour la suite
 

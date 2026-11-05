@@ -2,7 +2,7 @@
 //   blob idle            frame 0 == frame at t = D (its own loop)
 //   actions / clock      first and last frames == the idle's first and last frames (chain with the idle GIF)
 //   objects              appear: first == live without, last == live with; remove: the reverse
-//   loops                frame at t == frame at t + T (its own loop)
+//   loops, electricity   frame at t == frame at t + T (its own loop)
 // Run: npm test      (exit code 1 on any failure)
 import { createFrame, clearFrame, painterFor, composite } from "../pixelfx/src/core/index.js";
 import * as idle from "../pixelfx/src/fx/creature/ice-blob-idle.js";
@@ -10,6 +10,7 @@ import * as actions from "../pixelfx/src/fx/creature/ice-blob-actions.js";
 import * as objects from "../pixelfx/src/fx/creature/ice-scene-objects.js";
 import * as loops from "../pixelfx/src/fx/creature/ice-blob-loops.js";
 import * as clock from "../pixelfx/src/fx/creature/ice-blob-clock.js";
+import * as elec from "../pixelfx/src/fx/creature/ice-blob-electric.js";
 
 const W = 320, H = 200, Ni = 120; // Ni: frames in one idle loop (D * fps with the defaults)
 function render(mod, o, t) {
@@ -55,6 +56,14 @@ for (const [ap, vn] of clock.APPEAR.map((a, i) => [a, clock.VANISH[i]])) {
 for (const name of loops.LOOPS) {
   const o = { ...loops.meta.options, loop: name }, T = o.duration * o.loops;
   report(`loop ${name}`, diff(render(loops, o, 0), render(loops, o, T)), diff(render(loops, o, -1 / 30), render(loops, o, T - 1 / 30)));
+}
+
+// electricity: every animation, and the variants with other timings or sides
+const elecCases = [...elec.ELEC.map((n) => [n, {}]), ["discover", { discSide: "left", discCount: 3, loops: 3, discMood: "scared" }], ["storm", { stormMood: "dodge" }],
+  ["ball", { ballPos: "left" }], ["chain", { chainRounds: 3, chainCount: 6 }], ["charge", { chgCount: 3, loops: 1, elThick: 3 }], ["atom", { atomRings: 4, elFlicker: 7.3 }]];
+for (const [name, more] of elecCases) {
+  const o = { ...elec.meta.options, elec: name, ...more }, T = o.duration * o.loops, tag = Object.keys(more).length ? " " + Object.values(more).join(",") : "";
+  report(`elec ${name}${tag}`.slice(0, 34), diff(render(elec, o, 0), render(elec, o, T)), diff(render(elec, o, -1 / 30), render(elec, o, T - 1 / 30)));
 }
 
 console.log(fails ? `\n${fails} failing` : "\nall seams exact");
