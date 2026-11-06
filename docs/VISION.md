@@ -64,7 +64,11 @@ penché dans les virages, traînée courbe) et collecter des étoiles (il fonce 
 forme : pour l’instant une forme humaine faite de la même lumière de glace, en lévitation — une queue de lumière, des jambes
 pointes vers le bas ou assis en tailleur, les bras qui flottent, des cheveux de lumière en apesanteur, ses yeux seulement ;
 trois animations qui s’enchaînent : la transformation part du repos du blob né (éclosion, éclair ou spirale), la forme
-en boucle tourne sans fin, et le retour revient exactement au repos du blob né) · Mondes (les
+en boucle tourne sans fin, et le retour revient exactement au repos du blob né ; deuxième forme, la **forme humaine au sol** :
+la même, sur ses jambes, avec la gravité — elle prend forme dans les airs, un sol de glace s’étend sous elle, elle tombe,
+atterrit en pliant les genoux, et se tient debout, les pieds posés, passant d’un pied sur l’autre (bras détendus, poings sur les
+hanches ou coucou de la main) ; son reflet dans la glace ; au retour elle saute, reste en l’air pendant que le sol s’éteint, et
+redevient le blob) · Mondes (les
 décors de l’autre côté des portails, créés, réglés et gardés : pour l’instant l’espace, étoiles en trois
 profondeurs, nébuleuse en pixel art, étoiles filantes, caméra). Chaque monde a deux états : **immobile** (il vit
 sur place quand le blob y est sans bouger) et **en mouvement** (il défile à la vitesse réglée, pour quand le blob
@@ -80,8 +84,8 @@ Action monde et y passe par les portails).
 
 - Toujours plus d’actions et d’activités, chacune paramétrable, avec plus de portée dans la scène.
 - La scène continuera d’évoluer : d’autres événements y auront lieu.
-- D’autres formes viendront dans l’onglet Transformation (la forme humaine est la première), chacune avec sa
-  transformation, sa boucle et son retour.
+- D’autres formes viendront dans l’onglet Transformation (la forme humaine en lévitation et au sol sont les premières),
+  chacune avec sa transformation, sa boucle et son retour.
 - Le blob entrera dans le monde du portail et s’y déplacera : le décor suivra ses mouvements (la caméra des
   mondes et leurs couches en profondeur sont prévues pour ça). D’autres types de mondes viendront, chacun avec
   ses réglages, dans l’onglet Mondes ; et d’autres surfaces de planète (monde volcanique avec de la lave…) dans

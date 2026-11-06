@@ -36,7 +36,9 @@ The promise to the user: any GIF loops forever with no visible jump, and GIFs pl
 - **Transformation.** The change is a function of c (0 the blob, 1 the new form), `chore()`: every part of it is
   exactly neutral at both ends, and at c = 0 the idle's own code draws the blob. The new form's motion is periodic over
   `liveLoops · D` (its own clock h); in `transform` h = t − T, so the last frame is the live loop's last frame, and in
-  `revert` h = t. Its drops of light only show if they fell from the whole, resting form (lead-out ≥ 1.7 s again).
+  `revert` h = t. Its drops of light only show if they fell from the whole, resting form (lead-out ≥ 1.7 s again). The grounded
+  form's gravity (floor, fall, landing) is a function of c too, all of it done before c = 1; its landing burst is timed on
+  the progress itself (forward in time both ways: a landing, or a jump on the way back) and ends before progress 1.
 - **Encoding.** GIF frames carry a palette computed from that frame alone, so two identical frames in two
   different GIFs produce identical pixels.
 
