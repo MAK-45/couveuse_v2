@@ -8,7 +8,7 @@ Pixel-art creature of ice-light (a "blob") and a single-page web editor that tun
 Before building **any new animation** (a new tab, action, loop, effect or animation inside a tab), **ask the author**
 which kind they want, and wait for the answer — never pick for them:
 - **From the Blob né's rest and back** (chains): the first and last frames are exactly the Blob né's, like Actions,
-  Heure and Électricité, so GIFs placed end to end chain (rest → animation → rest). Test it against the idle's frames.
+  Heure, Électricité and Transformation (there through the new form's loop), so GIFs placed end to end chain (rest → animation → rest). Test it against the idle's frames.
 - **Free endless loop**: it only has to loop on itself with no seam, like Boucles; it need not start or end on the
   Blob né's frame. Test frame t against t + T.
 
@@ -69,6 +69,13 @@ After any change to an effect or to `app/`, run `npm run build && npm test`.
   - `pixelfx/src/fx/creature/ice-blob-electric.js` — tab **Électricité** (8 electric animations, rest → electricity → rest like actions; own colours `elCore`/`elColor`/`elGlow`)
   - `pixelfx/src/fx/creature/ice-blob-portal.js` — tab **Portail** (the blob opens a portal onto a world: `open` from rest, `live` portal open, `close` back to rest; `cross` from `live` through the portal, with its mirror image, out of a mirrored portal into `beyond` = its rest in the other world; then `reopen` (a portal home, our void inside) → `beyondOpen` (loop) → `return` back through to the Blob né's rest, or to `live` with `returnKeep`; 3 open + 3 close styles, 5 shapes)
   - `pixelfx/src/fx/creature/ice-blob-explore.js` — tab **Action monde** (the blob explores a world, free endless loop: `move` = it stays on its spot while the world scrolls past (`worldFor()`, wDrift from `exSpeed`, `wAllMove`), one speed drives the world and the blob's deformation (`pace()`: surges warp the world's clock by a sine that integrates to zero over the loop); 5 speed styles `comet`/`stretch`/`ghosts`/`shock`/`flame`; also `look` (still world, camera glides on a figure of eight, stars bloom for it to stare at), `swim` (strokes: the world's clock warped by two zero-mean harmonics), `turns` (slalom: the camera sways across its way, `trFollow` shares the swing with the blob, trail as the world carried it) and `collect` (stars come with the world, it darts across and gulps them); shared helpers `travel`/`dropMods`/`speedLines`/`shedSparks`; keys start with `ex`, `lk`, `sw`, `tr`, `cl`)
+  - `pixelfx/src/fx/creature/ice-blob-transform.js` — tab **Transformation** (the blob changes shape; for now `form: "human"`,
+    a levitating human figure of the same ice-light: `transform` from rest → `live` (the new form's loop, `liveLoops` blob loops)
+    → `revert` back to rest; styles `grow`/`flash`/`spiral` (`tfStyle` there, `rvStyle` back), poses `huLegs` spirit/legs/lotus and
+    `huArms` float/open/down; the body is a signed distance field: the blob's `r - rad(angle)` blended with the figure's smooth
+    union of round cones/ovals (`human()`), lit by one shader like the blob's body (`body()`), hair as its own field behind it;
+    `chore(o, c, style)` gives the change at c (0 blob .. 1 new form), exactly neutral at both ends; the figure's clock is
+    `t - T` in `transform`; reuses the idle's eyes, sparks and drops via `drawEyes`/`drawSparks`/`drawDrips`; keys start with `tf`, `rv`, `hu`)
   - `pixelfx/src/fx/creature/ice-worlds.js` — tab **Mondes** (backdrops seen only through portals; `renderWorld()` draws a window of a world in depth layers with a camera; type `space` for now; two states, `wState` "still" (lives in place) or "moving" (travels at `wDrift`); every world key starts with `w`)
   - `pixelfx/src/fx/creature/ice-surface.js` — tab **Surface planète** (planet surfaces seen from the ground; type `plain` for now:
     banded sky, sun/moon, clouds, ridged mountains with snow, hills, three meadows at depths 0.45/0.7/1 with lake, ponds, trees,
@@ -86,7 +93,7 @@ Read the relevant doc before a non-trivial change; don't load every file.
 
 1. Every periodic motion runs a **whole number of turns per loop** (`Math.round` the counts). Noise is read on a
    circle of time (`ln(x, y, u, seed, r)` with `u = t / D`), never on a line.
-2. Actions, clock, electricity, object appear/remove: every modifier is **exactly neutral at progress 0 and 1**
+2. Actions, clock, electricity, object appear/remove, transformation: every modifier is **exactly neutral at progress 0 and 1**
    (envelopes from `seg`/`plateau`/`bump`, integer rotations). Their length is a **whole number of idle loops**
    and the frame count is `loops * round(D * fps)`, so their first/last frames equal the idle's.
 3. The **lead-out** of an action is never shorter than a light drop's life (1.7 s): `prog()` does this. Drops born
@@ -110,7 +117,7 @@ If `npm test` reports a FAIL, fix the effect — never loosen the test.
 - Bodies are drawn pixel by pixel in body space (`toBody`/`toScreen`); keep loops bounded to the body's extent.
 - UI: tabs Mondes and Surface planète share `S.worlds.list` (portals and Action monde pick from all of it); each tab shows its
   own types (`tabOfType()`), has its own selection (`sel` / `selSurf`, via `selKey()`) and `isWorldTab()` covers both.
-- UI: `setV(k, v)` routes a key to the right store (`S.shared`, `S.blob`, `S.actions`, `S.objects`, `S.loops`, `S.clock`, `S.elec`, `S.portal`, `S.explore`, the selected world of `S.worlds`)
+- UI: `setV(k, v)` routes a key to the right store (`S.shared`, `S.blob`, `S.actions`, `S.objects`, `S.loops`, `S.clock`, `S.elec`, `S.portal`, `S.explore`, `S.transform`, the selected world of `S.worlds`)
   per tab; add new keys to the tab's `*_KEYS` set or they land in `S.blob`.
 - UI: controls may be missing on some tabs — wire them with `on(id, event, fn)`, never `$(id).onclick =` directly.
 - UI: distances the user sets in **% of the scene** are converted to effect pixels in `effOpts()`.

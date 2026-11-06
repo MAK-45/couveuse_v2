@@ -7,6 +7,7 @@
 //                        cross: first == live, last == beyond (the blob at rest in the other world); beyond loops on itself
 //   worlds               a world loops on itself (its own period, whole blob loops)
 //   world actions        free loops: frame at t == frame at t + T, every speed style, direction, surges and still
+//   transformation       transform: first == idle, last == live; live loops on itself; revert: first == live, last == idle
 // Run: npm test      (exit code 1 on any failure)
 import { createFrame, clearFrame, painterFor, composite } from "../pixelfx/src/core/index.js";
 import * as idle from "../pixelfx/src/fx/creature/ice-blob-idle.js";
@@ -18,6 +19,7 @@ import * as elec from "../pixelfx/src/fx/creature/ice-blob-electric.js";
 import * as portal from "../pixelfx/src/fx/creature/ice-blob-portal.js";
 import * as worlds from "../pixelfx/src/fx/creature/ice-worlds.js";
 import * as explore from "../pixelfx/src/fx/creature/ice-blob-explore.js";
+import * as transform from "../pixelfx/src/fx/creature/ice-blob-transform.js";
 
 const W = 320, H = 200, Ni = 120; // Ni: frames in one idle loop (D * fps with the defaults)
 function render(mod, o, t) {
@@ -138,6 +140,22 @@ for (const [name, more] of elecCases) {
   for (const [more, tag] of cases) {
     const o = { ...explore.meta.options, room, ...more }, T = o.duration * o.loops;
     report(`explore ${o.explore} ${tag}`.slice(0, 34), diff(render(explore, o, 0), render(explore, o, T)), diff(render(explore, o, T / 3 - 1 / 30), render(explore, o, T + T / 3 - 1 / 30)));
+  }
+}
+
+// the transformation: rest -> transform -> the new form's loop -> revert -> rest, every style, pose and timing
+{
+  const cases = [[{}, 2, ""], [{ huLegs: "legs", huArms: "open", huHairStrands: 7 }, 2, " legs open"], [{ huLegs: "lotus", huArms: "down", liveLoops: 1 }, 3, " lotus"],
+    [{ liveLoops: 3, huHair: 0, huArmTurns: 3, huTailTurns: 2, tfSpin: 2 }, 2, " 3 loops bald"]];
+  for (const [more, loops, tag] of cases) {
+    const live = { ...transform.meta.options, ...more, mode: "live" }, P = transform.total(live), M = Math.round(P / D) * Ni;
+    const l0 = render(transform, live, 0), lL = render(transform, live, (M - 1) * P / M);
+    report(`transform live self-loop${tag}`, diff(l0, render(transform, live, P)), diff(render(transform, live, P / 3), render(transform, live, P + P / 3)));
+    for (const st of transform.STYLES) {
+      const o = { ...live, mode: "transform", tfStyle: st, loops }, r = { ...live, mode: "revert", rvStyle: st, loops }, T = o.duration * loops, N = Ni * loops;
+      report(`transform ${st}${tag}`.slice(0, 34), diff(render(transform, o, 0), id0), diff(render(transform, o, (N - 1) * T / N), lL));
+      report(`revert ${st}${tag}`.slice(0, 34), diff(render(transform, r, 0), l0), diff(render(transform, r, (N - 1) * T / N), idL));
+    }
   }
 }
 

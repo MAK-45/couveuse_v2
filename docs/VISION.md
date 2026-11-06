@@ -43,7 +43,7 @@ produit doit donc pouvoir se combiner : même scène, même place, mêmes raccor
 - Tout ce qui est nouveau (effets, objets, décors) reste **dans ce même style** : palette de 8 teintes,
   contours d’un pixel éclairés en haut à gauche, lueurs douces.
 
-## Ce qui existe (onze onglets)
+## Ce qui existe (douze onglets)
 
 Naissance · Blob né (repos) · Actions (19, retour au repos) · Objets (scène vivante, apparition,
 disparition) · Boucles (18 activités sans fin : dormir, magie, jongler…) · Heure (affiche une heure choisie
@@ -60,7 +60,11 @@ seule vitesse règle à la fois le défilement du décor et la déformation du b
 devant elle), avec des accélérations réglables et cinq effets de vitesse : étoile filante (il se change en lumière),
 étirement, rémanences, onde de choc, flammes de glace ; puis regarder autour (émerveillé, la caméra glisse et des
 étoiles s’allument qu’il fixe des yeux), nager (par poussées, queue qui balaie, sillage), vol en virages (slalom,
-penché dans les virages, traînée courbe) et collecter des étoiles (il fonce dessus et les avale)) · Mondes (les
+penché dans les virages, traînée courbe) et collecter des étoiles (il fonce dessus et les avale)) · Transformation (le blob change de
+forme : pour l’instant une forme humaine faite de la même lumière de glace, en lévitation — une queue de lumière, des jambes
+pointes vers le bas ou assis en tailleur, les bras qui flottent, des cheveux de lumière en apesanteur, ses yeux seulement ;
+trois animations qui s’enchaînent : la transformation part du repos du blob né (éclosion, éclair ou spirale), la forme
+en boucle tourne sans fin, et le retour revient exactement au repos du blob né) · Mondes (les
 décors de l’autre côté des portails, créés, réglés et gardés : pour l’instant l’espace, étoiles en trois
 profondeurs, nébuleuse en pixel art, étoiles filantes, caméra). Chaque monde a deux états : **immobile** (il vit
 sur place quand le blob y est sans bouger) et **en mouvement** (il défile à la vitesse réglée, pour quand le blob
@@ -76,6 +80,8 @@ Action monde et y passe par les portails).
 
 - Toujours plus d’actions et d’activités, chacune paramétrable, avec plus de portée dans la scène.
 - La scène continuera d’évoluer : d’autres événements y auront lieu.
+- D’autres formes viendront dans l’onglet Transformation (la forme humaine est la première), chacune avec sa
+  transformation, sa boucle et son retour.
 - Le blob entrera dans le monde du portail et s’y déplacera : le décor suivra ses mouvements (la caméra des
   mondes et leurs couches en profondeur sont prévues pour ça). D’autres types de mondes viendront, chacun avec
   ses réglages, dans l’onglet Mondes ; et d’autres surfaces de planète (monde volcanique avec de la lave…) dans
@@ -85,7 +91,7 @@ Action monde et y passe par les portails).
 
 Avant chaque nouvelle animation, demander à l’auteur ce qu’il veut :
 - une **boucle parfaite qui part du blob né et y revient** (première et dernière images = celles du blob né,
-  pour enchaîner les GIF), comme Actions, Heure et Électricité ;
+  pour enchaîner les GIF), comme Actions, Heure, Électricité et Transformation ;
 - ou une **animation en boucle libre**, qui boucle sur elle-même sans raccord mais n’a pas à partir du blob né,
   comme Boucles.
 
