@@ -6,7 +6,7 @@ et JSON, toujours en boucle parfaite.
 Douze onglets : **Naissance**, **Blob né** (le repos), **Actions** (19, il revient toujours au repos),
 **Objets** (il crée et retire des formes qui flottent dans la scène), **Boucles** (18 activités sans fin),
 **Heure** (il affiche l’heure), **Électricité**, **Portail**, **Action monde**, **Transformation** (il prend une
-forme humaine en lévitation et redevient blob), **Mondes** et **Surface planète**.
+forme humaine, en lévitation ou debout sur un sol de glace avec la gravité, et redevient blob), **Mondes** et **Surface planète**.
 
 ## Démarrer
 

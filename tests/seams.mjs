@@ -8,6 +8,7 @@
 //   worlds               a world loops on itself (its own period, whole blob loops)
 //   world actions        free loops: frame at t == frame at t + T, every speed style, direction, surges and still
 //   transformation       transform: first == idle, last == live; live loops on itself; revert: first == live, last == idle
+//                        (both forms: levitating, and on its legs on a floor with gravity)
 // Run: npm test      (exit code 1 on any failure)
 import { createFrame, clearFrame, painterFor, composite } from "../pixelfx/src/core/index.js";
 import * as idle from "../pixelfx/src/fx/creature/ice-blob-idle.js";
@@ -146,7 +147,11 @@ for (const [name, more] of elecCases) {
 // the transformation: rest -> transform -> the new form's loop -> revert -> rest, every style, pose and timing
 {
   const cases = [[{}, 2, ""], [{ huLegs: "legs", huArms: "open", huHairStrands: 7 }, 2, " legs open"], [{ huLegs: "lotus", huArms: "down", liveLoops: 1 }, 3, " lotus"],
-    [{ liveLoops: 3, huHair: 0, huArmTurns: 3, huTailTurns: 2, tfSpin: 2 }, 2, " 3 loops bald"]];
+    [{ liveLoops: 3, huHair: 0, huArmTurns: 3, huTailTurns: 2, tfSpin: 2 }, 2, " 3 loops bald"],
+    // on its legs, with gravity and a floor: the fall, the landing, the jump back, every arm pose and floor look
+    [{ form: "grounded", room: [-160, -115, 160, 85] }, 2, " ground"],
+    [{ form: "grounded", room: [-160, -115, 160, 85], grArms: "hips", grLook: "line", grFloor: 60, grSwayTurns: 2, liveLoops: 1 }, 3, " ground hips"],
+    [{ form: "grounded", room: [-160, -115, 160, 85], grArms: "wave", grGravity: 0.4, grStance: 2.5, huHairStrands: 7, grGlints: 6 }, 1, " ground wave"]];
   for (const [more, loops, tag] of cases) {
     const live = { ...transform.meta.options, ...more, mode: "live" }, P = transform.total(live), M = Math.round(P / D) * Ni;
     const l0 = render(transform, live, 0), lL = render(transform, live, (M - 1) * P / M);
