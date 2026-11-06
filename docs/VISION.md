@@ -43,7 +43,7 @@ produit doit donc pouvoir se combiner : même scène, même place, mêmes raccor
 - Tout ce qui est nouveau (effets, objets, décors) reste **dans ce même style** : palette de 8 teintes,
   contours d’un pixel éclairés en haut à gauche, lueurs douces.
 
-## Ce qui existe (neuf onglets)
+## Ce qui existe (dix onglets)
 
 Naissance · Blob né (repos) · Actions (19, retour au repos) · Objets (scène vivante, apparition,
 disparition) · Boucles (18 activités sans fin : dormir, magie, jongler…) · Heure (affiche une heure choisie
@@ -54,7 +54,13 @@ Portail (le blob ouvre un portail vers un autre monde, qu’on ne voit qu’à t
 portail ouvert en boucle, fermeture qui revient au repos ; traversée : le blob plonge dans le portail, son reflet en
 miroir vient à sa rencontre, et il ressort par un portail en miroir dans l’autre monde, où il reprend sa boucle de
 repos ; retour : dans l’autre monde il rouvre un portail vers chez lui et repasse, jusqu’au repos du blob né (ou
-au portail ouvert) ; place et taille choisies sur la scène) · Mondes (les
+au portail ouvert) ; place et taille choisies sur la scène) · Action monde (le blob explore un monde de l’onglet
+Mondes, en boucle libre. Première action, le mouvement : il reste sur place et le monde défile derrière lui ; une
+seule vitesse règle à la fois le défilement du décor et la déformation du blob (goutte étirée, penchée, qui regarde
+devant elle), avec des accélérations réglables et cinq effets de vitesse : étoile filante (il se change en lumière),
+étirement, rémanences, onde de choc, flammes de glace ; puis regarder autour (émerveillé, la caméra glisse et des
+étoiles s’allument qu’il fixe des yeux), nager (par poussées, queue qui balaie, sillage), vol en virages (slalom,
+penché dans les virages, traînée courbe) et collecter des étoiles (il fonce dessus et les avale)) · Mondes (les
 décors de l’autre côté des portails, créés, réglés et gardés : pour l’instant l’espace, étoiles en trois
 profondeurs, nébuleuse en pixel art, étoiles filantes, caméra). Chaque monde a deux états : **immobile** (il vit
 sur place quand le blob y est sans bouger) et **en mouvement** (il défile à la vitesse réglée, pour quand le blob

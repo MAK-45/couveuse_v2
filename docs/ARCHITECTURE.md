@@ -30,6 +30,7 @@ and only supply `M` plus their own extra drawing (`back`/`front` hooks). `ambien
 | ice-scene-objects.js | Objets | `objects[]` list; `mode` live / appear / remove; `appearing()` / `removing()` per style |
 | ice-blob-electric.js | Électricité | `L.name = (o) => ({ mods(t), charge(t), back?(p,C,V,t,st), front? })`; `V` = electricity colours, `charge` tints the blob; bolts via `zap()` reseeded `flick()` times a loop. Runs as an action: time is `prog()`, `presence()` fades it in/out and `settle()` brings every modifier back to neutral |
 | ice-blob-portal.js | Portail | `mode` open / live / close / cross / beyond / reopen / beyondOpen / return (`wayOf()` gives the way in and out, so the crossing runs both ways); `crossing()` + `crossMods()` + `reflect()` (the mirror image, drawn into a scratch frame and copied flipped inside the portal) for the way through; `opening()`/`closing()` give the portal's shape over progress, `drawPortal()` draws the world inside (via `renderWorld`), the inner lip, the rim and its flames, `castFx()` the ray and flashes. `total(o)`: live = the world's period |
+| ice-blob-explore.js | Action monde | `X.name = (o) => ({ mods(t), world(t) → { w, wt }, calm, back(p,C,Cf,t,st,M), front(...) })` (`world` gives the world and its clock for that frame: camera moves go in `wCamX/wCamY`, periodic; `calm` shows the idle's motes); actions move, look, swim, turns, collect (`Cf` = palette shifted by `exHue`). Free loop over `loops` blob loops; the world from `worldFor(o)` (moving at `exSpeed × exDrift` scenes a blob loop, against `exDir`), its clock warped by `pace(o,t).x` for the surges; `pace(o,t).k` = how much the body shows the speed |
 | ice-worlds.js | Mondes | `renderWorld(w, wt, P, T, X0, Y0, bw, bh, cam)` → `{ col, lit }` for a window of scene cells; layers at depths shifted by voyage + camera (parallax); `WORLD_TYPES`, `DEFAULTS`, `worldOf()`, `worldPeriod()` |
 | ice-blob-clock.js | Heure | 5x7 font, cells laid out by `layout()`, styles in `drawCells()`, timetable in `phases()` |
 
@@ -42,7 +43,7 @@ Sections, in order (search for `// ----`):
 
 1. Constants: palettes, ratios, `SHARED_DEF` (scene/export settings shared by all tabs), `PER_DEF`.
 2. `ANIMS` registry: `{ name, fx, file, id, mode: "box" | "scene", groups }`. Tabs: birth, blob, actions,
-   objects, loops, clock, elec, portal, worlds. `mode: "box"` = drawn in its own square zone and blitted (birth only);
+   objects, loops, clock, elec, portal, explore, worlds. `mode: "box"` = drawn in its own square zone and blitted (birth only);
    `"scene"` = drawn across the whole scene at `1/scale` resolution and upscaled.
 3. Per-tab UI tables: `ACTION_LIST/ACTION_PARAMS`, `LOOP_LIST/LOOP_PARAMS`, `OBJ_ROWS`, `clockGroups()`…
    A row is `[key, label, min, max, step, unit]` (slider) or `[key, label, { select | color | button }]`.
