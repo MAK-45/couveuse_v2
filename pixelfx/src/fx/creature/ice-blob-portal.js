@@ -7,7 +7,8 @@
 //   cross  from "live", the blob goes through: it dives into the portal while its mirror image comes to meet it
 //          from the other side, they merge, the portal swells until the other world fills the scene, and the blob
 //          comes out of the portal seen from behind (set mirror-wise, on the other side of its spot), back to rest
-//   beyond the blob's rest in the other world: the world fills the scene (still or moving, as the world is set)
+//   beyond the blob's rest in the other world: the world fills the scene (still or moving, as the world is set),
+//          no portal (a crossing that keeps its portal open ends on "beyondOpen" instead)
 //   reopen     from "beyond", the blob opens a portal home (our dark world inside it), where it came out
 //   beyondOpen its rest in the other world with that portal open
 //   return     from "beyondOpen", the way back: the same crossing the other way, out of the first portal at home,
@@ -422,10 +423,9 @@ function plan(o, t) {
     return { ...base, way, g: cr.main, back: cr.back, full: cr.full, M: (tt) => crossMods(o, tt, way) };
   }
   const mp = mirrorSpot(o, room), home = { ...FULL, cx: mp[0], cy: mp[1], inner: "void" };
-  if (mode === "beyond" || mode === "beyondOpen") return { ...base, g: null, back: mode === "beyondOpen" || o.crossKeep > 0 ? home : null, full: true, M: null };
+  if (mode === "beyond" || mode === "beyondOpen") return { ...base, g: null, back: mode === "beyondOpen" ? home : null, full: true, M: null };
   if (mode === "reopen") {
     // in the other world it opens the way home where it came out: the same making, our dark world inside
-    if (o.crossKeep > 0) return { ...base, g: null, back: home, full: true, M: null };
     const g = opening(o, a, Wh);
     return { ...base, g: null, back: g && { ...g, cx: mp[0], cy: mp[1], inner: "void" }, full: true, mp, M: (tt) => castMods(o, tt, mp) };
   }

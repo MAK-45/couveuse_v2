@@ -91,7 +91,8 @@ for (const [name, more] of elecCases) {
     const beyond = { ...live, mode: "beyond" }, b0 = render(portal, beyond, 0), bL = render(portal, beyond, (M - 1) * P / M);
     report(`portal beyond self-loop${tag}`, diff(b0, render(portal, beyond, P)), diff(render(portal, beyond, P / 3), render(portal, beyond, P + P / 3)));
     const o = { ...live, mode: "cross", loops }, T = o.duration * loops, N = Ni * loops;
-    report(`portal cross${tag}`, diff(render(portal, o, 0), render(portal, live, 0)), diff(render(portal, o, (N - 1) * T / N), bL));
+    const bOpenL = render(portal, { ...live, mode: "beyondOpen" }, (M - 1) * P / M);
+    report(`portal cross${tag}`, diff(render(portal, o, 0), render(portal, live, 0)), diff(render(portal, o, (N - 1) * T / N), live.crossKeep ? bOpenL : bL));
     // and home again: open the way back from "beyond", rest by it, go back through, home at rest (or with it open)
     const bOpen = { ...live, mode: "beyondOpen" }, o0 = render(portal, bOpen, 0), oL = render(portal, bOpen, (M - 1) * P / M);
     report(`portal beyondOpen loop${tag}`, diff(o0, render(portal, bOpen, P)), 0);
