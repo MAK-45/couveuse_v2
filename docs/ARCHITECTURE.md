@@ -29,6 +29,8 @@ and only supply `M` plus their own extra drawing (`back`/`front` hooks). `ambien
 | ice-blob-loops.js | Boucles | `L.name = (o) => ({ mods(t), back?, front? })`, phase via `phase(o, t)` |
 | ice-scene-objects.js | Objets | `objects[]` list; `mode` live / appear / remove; `appearing()` / `removing()` per style |
 | ice-blob-electric.js | Électricité | `L.name = (o) => ({ mods(t), charge(t), back?(p,C,V,t,st), front? })`; `V` = electricity colours, `charge` tints the blob; bolts via `zap()` reseeded `flick()` times a loop. Runs as an action: time is `prog()`, `presence()` fades it in/out and `settle()` brings every modifier back to neutral |
+| ice-blob-portal.js | Portail | `mode` open / live / close / cross / beyond / reopen / beyondOpen / return (`wayOf()` gives the way in and out, so the crossing runs both ways); `crossing()` + `crossMods()` + `reflect()` (the mirror image, drawn into a scratch frame and copied flipped inside the portal) for the way through; `opening()`/`closing()` give the portal's shape over progress, `drawPortal()` draws the world inside (via `renderWorld`), the inner lip, the rim and its flames, `castFx()` the ray and flashes. `total(o)`: live = the world's period |
+| ice-worlds.js | Mondes | `renderWorld(w, wt, P, T, X0, Y0, bw, bh, cam)` → `{ col, lit }` for a window of scene cells; layers at depths shifted by voyage + camera (parallax); `WORLD_TYPES`, `DEFAULTS`, `worldOf()`, `worldPeriod()` |
 | ice-blob-clock.js | Heure | 5x7 font, cells laid out by `layout()`, styles in `drawCells()`, timetable in `phases()` |
 
 `prog(o, t)` (actions, objects, clock) maps time to the action's progress 0..1 inside the lead-in/lead-out.
@@ -40,13 +42,14 @@ Sections, in order (search for `// ----`):
 
 1. Constants: palettes, ratios, `SHARED_DEF` (scene/export settings shared by all tabs), `PER_DEF`.
 2. `ANIMS` registry: `{ name, fx, file, id, mode: "box" | "scene", groups }`. Tabs: birth, blob, actions,
-   objects, loops, clock, elec. `mode: "box"` = drawn in its own square zone and blitted (birth only);
+   objects, loops, clock, elec, portal, worlds. `mode: "box"` = drawn in its own square zone and blitted (birth only);
    `"scene"` = drawn across the whole scene at `1/scale` resolution and upscaled.
 3. Per-tab UI tables: `ACTION_LIST/ACTION_PARAMS`, `LOOP_LIST/LOOP_PARAMS`, `OBJ_ROWS`, `clockGroups()`…
    A row is `[key, label, min, max, step, unit]` (slider) or `[key, label, { select | color | button }]`.
    Units with special read-outs: `" % pos x"`, `" % pos y"`, `" % de la scène"`, `" % de la largeur"`,
    `" % de la hauteur"`, `" part"`, `" % (sol)"`.
-4. State `S = { anim, shared, birth, blob, actions, objects, loops, clock }` saved in `localStorage`
+4. State `S = { anim, shared, birth, blob, actions, objects, loops, clock, elec, portal, worlds }`
+   (`worlds = { list: [{ id, name, wType, w… }], sel, nextId }`; the portal picks one with `pWorld`) saved in `localStorage`
    (`couveuse-v3`), merged by `sanitize()`. `V` is the flat view the current tab reads (`refreshV()`);
    `setV()` writes back to the right store. Actions/objects/loops/clock borrow the blob's look from `S.blob`.
 5. Controls: `buildControls()` → `group()` + `rowFor()`; `wire()` hooks shared controls (guarded by `on()`).

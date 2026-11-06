@@ -99,7 +99,7 @@ input[type=range] { width: 100%; accent-color: var(--glow); height: 22px; margin
 .preset { display: flex; align-items: center; gap: 6px; padding: 5px 10px 5px 6px; background: transparent; color: var(--ink); border: 1px solid var(--line); font-weight: 500; font-size: 13px; }
 .preset i { width: 30px; height: 12px; border-radius: 2px; display: block; }
 .inline { display: flex; gap: 8px; align-items: center; }
-.inline input[type=number], select { flex: 1; font: 14px "Instrument Sans", system-ui, sans-serif; padding: 7px 9px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); min-width: 0; }
+.inline input[type=number], .inline input[type=text], select { flex: 1; font: 14px "Instrument Sans", system-ui, sans-serif; padding: 7px 9px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); min-width: 0; }
 .inline input[type=color] { width: 44px; height: 34px; border: 1px solid var(--line); border-radius: 4px; padding: 0; background: none; }
 canvas#view.fit { width: 100%; height: auto; max-height: calc(100vh - 230px); object-fit: contain; }
 @media (max-width: 860px) { canvas#view.fit { max-height: 70vh; } }
@@ -163,6 +163,8 @@ canvas#view:active { cursor: grabbing; }
         <button class="tab" role="tab" data-anim="loops">Boucles</button>
         <button class="tab" role="tab" data-anim="clock">Heure</button>
         <button class="tab" role="tab" data-anim="elec">Électricité</button>
+        <button class="tab" role="tab" data-anim="portal">Portail</button>
+        <button class="tab" role="tab" data-anim="worlds">Mondes</button>
       </div>
     </header>
     <div class="view"><div class="canvas-wrap" id="wrap"><canvas id="view" width="480" height="270" aria-label="Scène : la créature en boucle. Glisse-la pour la placer, ou utilise les flèches."></canvas></div></div>

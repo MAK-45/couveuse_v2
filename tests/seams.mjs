@@ -3,6 +3,9 @@
 //   actions / clock / electricity   first and last frames == the idle's first and last frames (chain with the idle GIF)
 //   objects              appear: first == live without, last == live with; remove: the reverse
 //   loops                frame at t == frame at t + T (its own loop)
+//   portal               open: first == idle, last == live; live loops on itself; close: first == live, last == idle
+//                        cross: first == live, last == beyond (the blob at rest in the other world); beyond loops on itself
+//   worlds               a world loops on itself (its own period, whole blob loops)
 // Run: npm test      (exit code 1 on any failure)
 import { createFrame, clearFrame, painterFor, composite } from "../pixelfx/src/core/index.js";
 import * as idle from "../pixelfx/src/fx/creature/ice-blob-idle.js";
@@ -11,6 +14,8 @@ import * as objects from "../pixelfx/src/fx/creature/ice-scene-objects.js";
 import * as loops from "../pixelfx/src/fx/creature/ice-blob-loops.js";
 import * as clock from "../pixelfx/src/fx/creature/ice-blob-clock.js";
 import * as elec from "../pixelfx/src/fx/creature/ice-blob-electric.js";
+import * as portal from "../pixelfx/src/fx/creature/ice-blob-portal.js";
+import * as worlds from "../pixelfx/src/fx/creature/ice-worlds.js";
 
 const W = 320, H = 200, Ni = 120; // Ni: frames in one idle loop (D * fps with the defaults)
 function render(mod, o, t) {
@@ -65,6 +70,46 @@ for (const [name, more] of elecCases) {
   const o = { ...elec.meta.options, elec: name, ...more }, T = o.duration * o.loops, tag = Object.keys(more).length ? " " + Object.values(more).join(",") : "";
   const N = Ni * o.loops;
   report(`elec ${name}${tag}`.slice(0, 34), diff(render(elec, o, 0), id0), diff(render(elec, o, (N - 1) * T / N), idL));
+}
+
+// the portal: rest -> open -> live (the world's loop) -> close -> rest, each style, shapes and planes
+{
+  const room = [-160, -115, 160, 85];
+  const cases = [[{}, ""], [{ pShape: "arch", pLayer: "front", pX: -70, pY: -30 }, " arch front"], [{ pShape: "rift", world: { wState: "moving", wDrift: 2, wDir: "upleft", wLoops: 2 } }, " rift drift"]];
+  for (const [more, tag] of cases) {
+    const live = { ...portal.meta.options, room, ...more, mode: "live" }, P = portal.total(live), M = Math.round(P / D) * Ni;
+    const l0 = render(portal, live, 0), lL = render(portal, live, (M - 1) * P / M);
+    report(`portal live self-loop${tag}`, diff(l0, render(portal, live, P)), diff(render(portal, live, P / 3), render(portal, live, P + P / 3)));
+    for (const st of portal.OPEN) { const o = { ...live, mode: "open", openStyle: st, loops: 2 }, T = o.duration * 2, N = Ni * 2; report(`portal open ${st}${tag}`.slice(0, 34), diff(render(portal, o, 0), id0), diff(render(portal, o, (N - 1) * T / N), lL)); }
+    for (const st of portal.CLOSE) { const o = { ...live, mode: "close", closeStyle: st, loops: 2 }, T = o.duration * 2, N = Ni * 2; report(`portal close ${st}${tag}`.slice(0, 34), diff(render(portal, o, 0), l0), diff(render(portal, o, (N - 1) * T / N), idL)); }
+  }
+  // going through, and the blob at rest in the other world (still or moving, portal kept or closed behind it)
+  const crossCases = [[{}, 3, ""], [{ crossKeep: 1 }, 3, " keep"], [{ world: { wState: "moving", wDrift: 3, wDir: "downleft" } }, 2, " moving"],
+    [{ pShape: "rift", pX: -80, pY: 20, pLayer: "front", world: { wLoops: 5 } }, 4, " rift left"]];
+  for (const [more, loops, tag] of crossCases) {
+    const live = { ...portal.meta.options, room, ...more, mode: "live" }, P = portal.total(live), M = Math.round(P / D) * Ni;
+    const beyond = { ...live, mode: "beyond" }, b0 = render(portal, beyond, 0), bL = render(portal, beyond, (M - 1) * P / M);
+    report(`portal beyond self-loop${tag}`, diff(b0, render(portal, beyond, P)), diff(render(portal, beyond, P / 3), render(portal, beyond, P + P / 3)));
+    const o = { ...live, mode: "cross", loops }, T = o.duration * loops, N = Ni * loops;
+    const bOpenL = render(portal, { ...live, mode: "beyondOpen" }, (M - 1) * P / M);
+    report(`portal cross${tag}`, diff(render(portal, o, 0), render(portal, live, 0)), diff(render(portal, o, (N - 1) * T / N), live.crossKeep ? bOpenL : bL));
+    // and home again: open the way back from "beyond", rest by it, go back through, home at rest (or with it open)
+    const bOpen = { ...live, mode: "beyondOpen" }, o0 = render(portal, bOpen, 0), oL = render(portal, bOpen, (M - 1) * P / M);
+    report(`portal beyondOpen loop${tag}`, diff(o0, render(portal, bOpen, P)), 0);
+    for (const st of portal.OPEN) {
+      const r = { ...live, mode: "reopen", openStyle: st, loops: 2 }, Tr = r.duration * 2, Nr = Ni * 2;
+      report(`portal reopen ${st}${tag}`.slice(0, 34), diff(render(portal, r, 0), b0), diff(render(portal, r, (Nr - 1) * Tr / Nr), oL));
+    }
+    for (const keep of [0, 1]) {
+      const r = { ...live, mode: "return", returnKeep: keep, loops }, Tr = r.duration * loops, Nr = Ni * loops;
+      report(`portal return${keep ? " keep" : ""}${tag}`.slice(0, 34), diff(render(portal, r, 0), o0), diff(render(portal, r, (Nr - 1) * Tr / Nr), keep ? render(portal, live, (M - 1) * P / M) : idL));
+    }
+  }
+  // a world alone (tab Mondes) loops on its own period
+  for (const more of [{}, { wState: "moving", wDrift: 3, wDir: "downright", wLoops: 3, wNebMorph: 2 }]) {
+    const o = { ...worlds.meta.options, room, ...more }, P = worlds.worldPeriod(o.duration, worlds.worldOf(o));
+    report(`world space${Object.keys(more).length ? " drift" : ""}`, diff(render(worlds, o, 0), render(worlds, o, P)), diff(render(worlds, o, P / 7), render(worlds, o, P + P / 7)));
+  }
 }
 
 console.log(fails ? `\n${fails} failing` : "\nall seams exact");

@@ -545,6 +545,193 @@ function elecGroups() {
     { ...PLACE, rows: PLACE.rows.filter((r) => r[0] !== "canvas"), hint: "la même que le blob né" },
   ];
 }
+// ---- the worlds tab: the places portals open onto. Each world is saved here, with its own settings
+ANIMS.worlds = { name: "Mondes", fx: PFX.worlds, file: "monde", id: "creature/ice-worlds", mode: "scene", groups: null };
+const WORLD_TYPE_LIST = [["space", "Espace", "étoiles lointaines, nébuleuse"]];
+const worldTypeName = (t) => (WORLD_TYPE_LIST.find((x) => x[0] === t) || WORLD_TYPE_LIST[0])[1];
+const WORLD_KEYS = new Set(Object.keys(PFX.worlds.SPACE));
+const worldNew = (id, name, type = "space") => ({ id, name, ...PFX.worlds.DEFAULTS[type] });
+const worldsDef = () => ({ list: [worldNew(1, "Espace profond")], sel: 1, nextId: 2 });
+const selWorld = () => S.worlds.list.find((w) => w.id === S.worlds.sel) || S.worlds.list[0];
+const worldById = (id) => S.worlds.list.find((w) => w.id === +id) || S.worlds.list[0];
+const worldsView = () => ({ ...S.shared, ...S.blob, ...selWorld() });
+// colour moods for a world: sky, nebula, its heart, the stars' tint
+const WORLD_PRESETS = {
+  "Glace": ["#000000", "#1a3f9a", "#6a35c8", "#9fe0ff", "#9fe0ff"], "Aurore": ["#000000", "#0f6a5a", "#2a8fd0", "#b8fff0", "#a8ffe0"],
+  "Braise": ["#000000", "#8a2a12", "#c2185b", "#ffd08a", "#ffc070"], "Améthyste": ["#000000", "#4a1a8a", "#b0389a", "#f0b8ff", "#e0a8ff"],
+  "Émeraude": ["#000000", "#0d5a2a", "#1f7a8c", "#c8ffb0", "#b0ffd0"], "Nuit pure": ["#000000", "#10204a", "#202a5a", "#8aa6d6", "#dcefff"],
+};
+const WORLD_STATES = [["still", "Immobile : il vit sur place, sans défiler"], ["moving", "En mouvement : il défile, comme en voyage"]];
+const DIR_LIST = [["left", "Vers la gauche"], ["right", "Vers la droite"], ["up", "Vers le haut"], ["down", "Vers le bas"], ["upleft", "En haut à gauche"], ["upright", "En haut à droite"], ["downleft", "En bas à gauche"], ["downright", "En bas à droite"], ["none", "Immobile"]];
+const WORLD_PARAMS = {
+  space: [
+    { title: "Couleurs", hint: "ciel, nébuleuse, étoiles", key: "wcol", open: true, worldPresets: true, rows: [
+      ["wSky", "Fond de l’espace", { color: true }], ["wNebA", "Nébuleuse, première teinte", { color: true }], ["wNebB", "Nébuleuse, seconde teinte", { color: true }],
+      ["wNebCore", "Cœur de la nébuleuse", { color: true }], ["wStarCol", "Étoiles", { color: true }], ["wStarTint", "Étoiles colorées", { color: true }]] },
+    { title: "Nébuleuse", hint: "les nuages de lumière", key: "wneb", rows: [
+      ["wNeb", "Intensité", 0, 2.5, 0.05, ""], ["wNebCover", "Étendue", 0, 1, 0.01, ""], ["wNebScale", "Taille des nuages", 24, 240, 1, " px"],
+      ["wNebSteps", "Paliers de couleur", 2, 8, 1, ""], ["wNebDither", "Tramage entre les paliers", 0, 1.5, 0.05, ""], ["wNebMix", "Part de la seconde teinte", 0, 1, 0.01, ""],
+      ["wNebWarp", "Tourbillons", 0, 2.5, 0.05, ""], ["wNebMorph", "Mouvements par boucle du monde", 0, 4, 1, ""], ["wNebGlow", "Lueur", 0, 2.5, 0.05, ""]] },
+    { title: "Étoiles", hint: "trois profondeurs", key: "wstars", rows: [
+      ["wFar", "Étoiles lointaines", 0, 600, 1, ""], ["wMid", "Étoiles moyennes", 0, 200, 1, ""], ["wNear", "Étoiles proches", 0, 60, 1, ""],
+      ["wBright", "Étoiles brillantes à rayons", 0, 16, 1, ""], ["wSpikes", "Longueur des rayons", 0, 2.5, 0.05, ""], ["wTwinkle", "Scintillement", 0, 8, 1, ""],
+      ["wStarGlow", "Lueur des étoiles", 0, 2.5, 0.05, ""], ["wSeed", "Disposition (graine)", 0, 999, 1, ""]] },
+    { title: "Mouvement", hint: "immobile ou en mouvement", key: "wmove", open: true, rows: [
+      ["wShoot", "Étoiles filantes par boucle", 0, 10, 1, ""], ["wShootLen", "Longueur des étoiles filantes", 0.3, 3, 0.05, "×"], ["wDust", "Poussière d’étoiles proche", 0, 160, 1, ""],
+      ["wState", "État du monde", { select: WORLD_STATES }], ["wDrift", "Vitesse du défilement (en mouvement)", 1, 12, 1, ""], ["wDir", "Les étoiles défilent", { select: DIR_LIST.filter((d) => d[0] !== "none") }], ["wParallax", "Profondeur (parallaxe)", 0, 2, 0.05, ""],
+      ["wCamX", "Caméra, horizontale", -400, 400, 1, " px"], ["wCamY", "Caméra, verticale", -400, 400, 1, " px"]] },
+    { title: "Temps", hint: "la boucle du monde", key: "wtime", open: true, rows: [["wLoops", "Durée de la boucle du monde", 1, 12, 1, " × boucle du blob"]] },
+  ],
+};
+function worldGroups() {
+  const w = selWorld();
+  return [
+    { title: "Mes mondes", hint: `${S.worlds.list.length} monde${S.worlds.list.length > 1 ? "s" : ""}`, key: "wlist", open: true, worldList: true, rows: [] },
+    { title: "Type de monde", hint: worldTypeName(w.wType), key: "wtype", pickerList: WORLD_TYPE_LIST, pickerKey: "wType", rows: [] },
+    ...(WORLD_PARAMS[w.wType] || WORLD_PARAMS.space).map((g) => g.key !== "wmove" || w.wState === "moving" ? g : { ...g, rows: g.rows.filter((r) => r[0] !== "wDrift" && r[0] !== "wDir") }),
+  ];
+}
+function worldListMarkup(rows) {
+  const w = selWorld();
+  rows.insertAdjacentHTML("beforeend", `<div class="row"><label for="in-wname"><span>Nom du monde</span></label><div class="inline"><input type="text" id="in-wname" maxlength="40" value=""></div></div>`);
+  const nm = rows.querySelector("#in-wname");
+  nm.value = w.name;
+  nm.oninput = () => { w.name = nm.value.trim() || "Sans nom"; const b = rows.querySelector(`[data-wid="${w.id}"] strong`); if (b) b.textContent = w.name; persist(); };
+  const ul = document.createElement("div");
+  ul.className = "objlist";
+  for (const x of S.worlds.list) {
+    const r = document.createElement("div");
+    r.className = "obj" + (x.id === w.id ? " on" : ""); r.dataset.wid = x.id;
+    r.innerHTML = `<button type="button" class="objpick" aria-pressed="${x.id === w.id}"><strong></strong><span>${worldTypeName(x.wType)} · boucle de ${x.wLoops} × ${(+S.blob.duration).toFixed(1)} s</span></button><button type="button" class="objdel" aria-label="Supprimer ce monde">Supprimer</button>`;
+    r.querySelector("strong").textContent = x.name;
+    r.querySelector(".objpick").onclick = () => { S.worlds.sel = x.id; refreshV(); buildControls(); changed(); };
+    r.querySelector(".objdel").onclick = () => removeWorld(x.id);
+    ul.appendChild(r);
+  }
+  rows.appendChild(ul);
+  rows.insertAdjacentHTML("beforeend", `<div class="row"><div class="inline"><button type="button" id="wNew">Nouveau monde</button><button type="button" id="wDup">Dupliquer</button><button type="button" id="wSave">Enregistrer en fichier</button><button type="button" id="wOpen">Ouvrir un fichier</button><input type="file" id="wFile" accept=".json,application/json" hidden></div>
+    <p class="note">Tes mondes sont gardés dans ce navigateur et dans « Enregistrer les réglages ». Glisse dans l’aperçu pour déplacer la caméra : les étoiles proches défilent plus vite que les lointaines.</p></div>`);
+  rows.querySelector("#wNew").onclick = () => addWorld();
+  rows.querySelector("#wDup").onclick = () => addWorld({ ...selWorld(), name: selWorld().name + " (copie)" });
+  rows.querySelector("#wSave").onclick = () => { const x = selWorld(); run([["Monde", async () => JSON.stringify({ couveuseWorld: 1, world: x }, null, 1), "json", "monde-" + slug(x.name)]], `Monde « ${x.name} » enregistré.`); };
+  rows.querySelector("#wOpen").onclick = () => rows.querySelector("#wFile").click();
+  rows.querySelector("#wFile").onchange = openWorldFile;
+}
+const slug = (s) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "monde";
+function addWorld(from) {
+  const id = S.worlds.nextId++, w = from ? { ...from, id } : worldNew(id, `Monde ${id}`);
+  if (!from) w.wSeed = Math.floor(Math.random() * 999);
+  S.worlds.list.push(w); S.worlds.sel = id;
+  refreshV(); buildControls(); changed();
+  say(`Monde « ${w.name} » créé.`);
+}
+function removeWorld(id) {
+  if (S.worlds.list.length <= 1) { say("Il faut garder au moins un monde.", true); return; }
+  const i = S.worlds.list.findIndex((w) => w.id === id), [w] = S.worlds.list.splice(i, 1);
+  if (S.worlds.sel === id) S.worlds.sel = S.worlds.list[Math.max(0, i - 1)].id;
+  if (S.portal.pWorld === id) S.portal.pWorld = S.worlds.list[0].id;
+  refreshV(); buildControls(); changed();
+  say(`Monde « ${w.name} » supprimé.`);
+}
+async function openWorldFile(e) {
+  const f = e.target.files && e.target.files[0];
+  e.target.value = "";
+  if (!f) return;
+  try {
+    const v = JSON.parse(await f.text()), w = v.world || (v.meta && v.meta.pixelfx && v.meta.pixelfx.world);
+    if (!w || typeof w !== "object" || !PFX.worlds.DEFAULTS[w.wType || "space"]) throw 0;
+    addWorld({ ...PFX.worlds.DEFAULTS[w.wType || "space"], ...w, name: String(w.name || "Monde importé").slice(0, 40) });
+  } catch (err) { say("Ce fichier ne contient pas de monde de la Couveuse.", true); }
+}
+// ---- the portal tab: the blob opens a portal onto a world, keeps it open, closes it
+ANIMS.portal = { name: "Portail", fx: PFX.portal, file: "portail", id: "creature/ice-blob-portal", mode: "scene", groups: null };
+const PORTAL_MODES = [["open", "Création", "le blob ouvre le portail"], ["live", "Portail ouvert", "il reste là, le monde vit"], ["close", "Fermeture", "le blob le referme"],
+  ["cross", "Traversée", "il passe de l’autre côté"], ["beyond", "Dans l’autre monde", "au repos, de l’autre côté"],
+  ["reopen", "Ouvrir le retour", "il rouvre un portail vers chez lui"], ["beyondOpen", "Autre monde, portail ouvert", "au repos, le retour ouvert"],
+  ["return", "Retour", "il rentre dans son monde d’origine"]];
+const LOOPING_MODES = new Set(["live", "beyond", "beyondOpen"]);
+const portalDef = () => {
+  const d = Object.fromEntries(Object.entries(PFX.portal.meta.options).filter(([k]) => !(k in PFX.blob.meta.options) && !["world", "room", "loops", "pX", "pY", "pH"].includes(k)));
+  return { ...d, loops_open: 2, loops_close: 2, loops_cross: 3, loops_reopen: 2, loops_return: 3, ptX: 76, ptY: 44, ptSize: 46, pWorld: 1, pWorldState: "world", pDrift: 2, pDir: "left" };
+};
+const PORTAL_KEYS = new Set(Object.keys(portalDef()));
+const PORTAL_ROWS = [
+  ["pWorld", "Monde de l’autre côté", { worlds: true }],
+  ["ptX", "Position horizontale", 0, 100, 0.1, " % pos x"], ["ptY", "Position verticale", 0, 100, 0.1, " % pos y"],
+  ["ptSize", "Hauteur", 4, 100, 0.5, " % de la hauteur"], ["pRatio", "Largeur par rapport à la hauteur", 0.2, 2, 0.01, "×"],
+  ["pShape", "Forme", { select: [["oval", "Ovale"], ["circle", "Cercle"], ["arch", "Arche (porte)"], ["rift", "Faille"], ["diamond", "Losange"]] }],
+  ["pLayer", "Plan", { select: [["back", "Derrière le blob"], ["front", "Devant le blob"]] }],
+  ["pViewX", "Cadrage du monde, horizontal", -300, 300, 1, " px"], ["pViewY", "Cadrage du monde, vertical", -300, 300, 1, " px"],
+];
+const CROSS_ROWS = [
+  ["crossKeep", "Le portail, de l’autre côté", { select: [["0", "Se referme derrière lui"], ["1", "Reste ouvert derrière lui"]] }],
+  ["crossMirror", "Reflet en miroir dans le portail", 0, 2, 0.05, ""], ["crossSquash", "Se ramasse avant de sauter", 0, 2.5, 0.05, ""],
+  ["crossArc", "Hauteur du saut", 0, 3, 0.05, ""], ["crossLook", "Regarde son nouveau monde", 0, 2, 0.05, ""], ["crossFlash", "Éclats de lumière", 0, 2.5, 0.05, ""],
+];
+// how the world behaves in this tab: as set in Mondes, or still, or moving at its own speed
+function worldStateRows() {
+  return [["pWorldState", "État du monde", { select: [["world", "Comme réglé dans Mondes"], ...WORLD_STATES] }],
+    ...(V.pWorldState === "moving" ? [["pDrift", "Vitesse du défilement", 1, 12, 1, " drift"], ["pDir", "Les étoiles défilent", { select: DIR_LIST.filter((d) => d[0] !== "none") }]] : [])];
+}
+const PORTAL_LOOK = [
+  ["pHue", "Teinte du bord", 0, 360, 1, "°"], ["pRim", "Épaisseur du bord", 1, 6, 1, " px"], ["pFlames", "Flammèches d’énergie", 0, 2.5, 0.05, ""],
+  ["pWobble", "Bord qui ondule", 0, 3, 0.05, ""], ["pSwirl", "Tours de l’énergie par boucle du monde", 0, 8, 1, ""], ["pGlow", "Lueur", 0, 2.5, 0.05, ""],
+  ["pLip", "Bord intérieur sombre", 0, 3, 1, " px"], ["pLens", "Effet de loupe sur les bords", 0, 2, 0.05, ""],
+  ["pSparks", "Étincelles autour", 0, 40, 1, ""], ["pLeak", "Poussière du monde qui s’échappe", 0, 40, 1, ""],
+];
+const OPEN_ROWS = [
+  ["openStyle", "Manière", { select: [["tear", "Déchirure : une fente qui s’ouvre"], ["spiral", "Tourbillon de lumière"], ["bloom", "Éclosion : un anneau de lumière"]] }],
+  ["openBeam", "Rayon lancé par le blob", { select: [["1", "Oui"], ["0", "Non"]] }],
+  ["openPower", "Intensité de la lumière", 0, 2.5, 0.05, ""], ["openParticles", "Particules", 0, 80, 1, ""],
+];
+const CLOSE_ROWS = [
+  ["closeStyle", "Manière", { select: [["seal", "Se referme en fente"], ["implode", "Implosion en tourbillon"], ["fade", "S’éteint, se dissout"]] }],
+  ["closePower", "Intensité de la lumière", 0, 2.5, 0.05, ""], ["closeParticles", "Particules", 0, 80, 1, ""],
+];
+function portalGroups() {
+  const m = V.mode, w = worldById(V.pWorld);
+  const gs = [
+    { title: "Animation", hint: "ce qu’on exporte", key: "ptanim", open: true, portalModes: true,
+      rows: [...(LOOPING_MODES.has(m) ? [] : [[`loops_${m}`, "Durée", 1, 8, 1, ""], ["lead", "Repos avant et après", 0, 0.3, 0.01, ""], ["castLean", "Le blob se tourne vers le portail", 0, 2.5, 0.05, ""]])] },
+    { title: "Le portail", hint: `vers « ${w.name} »`, key: "ptmain", open: m !== "beyond", rows: [...PORTAL_ROWS.slice(0, 1), ...worldStateRows(), ...PORTAL_ROWS.slice(1)] },
+    { title: "Allure du portail", hint: "bord, énergie", key: "ptlook", rows: PORTAL_LOOK },
+  ];
+  if (m === "open") gs.push({ title: "Ouverture", hint: "comment il naît", key: "ptopen", open: true, rows: OPEN_ROWS });
+  if (m === "close") gs.push({ title: "Fermeture", hint: "comment il se referme", key: "ptclose", open: true, rows: CLOSE_ROWS });
+  if (m === "cross") gs.push({ title: "Traversée", hint: "le passage", key: "ptcross", open: true, rows: CROSS_ROWS });
+  if (m === "reopen") gs.push({ title: "Ouverture du retour", hint: "comme la création", key: "ptreopen", open: true, rows: OPEN_ROWS });
+  if (m === "return") gs.push({ title: "Retour", hint: "le passage vers chez lui", key: "ptreturn", open: true, rows: [["returnKeep", "Chez lui, le portail", { select: [["0", "Se referme derrière lui (fin = blob né)"], ["1", "Reste ouvert (fin = portail ouvert)"]] }], ...CROSS_ROWS.slice(1)] });
+  gs.push({ ...PLACE, rows: PLACE.rows.filter((r) => r[0] !== "canvas"), hint: "la même que le blob né" });
+  return gs;
+}
+function portalModesMarkup(rows) {
+  const grid = document.createElement("div");
+  grid.className = "actions modes"; grid.setAttribute("role", "radiogroup"); grid.setAttribute("aria-label", "Animation du portail");
+  for (const [id, name, desc] of PORTAL_MODES) {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "act"; b.setAttribute("role", "radio"); b.setAttribute("aria-checked", String(id === V.mode));
+    b.innerHTML = `<strong>${name}</strong><span>${desc}</span>`;
+    b.onclick = () => { if (V.mode === id) return; setV("mode", id); buildControls(); changed(); };
+    grid.appendChild(b);
+  }
+  rows.appendChild(grid);
+  const w = worldById(V.pWorld), txt = {
+    open: "Commence sur l’image du blob né, sans portail. Le blob ouvre le portail et revient à son repos : la dernière image est celle du portail ouvert.",
+    live: `Le blob au repos, le portail ouvert : dure la boucle du monde « ${w.name} » (${w.wLoops} × ${(+V.duration).toFixed(1)} s) et se raccorde à elle-même, à la création et à la fermeture.`,
+    close: "Commence sur le portail ouvert, le blob le referme et revient exactement à son repos de blob né.",
+    cross: "Commence sur le portail ouvert. Le blob plonge dedans pendant que son reflet en miroir vient à sa rencontre, le portail grandit jusqu’à remplir la scène, et il ressort de l’autre côté par un portail placé en miroir. Si le portail se referme derrière lui, la dernière image est celle de « Dans l’autre monde » ; s’il reste ouvert, celle de « Autre monde, portail ouvert » (passe alors directement au retour).",
+    beyond: `Le blob au repos dans le monde « ${w.name} », qui remplit toute la scène : dure la boucle du monde et se raccorde à elle-même et à la fin de la traversée.`,
+    reopen: "Commence sur « Dans l’autre monde » (sans portail). Le blob rouvre, là où il est sorti, un portail vers son monde d’origine (on y voit le noir de chez lui), puis revient à son repos. La dernière image est celle de « Autre monde, portail ouvert ».",
+    beyondOpen: "Le blob au repos dans l’autre monde, le portail du retour ouvert à côté de lui : dure la boucle du monde et se raccorde à elle-même.",
+    return: "Commence sur « Autre monde, portail ouvert ». Le blob plonge dans le portail avec son reflet, le noir de chez lui remplit la scène, et il ressort par le premier portail. Si le portail se referme, la dernière image est celle du blob né ; s’il reste ouvert, celle du portail ouvert.",
+  }[V.mode];
+  rows.insertAdjacentHTML("beforeend", `<p class="note">${txt} Enchaîne : blob né → création → portail ouvert (autant de fois que tu veux) → fermeture → blob né, ou bien portail ouvert → traversée → dans l’autre monde (en boucle) → ouvrir le retour → autre monde, portail ouvert (en boucle) → retour → blob né.</p>`);
+}
+// the portal's centre and half-size, in scene pixels
+function portalRect() {
+  const H = (V.ptSize / 100) * SH, W = V.pShape === "circle" ? H : H * V.pRatio;
+  return { cx: Math.round((V.ptX / 100) * SW), cy: Math.round((V.ptY / 100) * SH), rx: W / 2, ry: H / 2 };
+}
 const RENDER = { title: "Rendu", hint: "fond, export", render: true, rows: [
   ["zoom", "Zoom de l’aperçu", 0, 6, 1, "×"],
   ["gifScale", "Agrandissement du GIF", 1, 6, 1, "×"],
@@ -554,7 +741,7 @@ const SHARED_KEYS = new Set(Object.keys(SHARED_DEF));
 // ---- state: { anim, shared, birth, blob }, kept in this browser
 const KEY = "couveuse-v3";
 function animDef(a) { const o = ANIMS[a].fx.meta.options; return { ...o, ...PER_DEF, palette: [...o.palette] }; }
-function fresh() { return { anim: "blob", shared: { ...SHARED_DEF }, birth: animDef("birth"), blob: animDef("blob"), actions: actionDef(), objects: objectsDef(), loops: loopsDef(), clock: clockDef(), elec: elecDef() }; }
+function fresh() { return { anim: "blob", shared: { ...SHARED_DEF }, birth: animDef("birth"), blob: animDef("blob"), actions: actionDef(), objects: objectsDef(), loops: loopsDef(), clock: clockDef(), elec: elecDef(), portal: portalDef(), worlds: worldsDef() }; }
 function clampInt(v, lo, hi) { v = Math.round(+v); return Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : lo; }
 function sanitize(v) {
   const f = fresh(), s = { anim: ANIMS[v && v.anim] ? v.anim : f.anim, shared: { ...f.shared, ...(v && v.shared) } };
@@ -563,6 +750,15 @@ function sanitize(v) {
   s.clock = { ...f.clock, ...((v && v.clock) || {}) };
   s.elec = { ...f.elec, ...((v && v.elec) || {}) };
   if (!ELEC_LIST.some((a) => a[0] === s.elec.elec)) s.elec.elec = f.elec.elec;
+  s.worlds = { ...f.worlds, ...((v && v.worlds) || {}) };
+  if (!Array.isArray(s.worlds.list) || !s.worlds.list.length) s.worlds.list = f.worlds.list;
+  s.worlds.list = s.worlds.list.filter((w) => w && typeof w === "object").map((w, i) => ({ ...(PFX.worlds.DEFAULTS[w.wType] || PFX.worlds.SPACE), id: i + 1, name: "Monde", ...w }));
+  if (!s.worlds.list.length) s.worlds.list = f.worlds.list;
+  s.worlds.nextId = Math.max(s.worlds.nextId || 1, ...s.worlds.list.map((w) => w.id + 1));
+  if (!s.worlds.list.some((w) => w.id === s.worlds.sel)) s.worlds.sel = s.worlds.list[0].id;
+  s.portal = { ...f.portal, ...((v && v.portal) || {}) };
+  if (!PORTAL_MODES.some((m) => m[0] === s.portal.mode)) s.portal.mode = f.portal.mode;
+  if (!s.worlds.list.some((w) => w.id === s.portal.pWorld)) s.portal.pWorld = s.worlds.list[0].id;
   s.objects = { ...f.objects, ...((v && v.objects) || {}) };
   if (!Array.isArray(s.objects.list)) s.objects.list = f.objects.list;
   s.objects.list = s.objects.list.filter((ob) => ob && typeof ob === "object").map((ob) => ({ ...OBJECT_DEF(), ...ob }));
@@ -595,10 +791,12 @@ function load() {
 let S = load();
 // V: what the current animation sees, the shared settings and its own together
 let V = {};
-const refreshV = () => (V = S.anim === "elec" ? { ...S.shared, ...S.blob, ...S.elec } : S.anim === "clock" ? { ...S.shared, ...S.blob, ...S.clock } : S.anim === "loops" ? { ...S.shared, ...S.blob, ...S.loops } : S.anim === "objects" ? objectsView() : S.anim === "actions" ? { ...S.shared, ...S.blob, ...S.actions } : { ...S.shared, ...S[S.anim] });
+const refreshV = () => (V = S.anim === "worlds" ? worldsView() : S.anim === "portal" ? { ...S.shared, ...S.blob, ...S.portal } : S.anim === "elec" ? { ...S.shared, ...S.blob, ...S.elec } : S.anim === "clock" ? { ...S.shared, ...S.blob, ...S.clock } : S.anim === "loops" ? { ...S.shared, ...S.blob, ...S.loops } : S.anim === "objects" ? objectsView() : S.anim === "actions" ? { ...S.shared, ...S.blob, ...S.actions } : { ...S.shared, ...S[S.anim] });
 refreshV();
 // the actions tab borrows the blob's look, timing and place: only the action is its own
 function setV(k, v) {
+  if (S.anim === "worlds" && !SHARED_KEYS.has(k)) { (WORLD_KEYS.has(k) ? selWorld() : S.blob)[k] = v; V[k] = v; return; }
+  if (S.anim === "portal" && !SHARED_KEYS.has(k)) { (PORTAL_KEYS.has(k) || k.startsWith("loops_") ? S.portal : S.blob)[k] = v; V[k] = v; return; }
   if (S.anim === "clock" && !SHARED_KEYS.has(k)) { (CLOCK_KEYS.has(k) ? S.clock : S.blob)[k] = v; V[k] = v; return; }
   if (S.anim === "elec" && !SHARED_KEYS.has(k)) { (ELEC_KEYS.has(k) ? S.elec : S.blob)[k] = v; V[k] = v; return; }
   if (S.anim === "loops" && !SHARED_KEYS.has(k)) { (LOOP_KEYS.has(k) ? S.loops : S.blob)[k] = v; V[k] = v; return; }
@@ -621,13 +819,15 @@ const fmt = (v, step, unit) => (step < 1 ? (+v).toFixed(step < 0.5 ? 2 : 1) : St
 const fmtRow = (k, v, step, unit) => {
   if (k === "posX") return `${(+v).toFixed(1)} % · ${Math.round((v / 100) * V.sceneW)} px`;
   if (k === "posY") return `${(+v).toFixed(1)} % · ${Math.round((v / 100) * V.sceneH)} px`;
-  if (k === "walkTX" || k === "tpTX" || k === "portalATX" || k === "portalBTX") return `${(+v).toFixed(1)} % · ${Math.round((v / 100) * V.sceneW)} px`;
-  if (k === "walkTY" || k === "tpTY" || k === "portalATY" || k === "portalBTY") return `${(+v).toFixed(1)} % · ${Math.round((v / 100) * V.sceneH)} px`;
+  if (k === "walkTX" || k === "tpTX" || k === "portalATX" || k === "portalBTX" || k === "ptX") return `${(+v).toFixed(1)} % · ${Math.round((v / 100) * V.sceneW)} px`;
+  if (k === "walkTY" || k === "tpTY" || k === "portalATY" || k === "portalBTY" || k === "ptY") return `${(+v).toFixed(1)} % · ${Math.round((v / 100) * V.sceneH)} px`;
   if (unit === " % de la scène") return `${(+v).toFixed(1)} % · ${Math.round((v / 100) * V.sceneH)} px`;
   if (k === "scale") return `${v}× · ${V.canvas * v} px`;
   if (k === "zoom") return +v === 0 ? "ajusté" : `${v}×`;
   if (unit === " % pos x") return `${(+v).toFixed(1)} % · ${Math.round((v / 100) * V.sceneW)} px`;
   if (unit === " % pos y") return `${(+v).toFixed(1)} % · ${Math.round((v / 100) * V.sceneH)} px`;
+  if (k === "wDrift" || k === "pDrift") return `${v} × la scène par boucle du monde`;
+  if (k === "wLoops") return `${v} × ${(+V.duration).toFixed(1)} s = ${(v * V.duration).toFixed(1)} s`;
   if (k.startsWith("loops_")) return `${v} × ${(+V.duration).toFixed(1)} s = ${(v * V.duration).toFixed(1)} s`;
   if (unit === " part") return `${Math.round(v * 100)} %`;
   if (unit === " % de la largeur") return `${Math.round(v)} % · ${Math.round((v / 100) * V.sceneW)} px`;
@@ -647,10 +847,17 @@ function rowFor(rows, def) {
       const b = r.querySelector("button"), out = r.querySelector("output");
       b.onclick = () => { setV(k, (V[k] || 1) + 1); out.textContent = `n° ${V[k]}`; changed(); };
       inputs[k] = { kind: "button", inp: b, out };
+    } else if (spec.worlds) {
+      r.innerHTML = `<label for="in-${k}"><span>${label}</span></label><div class="inline"><select id="in-${k}">${S.worlds.list.map((w) => `<option value="${w.id}"></option>`).join("")}</select><button type="button" id="editWorld">Modifier ce monde</button></div>`;
+      const sel = r.querySelector("select");
+      [...sel.options].forEach((op, i) => (op.textContent = S.worlds.list[i].name));
+      sel.onchange = () => { setV(k, +sel.value); buildControls(); changed(); };
+      r.querySelector("#editWorld").onclick = () => { S.worlds.sel = +V[k]; S.anim = "worlds"; refreshV(); buildControls(); changed(); say(`Mondes : « ${selWorld().name} » à modifier.`); };
+      inputs[k] = { kind: "select", inp: sel };
     } else if (spec.select) {
       r.innerHTML = `<label for="in-${k}"><span>${label}</span></label><div class="inline"><select id="in-${k}">${spec.select.map(([v, t]) => `<option value="${v}">${t}</option>`).join("")}</select></div>`;
       const sel = r.querySelector("select");
-      sel.onchange = () => { setV(k, sel.value); if (k === "clkSource" || k === "clkPos") buildControls(); changed(); };
+      sel.onchange = () => { setV(k, sel.value); if (k === "clkSource" || k === "clkPos" || k === "wState" || k === "pWorldState") buildControls(); changed(); };
       inputs[k] = { kind: "select", inp: sel };
     } else {
       r.innerHTML = `<label for="in-${k}"><span>${label}</span><output id="out-${k}"></output></label><div class="inline"><input type="color" id="in-${k}"></div>`;
@@ -689,13 +896,29 @@ function buildControls() {
   if (S.anim === "loops") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence et la place de l’onglet Blob né. Chaque boucle part de là où il se trouve et tourne sans fin, sans raccord visible.</p>`);
   if (S.anim === "elec") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence et la place de l’onglet Blob né. Il part de son repos, découvre l’électricité et joue avec, puis revient exactement à son repos : la première et la dernière image sont celles de la boucle du blob né. Mets les GIF bout à bout, ils s’enchaînent. Les couleurs de l’électricité se règlent à part, dans « L’électricité ».</p>`);
   if (S.anim === "clock") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence et la place de l’onglet Blob né. Il part de sa position de repos, affiche l’heure, puis revient exactement à son repos : la première et la dernière image sont celles de la boucle du blob né.</p>`);
-  const groups = S.anim === "elec" ? elecGroups() : S.anim === "clock" ? clockGroups() : S.anim === "loops" ? loopGroups() : S.anim === "objects" ? objectGroups() : S.anim === "actions" ? actionGroups() : ANIMS[S.anim].groups;
+  if (S.anim === "portal") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence et la place de l’onglet Blob né. Il ouvre un portail vers un autre monde, qu’on ne voit qu’à travers lui. Glisse le portail dans l’aperçu pour le placer, et sa poignée carrée pour changer sa taille. Les mondes se créent et se règlent dans l’onglet Mondes.</p>`);
+  if (S.anim === "worlds") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Les mondes qu’on voit à travers les portails. Crée-les, règle-les et garde-les ici ; l’aperçu montre le monde entier, en boucle sans fin. Il est fait de couches à différentes profondeurs : quand la caméra bouge, les étoiles proches défilent plus vite que les lointaines.</p>`);
+  const groups = S.anim === "worlds" ? worldGroups() : S.anim === "portal" ? portalGroups() : S.anim === "elec" ? elecGroups() : S.anim === "clock" ? clockGroups() : S.anim === "loops" ? loopGroups() : S.anim === "objects" ? objectGroups() : S.anim === "actions" ? actionGroups() : ANIMS[S.anim].groups;
   if (S.anim === "objects") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence et la place de l’onglet Blob né. Rien ne pèse dans la scène : les objets flottent et tournent au rythme de sa boucle, et chaque animation se raccorde aux autres.</p>`);
   if (S.anim === "actions") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence, la durée et la place réglées dans l’onglet Blob né. Chaque action commence et finit sur la même image que la boucle du blob né : mets les GIF bout à bout, ils s’enchaînent.</p>`);
   groups.forEach((g, gi) => {
     const [d, rows] = group(g, g.key || S.anim + gi, g.open || (gi < 2 && (S.anim === "actions" || S.anim === "objects")) ? true : gi === 0);
     if (g.objlist) objListMarkup(rows);
     if (g.objanim) objAnimMarkup(rows);
+    if (g.portalModes) portalModesMarkup(rows);
+    if (g.worldList) worldListMarkup(rows);
+    if (g.worldPresets) {
+      const pr = document.createElement("div");
+      pr.className = "presets";
+      for (const [name, cols] of Object.entries(WORLD_PRESETS)) {
+        const b = document.createElement("button");
+        b.className = "preset"; b.type = "button";
+        b.innerHTML = `<i style="background:linear-gradient(90deg,${cols.slice(1).join(",")})"></i>${name}`;
+        b.onclick = () => { ["wSky", "wNebA", "wNebB", "wNebCore", "wStarTint"].forEach((k, i) => setV(k, cols[i])); syncUI(); changed(); };
+        pr.appendChild(b);
+      }
+      rows.appendChild(pr);
+    }
     if (g.picker || g.pickerList) {
       const list = g.pickerList || ACTION_LIST, pk = g.pickerKey || "action";
       const grid = document.createElement("div");
@@ -713,7 +936,7 @@ function buildControls() {
       const place = document.createElement("div");
       place.className = "row";
       place.innerHTML = `<div class="inline"><button type="button" id="center">Centrer</button><button type="button" id="fit">Ajuster à la scène</button><label class="check"><input type="checkbox" id="in-guides">Cadre et repères</label></div>
-        <p class="note">${V.action === "portal" && S.anim === "actions" ? "Glisse la créature pour la placer, et les deux cibles pour placer les portails (le trait montre le portail, la flèche le côté où il s’ouvre)." : TARGETS[V.action] && S.anim === "actions" ? "Glisse la créature pour la placer, et la cible pour choisir où va l’action." : S.anim === "actions" && V.action === "walk" ? "Le cadre en pointillés montre la zone de la balade et ses étapes." : "Glisse la créature dans l’aperçu pour la placer, ou utilise les flèches."}</p>`;
+        <p class="note">${S.anim === "portal" ? "Glisse la créature pour la placer. Le portail se glisse aussi, et sa poignée carrée change sa taille." : V.action === "portal" && S.anim === "actions" ? "Glisse la créature pour la placer, et les deux cibles pour placer les portails (le trait montre le portail, la flèche le côté où il s’ouvre)." : TARGETS[V.action] && S.anim === "actions" ? "Glisse la créature pour la placer, et la cible pour choisir où va l’action." : S.anim === "actions" && V.action === "walk" ? "Le cadre en pointillés montre la zone de la balade et ses étapes." : "Glisse la créature dans l’aperçu pour la placer, ou utilise les flèches."}</p>`;
       rows.appendChild(place);
     }
     if (g.palette) {
@@ -799,7 +1022,7 @@ function wire() {
   on("loadScene", "onclick", () => $("sceneFile").click());
   on("sceneFile", "onchange", openSettings);
 }
-$("reset").onclick = () => { const f = fresh(); if (S.anim === "objects") { const keep = { list: S.objects.list, sel: S.objects.sel, nextId: S.objects.nextId }; S.objects = { ...f.objects, ...keep }; } else S[S.anim] = f[S.anim]; refreshV(); buildControls(); changed(); say(`${ANIMS[S.anim].name} : réglages d’origine.`); };
+$("reset").onclick = () => { const f = fresh(); if (S.anim === "worlds") { const w = selWorld(); Object.assign(w, PFX.worlds.DEFAULTS[w.wType] || PFX.worlds.SPACE); } else if (S.anim === "portal") S.portal = { ...f.portal, pWorld: S.portal.pWorld }; else if (S.anim === "objects") { const keep = { list: S.objects.list, sel: S.objects.sel, nextId: S.objects.nextId }; S.objects = { ...f.objects, ...keep }; } else S[S.anim] = f[S.anim]; refreshV(); buildControls(); changed(); say(`${ANIMS[S.anim].name} : réglages d’origine.`); };
 
 function syncPalette() { const sw = $("swatches"); if (sw) [...sw.children].forEach((c, i) => (c.value = PFX.toHex(PFX.hex(V.palette[i])))); accent(); }
 function syncUI() {
@@ -860,7 +1083,7 @@ function edgeFade(f, EF = 8) {
 let N = 120, B = 176, SW = 480, SH = 270, E = ANIMS[S.anim].fx;
 const view = $("view"), ctx = view.getContext("2d");
 let img = null;
-const loopsOf = () => (S.anim === "elec" ? Math.max(1, Math.round(V["loops_" + V.elec] || 3)) : S.anim === "clock" ? Math.max(1, Math.round(V.loops || 3)) : S.anim === "loops" ? Math.max(1, Math.round(V["loops_" + V.loop] || 2)) : S.anim === "actions" ? Math.max(1, Math.round(V["loops_" + V.action] || 2)) : S.anim === "objects" ? Math.max(1, Math.round(V["loops_" + V.mode] || 1)) : 1);
+const loopsOf = () => (S.anim === "worlds" ? Math.max(1, Math.round(V.wLoops || 1)) : S.anim === "portal" ? Math.max(1, Math.round(LOOPING_MODES.has(V.mode) ? worldById(V.pWorld).wLoops || 1 : V["loops_" + V.mode] || 2)) : S.anim === "elec" ? Math.max(1, Math.round(V["loops_" + V.elec] || 3)) : S.anim === "clock" ? Math.max(1, Math.round(V.loops || 3)) : S.anim === "loops" ? Math.max(1, Math.round(V["loops_" + V.loop] || 2)) : S.anim === "actions" ? Math.max(1, Math.round(V["loops_" + V.action] || 2)) : S.anim === "objects" ? Math.max(1, Math.round(V["loops_" + V.mode] || 1)) : 1);
 const loopLen = () => V.duration * loopsOf();
 // an action is a whole number of the blob's loops, frame for frame
 const nFrames = () => Math.max(2, Math.round(V.duration * V.fps)) * loopsOf();
@@ -874,6 +1097,20 @@ function effOpts(src = V) {
     if (V.clkSource === "now") { const d = new Date(); o.clkH = d.getHours(); o.clkM = d.getMinutes(); o.clkS = d.getSeconds(); }
   }
   if (S.anim === "elec" && src === V) o.loops = loopsOf();
+  if ((S.anim === "portal" || S.anim === "worlds") && src === V) {
+    // the scene's bounds in the effect's own pixels: the world is pinned to the scene, not to the blob
+    const g = grid();
+    o.room = [-g.ox, -g.oy, g.fw - g.ox, g.fh - g.oy];
+  }
+  if (S.anim === "worlds" && src === V) { const w = selWorld(); o.world = { ...w }; o.loops = loopsOf(); }
+  if (S.anim === "portal" && src === V) {
+    const pl = placement(), k = V.scale, r = portalRect();
+    o.world = { ...worldById(V.pWorld) };
+    if (V.pWorldState === "still") o.world.wState = "still";
+    if (V.pWorldState === "moving") Object.assign(o.world, { wState: "moving", wDrift: V.pDrift, wDir: V.pDir });
+    o.loops = LOOPING_MODES.has(V.mode) ? 1 : loopsOf();
+    o.pX = (r.cx - pl.cx) / k; o.pY = (r.cy - pl.cy) / k; o.pH = (r.ry * 2) / k;
+  }
   if (S.anim === "loops" && src === V) {
     const pl = placement(), k = V.scale, m = V.size * k * 1.3;
     o.loops = loopsOf();
@@ -1016,6 +1253,18 @@ function drawGuides() {
     }
     ctx.setLineDash([4, 3]); ctx.globalAlpha = 0.7;
   }
+  if (S.anim === "portal") {
+    const r = portalRect(), h = portalHandle();
+    ctx.save(); ctx.setLineDash([3, 3]); ctx.globalAlpha = 0.6;
+    ctx.beginPath();
+    if (V.pShape === "diamond") { ctx.moveTo(r.cx + 0.5, r.cy - r.ry); ctx.lineTo(r.cx + r.rx, r.cy + 0.5); ctx.lineTo(r.cx + 0.5, r.cy + r.ry); ctx.lineTo(r.cx - r.rx, r.cy + 0.5); ctx.closePath(); }
+    else if (V.pShape === "arch") { ctx.moveTo(r.cx - r.rx, r.cy + r.ry); ctx.lineTo(r.cx - r.rx, r.cy); ctx.ellipse(r.cx + 0.5, r.cy + 0.5, r.rx, r.ry, 0, Math.PI, 0); ctx.lineTo(r.cx + r.rx, r.cy + r.ry); ctx.closePath(); }
+    else ctx.ellipse(r.cx + 0.5, r.cy + 0.5, Math.max(1, r.rx), Math.max(1, r.ry), 0, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]); ctx.globalAlpha = 0.95;
+    ctx.strokeRect(Math.round(h[0]) - 3.5, Math.round(h[1]) - 3.5, 8, 8);
+    ctx.restore();
+  }
   for (const { p: tg, keys } of targets()) {
     // a portal: its plane, across the way it opens
     const face = keys[0] === "portalATX" ? +V.portalAAngle : keys[0] === "portalBTX" ? +V.portalBAngle : null;
@@ -1032,7 +1281,7 @@ function drawGuides() {
     ctx.moveTo(tg[0] + 0.5, tg[1] - 9); ctx.lineTo(tg[0] + 0.5, tg[1] - 3); ctx.moveTo(tg[0] + 0.5, tg[1] + 4); ctx.lineTo(tg[0] + 0.5, tg[1] + 10); ctx.stroke();
     ctx.setLineDash([4, 3]); ctx.globalAlpha = 0.7;
   }
-  ctx.setLineDash([]); ctx.globalAlpha = 0.5;
+  ctx.setLineDash([]); ctx.globalAlpha = S.anim === "worlds" ? 0 : 0.5;
   ctx.beginPath();
   ctx.moveTo(pl.cx - 4, pl.cy + 0.5); ctx.lineTo(pl.cx + 5, pl.cy + 0.5);
   ctx.moveTo(pl.cx + 0.5, pl.cy - 4); ctx.lineTo(pl.cx + 0.5, pl.cy + 5);
@@ -1051,9 +1300,11 @@ function walkZone() {
   const y0 = Math.max(m, SH * (0.5 - V.walkZoneH / 200)), y1 = Math.min(SH - m, SH * (0.5 + V.walkZoneH / 200));
   return { x0: Math.min(x0, x1), x1: Math.max(x0, x1), y0: Math.min(y0, y1), y1: Math.max(y0, y1) };
 }
+// the portal's size handle: its lower right corner
+function portalHandle() { const r = portalRect(); return [r.cx + r.rx, r.cy + r.ry]; }
 // the current action's destination in scene pixels, if it has one
 function targets() {
-  const list = S.anim === "actions" ? targetKeys(V.action) : S.anim === "clock" && V.clkPos === "free" ? [["clkPX", "clkPY"]] : [];
+  const list = S.anim === "actions" ? targetKeys(V.action) : S.anim === "clock" && V.clkPos === "free" ? [["clkPX", "clkPY"]] : S.anim === "portal" ? [["ptX", "ptY"]] : [];
   return list.map((tk) => ({ keys: tk, p: [Math.round((V[tk[0]] / 100) * SW), Math.round((V[tk[1]] / 100) * SH)] }));
 }
 // ---- drag the creature, or the action's destination, in the preview
@@ -1066,6 +1317,15 @@ let drag = null;
 view.addEventListener("pointerdown", (ev) => {
   let tgHit = null;
   const [x, y] = toScene(ev), pl = placement(), tgs = targets(), hit = Math.max(10, 14 / (view.getBoundingClientRect().width / SW));
+  if (S.anim === "worlds") {
+    drag = { cam: true, x0: x, y0: y, c0: [V.wCamX || 0, V.wCamY || 0] };
+    view.setPointerCapture(ev.pointerId);
+    return;
+  }
+  if (S.anim === "portal") {
+    const h = portalHandle();
+    if (Math.hypot(x - h[0], y - h[1]) <= hit) { drag = { size: true }; view.setPointerCapture(ev.pointerId); return; }
+  }
   const obHit = S.anim === "objects" ? [...S.objects.list].reverse().find((ob) => Math.hypot(x - (ob.x / 100) * SW, y - (ob.y / 100) * SH) <= Math.max(hit, ob.size * V.scale * 1.5 + 3)) : null;
   if (obHit) {
     drag = { obj: obHit.id, dx: (obHit.x / 100) * SW - x, dy: (obHit.y / 100) * SH - y };
@@ -1083,6 +1343,21 @@ view.addEventListener("pointerup", () => { if (drag && drag.obj) buildControls()
 view.addEventListener("pointercancel", () => { drag = null; });
 function moveTo(ev) {
   const [x, y] = toScene(ev);
+  if (drag.cam) {
+    const k = V.scale;
+    setV("wCamX", Math.round(drag.c0[0] - (x - drag.x0) / k)); setV("wCamY", Math.round(drag.c0[1] - (y - drag.y0) / k));
+    for (const key of ["wCamX", "wCamY"]) if (inputs[key]) { inputs[key].inp.value = V[key]; inputs[key].out.textContent = fmtRow(key, V[key], 1, " px"); }
+    moved();
+    return;
+  }
+  if (drag.size) {
+    const r = portalRect(), ry = Math.max(2, Math.abs(y - r.cy)), rx = Math.max(1, Math.abs(x - r.cx));
+    setV("ptSize", +Math.min(100, Math.max(4, ((ry * 2) / SH) * 100)).toFixed(1));
+    if (V.pShape !== "circle") setV("pRatio", +Math.min(2, Math.max(0.2, rx / ry)).toFixed(2));
+    for (const key of ["ptSize", "pRatio"]) if (inputs[key]) { inputs[key].inp.value = V[key]; inputs[key].out.textContent = fmtRow(key, V[key], inputs[key].step, inputs[key].unit); }
+    moved();
+    return;
+  }
   const px = Math.max(0, Math.min(SW, Math.round(x + drag.dx))), py = Math.max(0, Math.min(SH, Math.round(y + drag.dy)));
   if (drag.obj) {
     const ob = S.objects.list.find((q) => q.id === drag.obj);
@@ -1100,6 +1375,7 @@ function moveTo(ev) {
 // arrows nudge it a pixel when the preview has focus
 view.tabIndex = 0;
 view.addEventListener("keydown", (ev) => {
+  if (S.anim === "worlds") return;
   const d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[ev.key];
   if (!d) return;
   ev.preventDefault();
@@ -1144,7 +1420,8 @@ const say = (m, err = false) => { status.textContent = m; status.classList.toggl
 const nextPaint = () => new Promise((r) => setTimeout(r, 0));
 const objName = () => { const so = selObj(); return V.mode === "live" || !so ? "objets-scene" : `objets-${V.mode === "appear" ? "apparition" : "disparition"}-${so.shape}-${so.id}`; };
 const clockName = () => { const o = OPTS; return "heure-" + String(o.clkH).padStart(2, "0") + String(o.clkM).padStart(2, "0"); };
-const base = () => `creature-glace-${S.anim === "clock" ? clockName() : S.anim === "loops" ? "boucle-" + V.loop : S.anim === "elec" ? "electricite-" + V.elec : S.anim === "actions" ? "action-" + V.action : S.anim === "objects" ? objName() : ANIMS[S.anim].file}-${V.seed}` + (V.exportWhat === "creature" ? "-seule" : "-scene");
+const portalName = () => { const w = worldById(V.pWorld); return `portail-${{ open: "creation", live: "ouvert", close: "fermeture", cross: "traversee", beyond: "autre-monde", reopen: "ouverture-retour", beyondOpen: "autre-monde-portail-ouvert", return: "retour" }[V.mode]}-${slug(w.name)}`; };
+const base = () => S.anim === "worlds" ? `monde-${slug(selWorld().name)}-${selWorld().wSeed}` : `creature-glace-${S.anim === "portal" ? portalName() : S.anim === "clock" ? clockName() : S.anim === "loops" ? "boucle-" + V.loop : S.anim === "elec" ? "electricite-" + V.elec : S.anim === "actions" ? "action-" + V.action : S.anim === "objects" ? objName() : ANIMS[S.anim].file}-${V.seed}` + (V.exportWhat === "creature" ? "-seule" : "-scene");
 function frameSize() { return V.exportWhat === "creature" && ANIMS[S.anim].mode === "box" ? [B * V.scale, B * V.scale] : [SW, SH]; }
 async function allFrames(label) {
   const out = [], alone = V.exportWhat === "creature", box = ANIMS[S.anim].mode === "box";
@@ -1171,11 +1448,16 @@ async function makePng() {
   fr.forEach((f, i) => { im.data.set(f); cx.putImageData(im, (i % cols) * fw, Math.floor(i / cols) * fh); });
   return await new Promise((r) => c.toBlob(r, "image/png"));
 }
+function portalInfo() {
+  const r = portalRect();
+  return { center: [r.cx, r.cy], centerPercent: [V.ptX, V.ptY], size: [Math.round(r.rx * 2), Math.round(r.ry * 2)], shape: V.pShape, layer: V.pLayer };
+}
 function sceneInfo() {
   const pl = placement();
   return {
     scene: { width: SW, height: SH, ratio: V.ratio, background: V.bg === "none" ? "transparent" : V.bg === "color" ? V.bgColor : "#000000" },
     creature: { center: [pl.cx, pl.cy], centerPercent: [V.posX, V.posY], scale: V.scale, ...(ANIMS[S.anim].mode === "box" ? { zone: B, box: { x: pl.x, y: pl.y, w: pl.D, h: pl.D } } : { drawnAcross: "scene" }) },
+    ...(S.anim === "portal" ? { portal: portalInfo() } : {}),
     ...(S.anim === "objects" ? { objects: S.objects.list.map((ob) => ({ id: ob.id, shape: ob.shape, center: [Math.round((ob.x / 100) * SW), Math.round((ob.y / 100) * SH)], centerPercent: [ob.x, ob.y], size: ob.size * V.scale, layer: ob.layer })),
       ...(V.mode !== "live" && selObj() ? { [V.mode === "appear" ? "appears" : "disappears"]: selObj().id } : {}) } : {}),
   };
@@ -1194,9 +1476,11 @@ function makeJson() {
     pixelfx: { id: ANIMS[S.anim].id, name: ANIMS[S.anim].fx.meta.name, animation: S.anim, content: alone ? "creature" : "scene",
       fps: +(N / (loopLen() / V.speed)).toFixed(3), loop: true, frames: N, frameSize: [fw, fh],
       ...(S.anim === "loops" ? { activity: V.loop, restLoops: loopsOf(), seamless: true } : {}),
+      ...(S.anim === "worlds" ? { world: selWorld(), seamless: true, worldLoops: loopsOf() } : {}),
+      ...(S.anim === "portal" ? { portal: { animation: V.mode, ...portalInfo() }, world: worldById(V.pWorld) } : {}),
       ...(S.anim === "elec" ? { activity: V.elec, electricity: { core: V.elCore, arc: V.elColor, glow: V.elGlow } } : {}),
       ...(S.anim === "clock" ? { time: { h: OPTS.clkH, m: OPTS.clkM, s: OPTS.clkS, format: OPTS.clkFormat, center: [Math.round(placement().cx + OPTS.clkX * V.scale), Math.round(placement().cy + OPTS.clkY * V.scale)] } } : {}),
-      ...(S.anim === "birth" || S.anim === "loops" ? {} : { chain: { restFrames: N / loopsOf(), firstAndLastFrameAreRest: true, ...(S.anim === "actions" ? { action: V.action, restLoops: loopsOf() } : S.anim === "elec" ? { electricity: V.elec, restLoops: loopsOf() } : {}) } }),
+      ...(S.anim === "birth" || S.anim === "loops" || S.anim === "worlds" ? {} : S.anim === "portal" ? { chain: { restFrames: Math.round(V.duration * V.fps), firstFrameIs: { open: "rest", live: "portal open", close: "portal open", cross: "portal open", beyond: "rest in the other world", reopen: "rest in the other world", beyondOpen: "other world, way home open", return: "other world, way home open" }[V.mode], lastFrameIs: { open: "portal open", live: "portal open", close: "rest", cross: +V.crossKeep ? "other world, way home open" : "rest in the other world", beyond: "rest in the other world", reopen: "other world, way home open", beyondOpen: "other world, way home open", return: +V.returnKeep ? "portal open" : "rest" }[V.mode], order: ["rest", "open", "live…", "close", "rest"], orBeyond: ["live…", "cross", "beyond…", "reopen", "beyondOpen…", "return", "rest (or live…)"] } } : { chain: { restFrames: N / loopsOf(), firstAndLastFrameAreRest: true, ...(S.anim === "actions" ? { action: V.action, restLoops: loopsOf() } : S.anim === "elec" ? { electricity: V.elec, restLoops: loopsOf() } : {}) } }),
       pivot: alone && ANIMS[S.anim].mode === "box" ? [Math.floor(pl.D / 2), Math.floor(pl.D / 2)] : [pl.cx, pl.cy],
       // where this layer goes in the scene, for the animations that come next
       placeAt: alone && ANIMS[S.anim].mode === "box" ? [pl.x, pl.y] : [0, 0],
