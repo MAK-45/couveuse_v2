@@ -9,6 +9,7 @@ The promise to the user: any GIF loops forever with no visible jump, and GIFs pl
             → reopen → beyondOpen (as often as you like) → return → rest (or live, if the portal stays open)
     transformation: rest → transform → live (the new form, as often as you like) → revert → rest
     loops (Boucles) and worlds (Mondes): each one loops on itself (no chaining promise)
+    in a new form: rest -> transform -> live -> (any of the above, from live and back to live) -> revert -> rest
 
 `npm test` checks all of it pixel for pixel (`tests/seams.mjs`).
 
@@ -39,6 +40,12 @@ The promise to the user: any GIF loops forever with no visible jump, and GIFs pl
   `revert` h = t. Its drops of light only show if they fell from the whole, resting form (lead-out ≥ 1.7 s again). The grounded
   form's gravity (floor, fall, landing) is a function of c too, all of it done before c = 1; its landing burst is timed on
   the progress itself (forward in time both ways: a landing, or a jump on the way back) and ends before progress 1.
+- **The new forms in the other tabs.** There "rest" is the Transformation's `live` loop. At rest a tab draws exactly the
+  `live` frame: the same `build()` at c = 1, and every modifier enters as `x * 1` or `x + 0` (scale, turn, steps, lift,
+  lean, arms...). The figure's own clock has the live loop's period `P = liveLoops · D`; a tab T long passes T and
+  `figClock` adds `sh · E(seg(t/T, 0.04, a1))` (sh ≥ 0, so `T + sh` is a whole number of P), flat near both ends (a1 ≤ 1 − 1.75/T,
+  so drops alive on the first and last frames fell where the live loop drops them); the idle's own clock is untouched (T is a
+  whole number of D). Steps on the floor are a function of `dx` only, so they are none at rest.
 - **Encoding.** GIF frames carry a palette computed from that frame alone, so two identical frames in two
   different GIFs produce identical pixels.
 

@@ -8,7 +8,8 @@ const PRESETS = {
 };
 const RATIOS = { "16:9": 16 / 9, "21:9": 21 / 9, "3:2": 3 / 2, "4:3": 4 / 3, "1:1": 1, "4:5": 4 / 5, "9:16": 9 / 16, "libre": 0 };
 // settings every animation shares: the scene and the export
-const SHARED_DEF = { sceneW: 480, sceneH: 270, ratio: "16:9", bg: "black", bgColor: "#000000", zoom: 0, gifScale: 2, exportWhat: "scene", guides: true };
+// (bodyForm: the creature's form in the tabs that can draw it: the blob, or one of the transformation's new forms)
+const SHARED_DEF = { sceneW: 480, sceneH: 270, ratio: "16:9", bg: "black", bgColor: "#000000", zoom: 0, gifScale: 2, exportWhat: "scene", guides: true, bodyForm: "blob" };
 // settings each animation keeps for itself: its own look, timing and place in the scene
 const PER_DEF = { speed: 1, fps: 30, light: 1, posX: 50, posY: 50, scale: 1, canvas: 176 };
 
@@ -231,7 +232,8 @@ ANIMS.actions = { name: "Actions", fx: PFX.actions, file: "action", id: "creatur
 ANIMS.birth.mode = "box"; ANIMS.blob.mode = "scene";
 ANIMS.blob.groups[0] = { ...PLACE, rows: PLACE.rows.filter((r) => r[0] !== "canvas") };
 const BLOB_KEYS = new Set(Object.keys(PFX.blob.meta.options));
-const ACTION_KEYS = new Set(Object.keys(PFX.actions.meta.options).filter((k) => !BLOB_KEYS.has(k)));
+// (the form is shared by every tab, not an action's own: see bodyForm)
+const ACTION_KEYS = new Set(Object.keys(PFX.actions.meta.options).filter((k) => !BLOB_KEYS.has(k) && k !== "form"));
 // distances an action covers are set on the scene (points in %, lengths in % of the scene's height) and turned
 // into the effect's own pixels when drawn, so the blob can reach any corner whatever the scene's size
 const SCENE_ACTION_DEF = { walkZoneW: 90, walkZoneH: 70, tpTX: 85, tpTY: 25, jumpHeight: 30, splitDistance: 14, burstRadius: 28, auraRise: 5, spinRise: 5,
@@ -415,7 +417,7 @@ const LOOP_PARAMS = {
     ["bubbleSize", "Taille des bulles", 2, 10, 0.5, " px"], ["bubbleDrift", "Distance parcourue", 10, 160, 1, " px"], ["bubblePop", "Éclat en éclatant", 0, 2, 0.05, ""]],
 };
 const LOOP_LOOPS = { conjure: 3, bounce: 1 };
-const LOOP_KEYS = new Set(Object.keys(PFX.loops.meta.options).filter((k) => !(k in PFX.blob.meta.options)));
+const LOOP_KEYS = new Set(Object.keys(PFX.loops.meta.options).filter((k) => !(k in PFX.blob.meta.options) && k !== "form"));
 const loopsDef = () => {
   const d = Object.fromEntries([...LOOP_KEYS].map((k) => [k, PFX.loops.meta.options[k]]));
   d.orbitRX = 20; d.orbitRY = 15;
@@ -433,7 +435,7 @@ function loopGroups() {
 }
 // ---- the clock tab: the blob shows the time, then is back at rest
 ANIMS.clock = { name: "Heure", fx: PFX.clock, file: "heure", id: "creature/ice-blob-clock", mode: "scene", groups: null };
-const CLOCK_KEYS = new Set(Object.keys(PFX.clock.meta.options).filter((k) => !(k in PFX.blob.meta.options)));
+const CLOCK_KEYS = new Set(Object.keys(PFX.clock.meta.options).filter((k) => !(k in PFX.blob.meta.options) && k !== "form"));
 const clockDef = () => {
   const d = Object.fromEntries([...CLOCK_KEYS].map((k) => [k, PFX.clock.meta.options[k]]));
   return { ...d, clkSource: "fixed", clkPos: "above", clkPX: 50, clkPY: 20 };
@@ -528,7 +530,7 @@ const ELEC_PARAMS = {
     ["atomTrail", "Traînée", 0, 2.5, 0.05, ""], ["atomArcs", "Arcs vers le blob", 0, 3, 0.05, ""], ["atomRise", "Lévitation", 0, 30, 0.5, " px"]],
 };
 const ELEC_LOOPS = {};
-const ELEC_KEYS = new Set(Object.keys(PFX.elec.meta.options).filter((k) => !(k in PFX.blob.meta.options)));
+const ELEC_KEYS = new Set(Object.keys(PFX.elec.meta.options).filter((k) => !(k in PFX.blob.meta.options) && k !== "form"));
 const elecDef = () => {
   const d = Object.fromEntries([...ELEC_KEYS].map((k) => [k, PFX.elec.meta.options[k]]));
   for (const [id] of ELEC_LIST) d["loops_" + id] = ELEC_LOOPS[id] || 3;
@@ -699,7 +701,7 @@ const PORTAL_MODES = [["open", "Création", "le blob ouvre le portail"], ["live"
   ["return", "Retour", "il rentre dans son monde d’origine"]];
 const LOOPING_MODES = new Set(["live", "beyond", "beyondOpen"]);
 const portalDef = () => {
-  const d = Object.fromEntries(Object.entries(PFX.portal.meta.options).filter(([k]) => !(k in PFX.blob.meta.options) && !["world", "room", "loops", "pX", "pY", "pH"].includes(k)));
+  const d = Object.fromEntries(Object.entries(PFX.portal.meta.options).filter(([k]) => !(k in PFX.blob.meta.options) && !["world", "room", "loops", "pX", "pY", "pH", "form"].includes(k)));
   return { ...d, loops_open: 2, loops_close: 2, loops_cross: 3, loops_reopen: 2, loops_return: 3, ptX: 76, ptY: 44, ptSize: 46, pWorld: 1, pWorldState: "world", pDrift: 2, pDir: "left" };
 };
 const PORTAL_KEYS = new Set(Object.keys(portalDef()));
@@ -802,7 +804,7 @@ const EXPLORE_PARAMS = {
 const EXPLORE_STYLES = [["comet", "Étoile filante", "il se change en lumière"], ["stretch", "Étirement", "une goutte fendue par le vent"],
   ["ghosts", "Rémanences", "des images de lui restent derrière"], ["shock", "Onde de choc", "un arc de lumière devant lui"], ["flame", "Flammes de glace", "un feu froid qui s’échappe"]];
 const exploreDef = () => {
-  const d = Object.fromEntries(Object.entries(PFX.explore.meta.options).filter(([k]) => !(k in PFX.blob.meta.options) && !["world", "room", "loops"].includes(k)));
+  const d = Object.fromEntries(Object.entries(PFX.explore.meta.options).filter(([k]) => !(k in PFX.blob.meta.options) && !["world", "room", "loops", "form"].includes(k)));
   return { ...d, exWorld: 1, ...Object.fromEntries(EXPLORE_LIST.map(([id]) => ["loops_" + id, 2])) };
 };
 const EXPLORE_KEYS = new Set(Object.keys(exploreDef()));
@@ -939,6 +941,47 @@ function tfModesMarkup(rows) {
   })[V.mode];
   rows.insertAdjacentHTML("beforeend", `<p class="note">${txt} Enchaîne : blob né → transformation → forme en boucle (autant de fois que tu veux) → retour au blob → blob né.</p>`);
 }
+// ---- the creature's form in the other tabs: the blob, or one of the transformation's new forms, with that tab's
+// settings (its pose, size, hair, floor...). Everything from rest then starts and ends on the new form's loop
+// ("Forme en boucle"), so GIFs chain: blob né -> transformation -> its animations... -> retour au blob. What a form
+// can't do (flying on its legs...) comes from the effects (FORM_FIT): it is shown, and can't be picked
+const BODY_FORMS = [["blob", "Blob né", "la petite créature de lumière"], ["human", "Forme humaine", "en lévitation, comme dans Transformation"],
+  ["grounded", "Forme humaine au sol", "sur ses jambes, avec la gravité"]];
+const FORM_TABS = new Set(["actions", "objects", "loops", "clock", "elec", "portal", "explore"]);
+const FIT_OF = { action: PFX.actions.FORM_FIT, loop: PFX.loops.FORM_FIT, explore: PFX.explore.FORM_FIT };
+const FIT_LISTS = { action: ACTION_LIST, loop: LOOP_LIST, explore: EXPLORE_LIST };
+const formNow = () => (FORM_TABS.has(S.anim) && BODY_FORMS.some((f) => f[0] === S.shared.bodyForm) ? S.shared.bodyForm : "blob");
+const unfit = (key, id, form = formNow()) => (FIT_OF[key] && FIT_OF[key][form] && FIT_OF[key][form][id]) || null;
+// a choice its form can't do moves to the first one it can
+function fixFit(s = S) {
+  const f = s.shared.bodyForm;
+  for (const [store, key] of [[s.actions, "action"], [s.loops, "loop"], [s.explore, "explore"]])
+    if (store && unfit(key, store[key], f)) store[key] = (FIT_LISTS[key].find(([id]) => !unfit(key, id, f)) || FIT_LISTS[key][0])[0];
+}
+function setBodyForm(id) {
+  if ((S.shared.bodyForm || "blob") === id) return;
+  S.shared.bodyForm = id;
+  if (id !== "blob") S.transform.form = id;
+  fixFit(); refreshV(); buildControls(); changed();
+}
+function formMarkup(rows) {
+  const grid = document.createElement("div"), cur = S.shared.bodyForm || "blob";
+  grid.className = "actions modes"; grid.setAttribute("role", "radiogroup"); grid.setAttribute("aria-label", "Forme de la créature");
+  for (const [id, name, desc] of BODY_FORMS) {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "act"; b.setAttribute("role", "radio"); b.setAttribute("aria-checked", String(id === cur));
+    b.innerHTML = `<strong>${name}</strong><span>${desc}</span>`;
+    b.onclick = () => setBodyForm(id);
+    grid.appendChild(b);
+  }
+  rows.appendChild(grid);
+  const L = Math.max(1, Math.round(+S.transform.loops_live || 2));
+  rows.insertAdjacentHTML("beforeend", `<p class="note">${cur === "blob" ? "Le blob né, tel que réglé dans son onglet. Choisis une forme humaine pour que l’animation soit faite par la forme de l’onglet Transformation."
+    : `L’animation est faite par la ${cur === "grounded" ? "forme humaine au sol (sur ses jambes, sur son sol de glace, avec la gravité : elle marche, saute, s’accroupit, s’assoit)" : "forme humaine en lévitation"}, avec tous les réglages de l’onglet Transformation (silhouette, pose, cheveux${cur === "grounded" ? ", sol" : ""}, boucle de ${L} × ${(+V.duration).toFixed(1)} s). Partir du repos veut dire partir de sa « Forme en boucle » et y revenir : enchaîne blob né → transformation → ces animations… → retour au blob → blob né.`}</p>`);
+}
+// settings a form on its legs has no use for (it keeps to its floor: no height to stroll in, nothing to rise by)
+const GROUNDED_IDLE = new Set(["walkZoneH", "walkCurve", "walkHop", "walkHops", "walkSquash", "auraRise", "magicRise", "medRise", "atomRise"]);
+const formGroup = () => ({ title: "Forme", hint: (BODY_FORMS.find((f) => f[0] === (S.shared.bodyForm || "blob")) || BODY_FORMS[0])[1].toLowerCase(), key: "bodyform", open: true, formPicker: true, rows: [] });
 const RENDER = { title: "Rendu", hint: "fond, export", render: true, rows: [
   ["zoom", "Zoom de l’aperçu", 0, 6, 1, "×"],
   ["gifScale", "Agrandissement du GIF", 1, 6, 1, "×"],
@@ -990,6 +1033,8 @@ function sanitize(v) {
     if (!Array.isArray(s[a].palette) || s[a].palette.length !== 8) s[a].palette = [...f[a].palette];
   }
   const sh = s.shared;
+  if (!BODY_FORMS.some((f) => f[0] === sh.bodyForm)) sh.bodyForm = "blob";
+  fixFit(s);
   sh.sceneW = clampInt(sh.sceneW, 16, 1920); sh.sceneH = clampInt(sh.sceneH, 16, 1920);
   if (!(sh.ratio in RATIOS)) sh.ratio = "libre";
   return s;
@@ -1125,15 +1170,18 @@ function buildControls() {
   if (S.anim === "elec") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence et la place de l’onglet Blob né. Il part de son repos, découvre l’électricité et joue avec, puis revient exactement à son repos : la première et la dernière image sont celles de la boucle du blob né. Mets les GIF bout à bout, ils s’enchaînent. Les couleurs de l’électricité se règlent à part, dans « L’électricité ».</p>`);
   if (S.anim === "clock") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence et la place de l’onglet Blob né. Il part de sa position de repos, affiche l’heure, puis revient exactement à son repos : la première et la dernière image sont celles de la boucle du blob né.</p>`);
   if (S.anim === "portal") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence et la place de l’onglet Blob né. Il ouvre un portail vers un autre monde, qu’on ne voit qu’à travers lui. Glisse le portail dans l’aperçu pour le placer, et sa poignée carrée pour changer sa taille. Les mondes se créent et se règlent dans les onglets Mondes et Surface planète.</p>`);
-  if (S.anim === "transform") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence, les couleurs et la place de l’onglet Blob né, et change de forme : une forme humaine faite de la même lumière de glace, en lévitation, ou debout sur ses jambes sur un sol de glace, avec la gravité. Trois animations qui s’enchaînent image pour image : la transformation part du repos du blob né, la forme en boucle tourne sans fin, et le retour revient exactement au repos du blob né.</p>`);
+  if (S.anim === "transform") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence, les couleurs et la place de l’onglet Blob né, et change de forme : une forme humaine faite de la même lumière de glace, en lévitation, ou debout sur ses jambes sur un sol de glace, avec la gravité. Trois animations qui s’enchaînent image pour image : la transformation part du repos du blob né, la forme en boucle tourne sans fin, et le retour revient exactement au repos du blob né. Les autres onglets (Actions, Objets, Boucles, Heure, Électricité, Portail, Action monde) peuvent être joués par cette forme, avec ces réglages : choisis-la dans leur groupe « Forme ».</p>`);
   if (S.anim === "explore") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence et la place de l’onglet Blob né, et explore un des mondes des onglets Mondes et Surface planète. En vrai il reste sur place : c’est le monde qui défile derrière lui, les étoiles proches plus vite que les lointaines. Une seule vitesse règle tout : plus il va vite, plus le décor défile et plus il se déforme. Boucle libre, sans raccord visible, qui n’a pas besoin de revenir au blob né.</p>`);
   if (S.anim === "surface") controls.insertAdjacentHTML("beforeend", `<p class="note intro">La surface d’une planète, vue du sol : pour l’instant une plaine, avec son ciel, ses montagnes, ses prairies, ses arbres, ses rochers et son eau. Elle est faite de couches à différentes profondeurs : immobile, elle vit sur place (vent dans l’herbe, nuages, reflets) ; en mouvement, l’herbe proche défile plus vite que les montagnes, en boucle parfaite. Le blob s’y promène dans l’onglet Action monde, ou y passe par un portail.</p>`);
   if (S.anim === "worlds") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Les mondes qu’on voit à travers les portails. Crée-les, règle-les et garde-les ici ; l’aperçu montre le monde entier, en boucle sans fin. Il est fait de couches à différentes profondeurs : quand la caméra bouge, les étoiles proches défilent plus vite que les lointaines.</p>`);
-  const groups = isWorldTab() ? worldGroups() : S.anim === "transform" ? transformGroups() : S.anim === "explore" ? exploreGroups() : S.anim === "portal" ? portalGroups() : S.anim === "elec" ? elecGroups() : S.anim === "clock" ? clockGroups() : S.anim === "loops" ? loopGroups() : S.anim === "objects" ? objectGroups() : S.anim === "actions" ? actionGroups() : ANIMS[S.anim].groups;
+  const groups0 = isWorldTab() ? worldGroups() : S.anim === "transform" ? transformGroups() : S.anim === "explore" ? exploreGroups() : S.anim === "portal" ? portalGroups() : S.anim === "elec" ? elecGroups() : S.anim === "clock" ? clockGroups() : S.anim === "loops" ? loopGroups() : S.anim === "objects" ? objectGroups() : S.anim === "actions" ? actionGroups() : ANIMS[S.anim].groups;
+  // the tabs that can draw a new form start with the choice of form
+  const off = FORM_TABS.has(S.anim) ? 1 : 0, groups = off ? [formGroup(), ...groups0] : groups0;
   if (S.anim === "objects") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence et la place de l’onglet Blob né. Rien ne pèse dans la scène : les objets flottent et tournent au rythme de sa boucle, et chaque animation se raccorde aux autres.</p>`);
   if (S.anim === "actions") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence, la durée et la place réglées dans l’onglet Blob né. Chaque action commence et finit sur la même image que la boucle du blob né : mets les GIF bout à bout, ils s’enchaînent.</p>`);
-  groups.forEach((g, gi) => {
-    const [d, rows] = group(g, g.key || S.anim + gi, g.open || (gi < 2 && (S.anim === "actions" || S.anim === "objects")) ? true : gi === 0);
+  groups.forEach((g, gk) => {
+    const gi = gk - off, [d, rows] = group(g, g.key || S.anim + gi, g.open || (gi < 2 && (S.anim === "actions" || S.anim === "objects")) ? true : gi === 0);
+    if (g.formPicker) formMarkup(rows);
     if (g.objlist) objListMarkup(rows);
     if (g.objanim) objAnimMarkup(rows);
     if (g.portalModes) portalModesMarkup(rows);
@@ -1156,14 +1204,24 @@ function buildControls() {
       const list = g.pickerList || ACTION_LIST, pk = g.pickerKey || "action";
       const grid = document.createElement("div");
       grid.className = "actions"; grid.setAttribute("role", "radiogroup"); grid.setAttribute("aria-label", g.title);
+      const nope = [];
       for (const [id, name, desc] of list) {
-        const b = document.createElement("button");
+        const b = document.createElement("button"), why = unfit(pk, id);
         b.type = "button"; b.className = "act"; b.setAttribute("role", "radio"); b.setAttribute("aria-checked", String(id === V[pk]));
-        b.innerHTML = `<strong>${name}</strong><span>${desc}</span>`;
-        b.onclick = () => { if (V[pk] === id) return; setV(pk, id); buildControls(); changed(); };
+        b.innerHTML = `<strong>${name}</strong><span>${why ? "pas adaptable à cette forme" : desc}</span>`;
+        // what its form can't do is shown, and can't be picked
+        if (why) { b.disabled = true; b.title = why; nope.push([name, why]); }
+        b.onclick = () => {
+          if (V[pk] === id) return;
+          setV(pk, id);
+          // the transformation's form is the one the other tabs use, unless they use the blob
+          if (S.anim === "transform" && pk === "form" && S.shared.bodyForm && S.shared.bodyForm !== "blob") { S.shared.bodyForm = id; fixFit(); }
+          buildControls(); changed();
+        };
         grid.appendChild(b);
       }
       rows.appendChild(grid);
+      if (nope.length) rows.insertAdjacentHTML("beforeend", `<p class="note unfit">Pas adaptable à la ${formNow() === "grounded" ? "forme humaine au sol" : "forme humaine"} : ${nope.map(([n, w]) => `<b>${n}</b> — ${w.charAt(0).toLowerCase() + w.slice(1)}`).join(" ")}</p>`);
     }
     if (g.place) {
       const place = document.createElement("div");
@@ -1209,7 +1267,7 @@ function buildControls() {
       }
       rows.appendChild(pr);
     }
-    for (const def of g.rows) rowFor(rows, def);
+    for (const def of g.rows) if (!(formNow() === "grounded" && GROUNDED_IDLE.has(def[0]))) rowFor(rows, def);
     if (g.place) {
       const r = document.createElement("div");
       r.className = "row";
@@ -1323,6 +1381,20 @@ const nFrames = () => Math.max(2, Math.round(V.duration * V.fps)) * loopsOf();
 function effOpts(src = V) {
   const o = { ...src };
   o.palette = src.palette.map((c) => PFX.toHex(PFX.hex(c)));
+  // the creature's form: the blob, or the transformation's new form with that tab's settings (its floor in % of the
+  // scene's height, as px below the spot; the scene's bounds for the floor); ext: where its body reaches at rest
+  let ext = null;
+  if (FORM_TABS.has(S.anim) && src === V) {
+    o.form = formNow();
+    if (o.form !== "blob") {
+      for (const k of Object.keys(PFX.transform.FORM_DEFAULTS)) if (k in S.transform) o[k] = S.transform[k];
+      o.liveLoops = Math.max(1, Math.round(+S.transform.loops_live || 2));
+      const pl = placement(), g = grid();
+      o.grFloor = ((S.transform.grFloor / 100) * SH - pl.cy) / V.scale;
+      o.room = [-g.ox, -g.oy, g.fw - g.ox, g.fh - g.oy];
+      ext = PFX.transform.formExtent(o);
+    }
+  }
   if (S.anim === "clock" && src === V) {
     o.loops = loopsOf();
     [o.clkX, o.clkY] = clockSpot();
@@ -1352,7 +1424,7 @@ function effOpts(src = V) {
     o.pX = (r.cx - pl.cx) / k; o.pY = (r.cy - pl.cy) / k; o.pH = (r.ry * 2) / k;
   }
   if (S.anim === "loops" && src === V) {
-    const pl = placement(), k = V.scale, m = V.size * k * 1.3;
+    const pl = placement(), k = V.scale, m = ext ? Math.max(...ext.map(Math.abs)) * k : V.size * k * 1.3;
     o.loops = loopsOf();
     // the round stays inside the scene
     const room = V.orbitSide === "left" ? pl.cx : SW - pl.cx, roomX = o.orbitPath === "circle" ? room : Math.min(pl.cx, SW - pl.cx);
@@ -1376,13 +1448,19 @@ function effOpts(src = V) {
     o.portalRoom = [-pl.cx / k, -pl.cy / k, (SW - pl.cx) / k, (SH - pl.cy) / k];
     for (const key of SCENE_LENGTHS) o[key] = (V[key] / 100) * h;
     // the comet's loops stay inside the scene
-    const m = V.size * k * 1.3, room = V.cometSide === "left" ? pl.cx : SW - pl.cx;
+    const m = ext ? Math.max(...ext.map(Math.abs)) * k : V.size * k * 1.3, room = V.cometSide === "left" ? pl.cx : SW - pl.cx;
     o.cometRadius = Math.max(0, Math.min(o.cometRadius, (room - m) / 2 / k, (Math.min(pl.cy, SH - pl.cy) - m) / k));
     // the stroll's zone: centred on the scene, kept clear of the edges by a body's width
     const z = walkZone();
     o.walkMinX = (z.x0 - pl.cx) / k; o.walkMaxX = (z.x1 - pl.cx) / k; o.walkMinY = (z.y0 - pl.cy) / k; o.walkMaxY = (z.y1 - pl.cy) / k;
+    // a figure is taller than the blob: its whole body stays in the scene
+    if (ext) {
+      const fit = (a, b, lo, hi) => { a = Math.max(a, lo); b = Math.min(b, hi); return a <= b ? [a, b] : [(a + b) / 2, (a + b) / 2]; };
+      [o.walkMinX, o.walkMaxX] = fit(o.walkMinX, o.walkMaxX, -pl.cx / k - ext[0] + 2, (SW - pl.cx) / k - ext[2] - 2);
+      [o.walkMinY, o.walkMaxY] = fit(o.walkMinY, o.walkMaxY, -pl.cy / k - ext[1] + 2, (SH - pl.cy) / k - ext[3] - 2);
+    }
     // the ground for the fall, as how far below its spot its bottom lands
-    o.dropFloor = Math.max(0, ((V.dropFloor / 100) * SH - pl.cy) / k - V.size * 0.95);
+    o.dropFloor = Math.max(0, ((V.dropFloor / 100) * SH - pl.cy) / k - (ext ? ext[3] : V.size * 0.95));
   }
   return o;
 }
@@ -1484,8 +1562,8 @@ function drawGuides() {
     const fy = Math.round((V.dropFloor / 100) * SH) + 0.5;
     ctx.beginPath(); ctx.moveTo(0, fy); ctx.lineTo(SW, fy); ctx.stroke();
   }
-  if (S.anim === "transform" && V.form === "grounded") {
-    const fy = pl.cy + PFX.transform.floorOf(OPTS) * V.scale - 0.5;
+  if ((S.anim === "transform" && V.form === "grounded") || (FORM_TABS.has(S.anim) && formNow() === "grounded")) {
+    const fy = pl.cy + PFX.transform.floorOf({ ...PFX.transform.FORM_DEFAULTS, ...OPTS }) * V.scale - 0.5;
     ctx.beginPath(); ctx.moveTo(0, fy); ctx.lineTo(SW, fy); ctx.stroke();
   }
   if (S.anim === "objects") {
@@ -1666,7 +1744,7 @@ const objName = () => { const so = selObj(); return V.mode === "live" || !so ? "
 const clockName = () => { const o = OPTS; return "heure-" + String(o.clkH).padStart(2, "0") + String(o.clkM).padStart(2, "0"); };
 const portalName = () => { const w = worldById(V.pWorld); return `portail-${{ open: "creation", live: "ouvert", close: "fermeture", cross: "traversee", beyond: "autre-monde", reopen: "ouverture-retour", beyondOpen: "autre-monde-portail-ouvert", return: "retour" }[V.mode]}-${slug(w.name)}`; };
 const tfName = () => `${{ transform: "transformation", live: "forme", revert: "retour" }[V.mode]}-${{ human: "humaine", grounded: "humaine-au-sol" }[V.form] || V.form}${V.mode === "live" ? "-boucle" : ""}`;
-const base = () => isWorldTab() ? `${S.anim === "surface" ? "surface" : "monde"}-${slug(selWorld().name)}-${selWorld().wSeed}` : `creature-glace-${S.anim === "explore" ? `monde-${V.explore}${V.explore === "move" ? "-" + V.exStyle : ""}-${slug(worldById(V.exWorld).name)}` : S.anim === "portal" ? portalName() : S.anim === "transform" ? tfName() : S.anim === "clock" ? clockName() : S.anim === "loops" ? "boucle-" + V.loop : S.anim === "elec" ? "electricite-" + V.elec : S.anim === "actions" ? "action-" + V.action : S.anim === "objects" ? objName() : ANIMS[S.anim].file}-${V.seed}` + (V.exportWhat === "creature" ? "-seule" : "-scene");
+const base = () => isWorldTab() ? `${S.anim === "surface" ? "surface" : "monde"}-${slug(selWorld().name)}-${selWorld().wSeed}` : `creature-glace-${S.anim === "explore" ? `monde-${V.explore}${V.explore === "move" ? "-" + V.exStyle : ""}-${slug(worldById(V.exWorld).name)}` : S.anim === "portal" ? portalName() : S.anim === "transform" ? tfName() : S.anim === "clock" ? clockName() : S.anim === "loops" ? "boucle-" + V.loop : S.anim === "elec" ? "electricite-" + V.elec : S.anim === "actions" ? "action-" + V.action : S.anim === "objects" ? objName() : ANIMS[S.anim].file}${{ human: "-humaine", grounded: "-humaine-au-sol" }[formNow()] || ""}-${V.seed}` + (V.exportWhat === "creature" ? "-seule" : "-scene");
 function frameSize() { return V.exportWhat === "creature" && ANIMS[S.anim].mode === "box" ? [B * V.scale, B * V.scale] : [SW, SH]; }
 async function allFrames(label) {
   const out = [], alone = V.exportWhat === "creature", box = ANIMS[S.anim].mode === "box";
@@ -1726,6 +1804,8 @@ function makeJson() {
       ...(S.anim === "portal" ? { portal: { animation: V.mode, ...portalInfo() }, world: worldById(V.pWorld) } : {}),
       ...(S.anim === "transform" ? { transformation: { form: V.form, animation: V.mode, style: V.mode === "revert" ? V.rvStyle : V.mode === "transform" ? V.tfStyle : null, ...(V.form === "grounded" ? { arms: V.grArms, floorY: Math.round(placement().cy + PFX.transform.floorOf(OPTS) * V.scale) } : { legs: V.huLegs, arms: V.huArms }) } } : {}),
       ...(S.anim === "elec" ? { activity: V.elec, electricity: { core: V.elCore, arc: V.elColor, glow: V.elGlow } } : {}),
+      // in a new form: rest is that form's loop (Transformation > Forme en boucle), with that tab's settings
+      ...(FORM_TABS.has(S.anim) ? { form: formNow(), ...(formNow() !== "blob" ? { restIs: "the new form's loop (Transformation, mode live)", newFormLoops: Math.max(1, Math.round(+S.transform.loops_live || 2)), ...(formNow() === "grounded" ? { floorY: Math.round(placement().cy + PFX.transform.floorOf({ ...PFX.transform.FORM_DEFAULTS, ...OPTS }) * V.scale) } : {}) } : {}) } : {}),
       ...(S.anim === "clock" ? { time: { h: OPTS.clkH, m: OPTS.clkM, s: OPTS.clkS, format: OPTS.clkFormat, center: [Math.round(placement().cx + OPTS.clkX * V.scale), Math.round(placement().cy + OPTS.clkY * V.scale)] } } : {}),
       ...(S.anim === "birth" || S.anim === "loops" || isWorldTab() || S.anim === "explore" ? {} : S.anim === "transform" ? { chain: { restFrames: Math.round(V.duration * V.fps), firstFrameIs: { transform: "rest", live: "new form", revert: "new form" }[V.mode], lastFrameIs: { transform: "new form", live: "new form", revert: "rest" }[V.mode], newFormLoops: Math.max(1, Math.round(V.loops_live || 2)), order: ["rest", "transform", "live…", "revert", "rest"] } } : S.anim === "portal" ? { chain: { restFrames: Math.round(V.duration * V.fps), firstFrameIs: { open: "rest", live: "portal open", close: "portal open", cross: "portal open", beyond: "rest in the other world", reopen: "rest in the other world", beyondOpen: "other world, way home open", return: "other world, way home open" }[V.mode], lastFrameIs: { open: "portal open", live: "portal open", close: "rest", cross: +V.crossKeep ? "other world, way home open" : "rest in the other world", beyond: "rest in the other world", reopen: "other world, way home open", beyondOpen: "other world, way home open", return: +V.returnKeep ? "portal open" : "rest" }[V.mode], order: ["rest", "open", "live…", "close", "rest"], orBeyond: ["live…", "cross", "beyond…", "reopen", "beyondOpen…", "return", "rest (or live…)"] } } : { chain: { restFrames: N / loopsOf(), firstAndLastFrameAreRest: true, ...(S.anim === "actions" ? { action: V.action, restLoops: loopsOf() } : S.anim === "elec" ? { electricity: V.elec, restLoops: loopsOf() } : {}) } }),
       pivot: alone && ANIMS[S.anim].mode === "box" ? [Math.floor(pl.D / 2), Math.floor(pl.D / 2)] : [pl.cx, pl.cy],

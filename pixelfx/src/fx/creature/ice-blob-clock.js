@@ -4,7 +4,8 @@
 // sucked back into the blob, sliding off, shattering, rolling away). Like the actions, it runs over whole loops
 // of the blob's rest and everything it changes is back to zero at both ends: first and last frames are the rest's.
 import { fit, clamp, lerp, seg, bump, ease, rng, TAU, WHITE, hex } from "../../core/index.js";
-import { meta as idleMeta, blobBack, blobFront, ambient, state } from "./ice-blob-idle.js";
+import { meta as idleMeta, state } from "./ice-blob-idle.js";
+import { bodyBack, bodyFront, bodyAmbient } from "./ice-blob-transform.js";
 import { hsl, fromHsl } from "./ice-blob-actions.js";
 
 export const APPEAR = ["particles", "projector", "write", "pop", "crystal", "slot"];
@@ -22,7 +23,7 @@ export const meta = {
   bg: "black",
   options: {
     ...idleMeta.options,
-    loops: 3, lead: 0.06,
+    form: "blob", loops: 3, lead: 0.06,
     // the time
     clkH: 14, clkM: 35, clkS: 0, clkFormat: "24", clkSep: ":", clkSeconds: 0, clkTick: 1, clkZero: 1,
     // the digits
@@ -114,11 +115,13 @@ function mods(o, t) {
   const m = { lookX: dx * 1.5 * o.clkLook * env, lookY: dy * 1.2 * o.clkLook * env, quiet: 1, glow: 0.3 * bump(a, ph.A0 - 0.04, ph.A1) };
   const side = o.clkX > 0 ? -1 : 1;
   if (o.clkMove === "aside") { m.dx = side * o.clkOffset * env; m.rot = -side * 0.08 * env; }
-  if (o.clkMove === "rise") m.dy = -o.clkOffset * env * 0.6;
+  if (o.clkMove === "rise" && o.form !== "grounded") m.dy = -o.clkOffset * env * 0.6;
   if (o.clkMove === "below") m.dy = o.clkOffset * env * 0.6;
   const proud = bump(a, ph.A1, ph.A1 + 0.08) * o.clkJoy;
   if (proud > 0.05) { m.dy = (m.dy || 0) - 5 * proud; m.happy = 1; }
   if (a > ph.A1 + 0.08 && a < ph.V0 && o.clkJoy > 0.5) m.happy = 1;
+  // a figure points at the clock while it makes it and while it takes it back
+  m.reach = [cx, cy]; m.reachK = 0.9 * Math.max(bump(a, ph.A0 - 0.06, ph.A1 + 0.04), bump(a, ph.V0 - 0.04, ph.V1 + 0.04));
   return m;
 }
 
@@ -225,7 +228,8 @@ function clockLayer(p, o, t, st) {
   let flash = 0;
   // ---- coming
   if (ph.appear < 1) {
-    const q = ph.appear, st0 = [st.x, st.y];
+    // (a figure makes it with its hand)
+    const q = ph.appear, hand = st.hands ? st.hands.reduce((b, h) => (Math.hypot(h[0] - ox, h[1] - oy) < Math.hypot(b[0] - ox, b[1] - oy) ? h : b)) : null, st0 = hand || [st.x, st.y];
     switch (o.clkAppear) {
       case "slot": {
         if (q <= 0) return;
@@ -239,8 +243,9 @@ function clockLayer(p, o, t, st) {
         p.glowLine(ox - L.pw / 2 - 2, by, ox + L.pw / 2 + 2, by, 3, WHITE, 0.4 * (1 - q));
         // the beam out of the blob
         const a2 = Math.sin(Math.PI * Math.min(1, q * 1.1));
-        for (const sx of [-1, 1]) p.glowLine(st.x, st.y - o.size * 0.3, ox + sx * L.pw * 0.5, oy + L.ph * 0.5, 2, C[5], 0.25 * a2);
-        p.glow(st.x, st.y - o.size * 0.3, 8, WHITE, 0.4 * a2);
+        const [hx, hy] = hand || [st.x, st.y - o.size * 0.3];
+        for (const sx of [-1, 1]) p.glowLine(hx, hy, ox + sx * L.pw * 0.5, oy + L.ph * 0.5, 2, C[5], 0.25 * a2);
+        p.glow(hx, hy, 8, WHITE, 0.4 * a2);
         flash = 1 - q;
         break;
       }
@@ -345,13 +350,13 @@ function clockLayer(p, o, t, st) {
 
 export function drawBack(p, t, o) {
   const C = fit(o.palette, 8), M = (tt) => mods(o, tt);
-  blobBack(p, t, o, M, C);
-  ambient(p, t, o, false, C);
+  bodyBack(p, t, o, M, C, total(o));
+  bodyAmbient(p, t, o, false, C);
 }
 
 export function draw(p, t, o) {
   const C = fit(o.palette, 8), M = (tt) => mods(o, tt);
-  const st = blobFront(p, t, o, M, C);
-  ambient(p, t, o, true, C);
+  const st = bodyFront(p, t, o, M, C, total(o));
+  bodyAmbient(p, t, o, true, C);
   clockLayer(p, o, t, st);
 }

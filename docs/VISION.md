@@ -80,12 +80,27 @@ ambiances Jour, Aube, Crépuscule, Nuit de glace, Printemps. Comme les mondes de
 mouvement** (le sol défile, l’herbe proche plus vite que les montagnes), en boucle parfaite ; le blob s’y promène dans
 Action monde et y passe par les portails).
 
+**Les formes partout.** Le blob peut aussi jouer toutes ses animations sous une forme de la Transformation : dans
+Actions, Objets, Boucles, Heure, Électricité, Portail et Action monde, un groupe « Forme » choisit le blob né, la forme
+humaine en lévitation ou la forme humaine au sol (avec les réglages de l’onglet Transformation). Les animations s’adaptent :
+la forme se sert de ses bras (bras levés, ouverts, livre tenu, main tendue d’où partent les éclairs et les rayons), et au sol
+elle reste sur son sol de glace (elle marche à petits pas, saute, plie les genoux, s’assoit en tailleur pour dormir ou
+méditer). Ce qui n’a pas de sens est désactivé et l’interface dit pourquoi (au sol : voler en comète, tourner comme une
+roue ou une toupie, tomber et rebondir, voler d’un portail à l’autre, faire le tour de la scène, et dans Action monde filer,
+nager, slalomer ou collecter des étoiles en volant). Le repos devient la « Forme en boucle » : les GIF s’enchaînent toujours
+(blob né → transformation → animations de la forme… → retour au blob).
+
+**Règle pour la suite : chaque nouvelle animation est faite pour chaque transformation** (blob né, forme humaine en
+lévitation, forme humaine au sol, et toute forme ajoutée plus tard), adaptée à chacune ; si elle n’a vraiment pas de sens
+dans une forme, elle y est désactivée et l’interface dit pourquoi. Et chaque nouvelle forme joue toutes les animations
+existantes.
+
 ## Directions déjà évoquées pour la suite
 
 - Toujours plus d’actions et d’activités, chacune paramétrable, avec plus de portée dans la scène.
 - La scène continuera d’évoluer : d’autres événements y auront lieu.
 - D’autres formes viendront dans l’onglet Transformation (la forme humaine en lévitation et au sol sont les premières),
-  chacune avec sa transformation, sa boucle et son retour.
+  chacune avec sa transformation, sa boucle et son retour, et chacune jouera les animations des autres onglets.
 - Le blob entrera dans le monde du portail et s’y déplacera : le décor suivra ses mouvements (la caméra des
   mondes et leurs couches en profondeur sont prévues pour ça). D’autres types de mondes viendront, chacun avec
   ses réglages, dans l’onglet Mondes ; et d’autres surfaces de planète (monde volcanique avec de la lave…) dans

@@ -6,8 +6,11 @@
 // The length is a whole number of the blob's own loops; the electricity fades in and out with presence(), every
 // modifier is settled to neutral by it, and the lead-out is never shorter than a drop of light lives.
 // The electricity has its own three colours (core, arc, glow), apart from the blob's palette.
+// In one of the transformation's new forms (o.form "human" or "grounded") the figure plays with it: the current
+// comes to and leaves from its hands, it holds the plasma ball, reaches for the spark, throws the chain bolt.
 import { fit, clamp, lerp, seg, bump, ease, noise2, rng, cycle, TAU, WHITE, hex, mix, bolt, forks } from "../../core/index.js";
-import { meta as idleMeta, blobBack, blobFront, ambient } from "./ice-blob-idle.js";
+import { meta as idleMeta } from "./ice-blob-idle.js";
+import { bodyBack, bodyFront, bodyAmbient } from "./ice-blob-transform.js";
 import { drawObject } from "./ice-scene-objects.js";
 
 export const ELEC = ["discover", "static", "ball", "charge", "poles", "chain", "storm", "atom"];
@@ -24,7 +27,7 @@ export const meta = {
   bg: "black",
   options: {
     ...idleMeta.options,
-    elec: "discover", loops: 3, lead: 0.06, elRamp: 0.12,
+    form: "blob", elec: "discover", loops: 3, lead: 0.06, elRamp: 0.12,
     // the electricity itself, shared by every animation
     elCore: "#ffffff", elColor: "#8ff0ff", elGlow: "#3c78ff",
     elFlicker: 12, elJag: 0.28, elThick: 2, elGlowAmt: 1, elBranches: 1, elTint: 0.6, elSparks: 1,
@@ -59,14 +62,17 @@ const presence = (o, t) => {
   return a <= 0 || a >= 1 ? 0 : E(seg(a, 0, r)) * (1 - E(seg(a, 1 - r, 1)));
 };
 // an animation's modifiers, drawn back to exactly neutral as the electricity leaves
-const NEUTRAL = { dx: 0, dy: 0, rot: 0, sx: 1, sy: 1, grow: 1, shut: 0, halo: 1, glow: 0, lookX: 0, lookY: 0, eyeScale: 1 };
+const NEUTRAL = { dx: 0, dy: 0, rot: 0, sx: 1, sy: 1, grow: 1, shut: 0, halo: 1, glow: 0, lookX: 0, lookY: 0, eyeScale: 1, armUp: 0, armOpen: 0, hold: 0, reachK: 0 };
 function settle(m, e, a) {
   const out = { quiet: a > 0 && a < 1 ? 1 : 0 };
   if (e <= 0) return out;
   for (const k in NEUTRAL) if (k in m) out[k] = NEUTRAL[k] + (m[k] - NEUTRAL[k]) * e;
   if (m.happy && e > 0.6) out.happy = m.happy;
+  if (m.reach) out.reach = m.reach;
   return out;
 }
+// a figure's hand nearest a point (null for the blob, which has none)
+const handNear = (st, x, y) => (st.hands && st.hands.length ? st.hands.reduce((b, h) => (Math.hypot(h[0] - x, h[1] - y) < Math.hypot(b[0] - x, b[1] - y) ? h : b)) : null);
 const wrap = (x) => ((x % 1) + 1) % 1;
 const whole = (v, lo = 1) => Math.max(lo, Math.round(v));
 const ln = (x, y, u, s, r = 1) => noise2(x + Math.cos(TAU * u) * r, y + Math.sin(TAU * u) * r, s);
@@ -176,6 +182,8 @@ L.discover = (o) => {
       };
       if (!scared) { m.happy = e.k > 0.68 && e.k < 0.94 ? 1 : 0; m.dy -= 7 * bump(e.k, 0.72, 0.9); }
       else m.dy += 4 * e.recoil;
+      // a figure reaches for it with a finger, and snatches its hand back
+      m.reach = sparkAt(t, e); m.reachK = Math.max(e.reach, 0.35 * e.notice) * (1 - e.recoil); m.hold = 0.8 * e.recoil;
       return m;
     },
     front(p, C, V, t, st) {
@@ -184,7 +192,7 @@ L.discover = (o) => {
       const size = (3 + 3 * e.shock + 1.5 * e.notice) * o.discSize;
       crackle(p, V, o, r, sx, sy, size, a);
       // feelers reaching out from the spark as it comes near
-      const near = [st.x + e.s * o.size * st.sx * 0.95, st.y - o.size * 0.05];
+      const near = handNear(st, sx, sy) || [st.x + e.s * o.size * st.sx * 0.95, st.y - o.size * 0.05];
       if (e.reach > 0.3 && e.shock <= 0 && r.chance(0.55)) {
         const l = 0.35 + 0.4 * e.reach;
         zap(p, V, o, r, sx, sy, lerp(sx, near[0], l), lerp(sy, near[1], l), 0.8 * a, { thick: 1, branches: 0, end: false });
@@ -209,7 +217,7 @@ L.static = (o) => {
       const ph = phase(o, t), { d } = strike(ph), snap = d < 0.05 ? Math.sin(Math.PI * (d / 0.05)) : 0;
       const puff = 1 + 0.05 * o.statPuff * (0.6 + 0.4 * Math.sin(TAU * 2 * ph));
       return { grow: puff, dy: -4 * snap, dx: jitter(o, t) * 0.8 * o.statPuff, eyeScale: 1 + 0.4 * (d < 0.1 ? 1 - d / 0.1 : 0), shut: d > 0.1 && d < 0.13 ? 1 : 0,
-        lookX: (ln(2.2, 5.1, ph, o.seed + 70) - 0.5) * 3, lookY: 0.4 + (ln(7.2, 1.1, ph, o.seed + 71) - 0.5) * 1.5, glow: 0.12, quiet: 1 };
+        lookX: (ln(2.2, 5.1, ph, o.seed + 70) - 0.5) * 3, lookY: 0.4 + (ln(7.2, 1.1, ph, o.seed + 71) - 0.5) * 1.5, glow: 0.12, quiet: 1, armOpen: 0.3 + 0.5 * snap };
     },
     back(p, C, V, t, st) {
       // its hair of light standing on end
@@ -254,8 +262,10 @@ L.ball = (o) => {
     mods(t) {
       const ph = phase(o, t), pu = pulse(t), up = o.ballPos === "above";
       const s = o.ballPos === "left" ? -1 : 1;
+      // (a figure holds it up over its head, or out on its hand)
+      const S = o.size, h = o.ballHeight;
       return { lookX: up ? Math.sin(TAU * ph * 2) * 0.3 : s * 1.6, lookY: up ? -1.5 : -0.3, happy: pu > 0.6 ? 1 : 0, dy: -2 * pu, rot: up ? 0 : s * 0.1,
-        sy: 1 + 0.05 * pu, glow: 0.12 * pu, quiet: 1 };
+        sy: 1 + 0.05 * pu, glow: 0.12 * pu, quiet: 1, ...(up ? { armUp: 0.85 } : { reach: [s * (S * 1.1 + h + o.ballSize), -S * 0.25], reachK: 1 }) };
     },
     front(p, C, V, t, st) {
       const [bx, by] = where(st, t), pu = pulse(t), Rr = o.ballSize * (1 + 0.25 * pu), ph = phase(o, t), r = R(o, t, 7);
@@ -264,7 +274,7 @@ L.ball = (o) => {
       // the thread of current that holds it
       if (o.ballArc > 0) {
         const up = o.ballPos === "above", side = o.ballPos === "left" ? -1 : 1;
-        const [hx, hy] = up ? skin(o, st, -Math.PI / 2, 0.95) : skin(o, st, side > 0 ? -0.25 : Math.PI + 0.25, 0.95);
+        const [hx, hy] = handNear(st, bx, by) || (up ? skin(o, st, -Math.PI / 2, 0.95) : skin(o, st, side > 0 ? -0.25 : Math.PI + 0.25, 0.95));
         const th = Math.atan2(hy - by, hx - bx);
         zap(p, V, o, r, bx + Math.cos(th) * Rr, by + Math.sin(th) * Rr, hx, hy, Math.min(1, o.ballArc), { branches: 0, thick: pu > 0.5 ? 2 : 1 });
       }
@@ -301,7 +311,7 @@ L.charge = (o) => {
       const e = env(t), c = o.chgCrouch, sh = e.build * e.build * o.chgShake;
       return { sy: 1 - 0.13 * e.build * c + 0.16 * e.fade, sx: 1 + 0.09 * e.build * c - 0.08 * e.fade, dy: 5 * e.build * c - 8 * bump(e.k, 0.68, 0.88),
         dx: jitter(o, t) * 1.8 * sh, rot: jitter(o, t, 0.7) * 0.05 * sh, shut: e.k < 0.68 ? seg(e.k, 0.35, 0.55) : 0, eyeScale: 1 + 0.45 * e.fade,
-        happy: e.k > 0.8 && e.k < 0.97 ? 1 : 0, glow: 0.3 * e.build + 0.5 * e.fade, halo: 1 + e.build + e.fade, quiet: 1 };
+        happy: e.k > 0.8 && e.k < 0.97 ? 1 : 0, glow: 0.3 * e.build + 0.5 * e.fade, halo: 1 + e.build + e.fade, quiet: 1, hold: 0.9 * e.build, armOpen: e.fade, armUp: 0.4 * e.fade };
     },
     back(p, C, V, t, st) {
       const e = env(t);
@@ -350,7 +360,7 @@ L.poles = (o) => {
     charge(t) { return 0.35 + 0.6 * through(t); },
     mods(t) {
       const ph = phase(o, t), sw = Math.sin(TAU * whole(o.polesSway, 0) * ph), q = flow(t), th = through(t);
-      return { dx: sw * o.polesDist * 0.3, lookX: (q - 0.5) * 3.2, lookY: -0.2, eyeScale: 1 + 0.25 * th, happy: th > 0.7 ? 1 : 0, sy: 1 + 0.06 * th, glow: 0.25 * th, quiet: 1 };
+      return { dx: sw * o.polesDist * 0.3, lookX: (q - 0.5) * 3.2, lookY: -0.2, eyeScale: 1 + 0.25 * th, happy: th > 0.7 ? 1 : 0, sy: 1 + 0.06 * th, glow: 0.25 * th, quiet: 1, armOpen: 0.85 };
     },
     poles(p, V, t, front) {
       for (let j = 0; j < 2; j++) {
@@ -364,7 +374,8 @@ L.poles = (o) => {
     front(p, C, V, t, st) {
       this.poles(p, V, t, true);
       const [ax, ay] = poleAt(t, 0), [bx, by] = poleAt(t, 1), th = through(t);
-      const [lx, ly] = skin(o, st, Math.PI, 0.95), [rx, ry] = skin(o, st, 0, 0.95);
+      // (a figure carries it from one hand to the other)
+      const [lx, ly] = handNear(st, ax, ay) || skin(o, st, Math.PI, 0.95), [rx, ry] = handNear(st, bx, by) || skin(o, st, 0, 0.95);
       zap(p, V, o, R(o, t, 10), ax + o.polesSize * 0.6, ay, lx, ly, 1, { thick: th > 0.3 ? 2 : 1 });
       zap(p, V, o, R(o, t, 11), bx - o.polesSize * 0.6, by, rx, ry, 1, { thick: th > 0.3 ? 2 : 1 });
       crawl(p, V, o, t, st, 1 + Math.round(3 * th), 0.4 + 0.6 * th, 0.8, 5);
@@ -397,7 +408,8 @@ L.chain = (o) => {
     mods(t) {
       const e = env(t), first = objAt(t, e.order[0]), go = e.reached(0), d = Math.hypot(...first) || 1;
       return { sy: 1 - 0.08 * e.build + 0.1 * go, sx: 1 + 0.06 * e.build - 0.05 * go, dx: (first[0] / d) * 4 * go + jitter(o, t) * e.build * 1.2, dy: 3 * e.build - 2 * go,
-        lookX: (first[0] / d) * 1.5 * Math.max(e.build, go), lookY: -1, shut: e.build > 0.6 ? 0.6 : 0, happy: e.k > e.end && e.k < e.end + 0.2 ? 1 : 0, glow: 0.2 * go, quiet: 1 };
+        lookX: (first[0] / d) * 1.5 * Math.max(e.build, go), lookY: -1, shut: e.build > 0.6 ? 0.6 : 0, happy: e.k > e.end && e.k < e.end + 0.2 ? 1 : 0, glow: 0.2 * go, quiet: 1,
+        hold: 0.8 * e.build, reach: first, reachK: go };
     },
     objs(p, V, t, st, front) {
       const e = env(t);
@@ -412,7 +424,8 @@ L.chain = (o) => {
       const e = env(t);
       this.objs(p, V, t, st, true);
       if (e.build > 0) crawl(p, V, o, t, st, 3, e.build, 0.8, 6);
-      let [px, py] = skin(o, st, Math.atan2(...objAt(t, e.order[0]).slice().reverse()), 0.95);
+      const f0 = objAt(t, e.order[0]);
+      let [px, py] = handNear(st, f0[0], f0[1]) || skin(o, st, Math.atan2(...f0.slice().reverse()), 0.95);
       e.order.forEach((j, idx) => {
         const a = e.reached(idx), [x, y] = objAt(t, j);
         if (a > 0) zap(p, V, o, R(o, t, 12, idx), px, py, x, y, a);
@@ -436,11 +449,11 @@ L.storm = (o) => {
       const ph = phase(o, t), { d, i, pre } = near(ph), hit = d < 0.04 ? 1 : 0, wait = pre < 0.06 ? 1 - pre / 0.06 : 0;
       if (dodge) {
         const s = sideOf(i), hop = bump(d, 0, 0.14);
-        return { dx: -s * 14 * hop, dy: -9 * hop, rot: -s * 0.25 * hop, eyeScale: 1 + 0.45 * (d < 0.18 ? 1 - d / 0.18 : 0) + 0.15 * wait, lookY: -1.4 * wait - 0.4, lookX: s * 1.2 * hop, sy: 1 - 0.08 * wait, quiet: 1 };
+        return { dx: -s * 14 * hop, dy: -9 * hop, rot: -s * 0.25 * hop, eyeScale: 1 + 0.45 * (d < 0.18 ? 1 - d / 0.18 : 0) + 0.15 * wait, lookY: -1.4 * wait - 0.4, lookX: s * 1.2 * hop, sy: 1 - 0.08 * wait, quiet: 1, hold: 0.7 * Math.max(wait, hop) };
       }
       const glowK = d < 0.25 ? 1 - d / 0.25 : 0;
       return { sy: 1 + 0.18 * hit - 0.06 * wait, sx: 1 - 0.1 * hit, dx: jitter(o, t) * 2 * (d < 0.05 ? 1 : 0), dy: -3 * bump(d, 0.02, 0.2), happy: d > 0.04 && d < 0.3 ? 1 : 0,
-        eyeScale: 1 + 0.3 * hit + 0.1 * wait, lookY: -1.5 + d * 2, glow: 0.4 * glowK, halo: 1 + glowK, quiet: 1 };
+        eyeScale: 1 + 0.3 * hit + 0.1 * wait, lookY: -1.5 + d * 2, glow: 0.4 * glowK, halo: 1 + glowK, quiet: 1, armUp: Math.max(0.6 * wait, d < 0.3 ? 1 - d / 0.3 : 0) };
     },
     back(p, C, V, t, st) {
       // rain falling from it
@@ -466,12 +479,12 @@ L.storm = (o) => {
         const a = 1 - d / 0.05, r = R(o, t, 14);
         const bx = cx + r.range(-W * 0.3, W * 0.3), by = cy + W * 0.25;
         if (dodge) {
-          const s = sideOf(i), gx = st.x - st.m.dx + s * o.size * 0.6, gy = o.size * o.groundDist + o.hover;
+          const s = sideOf(i), gx = st.x - st.m.dx + s * o.size * 0.6, gy = st.floor != null ? st.floor : o.size * o.groundDist + o.hover;
           zap(p, V, o, r, bx, by, gx, gy, a);
           p.glow(gx, gy, 18, V.main, 0.6 * a * o.elGlowAmt);
           for (let j = 0; j < 8; j++) p.dot(gx + (j - 3.5) * 2.5, gy - rng(o.seed, 812, j).range(0, 4) - (1 - a) * 6, V.core, a);
         } else {
-          const [hx, hy] = skin(o, st, -Math.PI / 2, 0.9);
+          const [hx, hy] = handNear(st, bx, by) || skin(o, st, -Math.PI / 2, 0.9);
           zap(p, V, o, r, bx, by, hx, hy, a);
         }
         p.glow(cx, cy + W, W * 3, V.core, 0.25 * a);
@@ -492,7 +505,7 @@ L.atom = (o) => {
   };
   return {
     charge(t) { return 0.3 + 0.15 * Math.sin(TAU * 4 * phase(o, t)); },
-    mods(t) { const ph = phase(o, t); return { dy: -o.atomRise + Math.sin(TAU * 2 * ph) * 1.5, shut: 0.85, glow: 0.1, halo: 1.3, quiet: 1 }; },
+    mods(t) { const ph = phase(o, t); return { dy: o.form === "grounded" ? 0 : -o.atomRise + Math.sin(TAU * 2 * ph) * 1.5, shut: 0.85, glow: 0.1, halo: 1.3, quiet: 1, armOpen: 0.55 }; },
     draw(p, V, t, st, front) {
       const m = rings(), cx = st.x, cy = st.y;
       for (let j = 0; j < m; j++) {
@@ -532,8 +545,8 @@ function actOf(o) { return (L[o.elec] || L.discover)(o); }
 function layer(p, t, o, front) {
   const C = fit(o.palette, 8), V = volts(o), act = actOf(o), M = (tt) => settle(act.mods(tt), presence(o, tt), prog(o, tt));
   const e = presence(o, t), ch = clamp((act.charge && e > 0 ? act.charge(t) : 0) * o.elTint * e), Cb = ch > 0.002 ? tinted(C, V, ch) : C;
-  const st = front ? blobFront(p, t, o, M, Cb) : blobBack(p, t, o, M, Cb);
-  ambient(p, t, o, front, C);
+  const st = front ? bodyFront(p, t, o, M, Cb, total(o)) : bodyBack(p, t, o, M, Cb, total(o));
+  bodyAmbient(p, t, o, front, C);
   const hook = front ? act.front : act.back;
   if (!hook || e <= 0) return;
   // everything the electricity draws fades with it (dithered, so it stays crisp pixel art)

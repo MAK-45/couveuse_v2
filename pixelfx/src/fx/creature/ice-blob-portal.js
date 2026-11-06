@@ -20,7 +20,8 @@
 // set back by the animation's length, so it reaches 0 exactly on the last frame, where "live" starts; "close"
 // starts on it at 0. The blob's part goes neutral at both ends (prog/castMods, as for the objects).
 import { fit, clamp, lerp, seg, bump, ease, noise2, rng, cycle, TAU, WHITE, hex, mix, createFrame, clearFrame, painterFor } from "../../core/index.js";
-import { meta as idleMeta, blobBack, blobFront, ambient, state } from "./ice-blob-idle.js";
+import { meta as idleMeta, state } from "./ice-blob-idle.js";
+import { bodyBack, bodyFront, bodyAmbient } from "./ice-blob-transform.js";
 import { hsl, fromHsl } from "./ice-blob-actions.js";
 import { renderWorld, worldOf, worldPeriod, worldTile, paintWorld } from "./ice-worlds.js";
 
@@ -43,7 +44,7 @@ export const meta = {
     ...idleMeta.options,
     // the world seen through it (null: deep space with its defaults) and the scene's bounds in local pixels
     world: null, room: null,
-    mode: "open", loops: 2, lead: 0.08, castLean: 1,
+    form: "blob", mode: "open", loops: 2, lead: 0.08, castLean: 1,
     // the portal: centre (offset from the blob's spot), height, width / height, shape, plane
     pX: 92, pY: -16, pH: 84, pRatio: 0.62, pShape: "oval", pLayer: "back",
     // its look: rim hue shift, rim thickness, glow, swirls a world loop, sparks, what leaks out, edge wobble, lens
@@ -233,8 +234,9 @@ function castMods(o, t, target) {
   if (a <= 0 || a >= 1) return { quiet: 0 };
   const env = E(seg(a, 0, 0.2)) * (1 - E(seg(a, 0.7, 0.95)));
   const st = state(o, t, null), d = Math.hypot(target[0] - st.x, target[1] - st.y) || 1, dx = (target[0] - st.x) / d, dy = (target[1] - st.y) / d;
+  // (a figure holds out its hand to the portal)
   return { dx: dx * 5 * env * o.castLean, dy: dy * 3 * env * o.castLean, lookX: dx * 1.6 * env, lookY: dy * 1.1 * env, rot: dx * 0.15 * env * o.castLean,
-    glow: 0.4 * bump(a, 0.08, 0.4), sy: 1 - 0.06 * bump(a, 0.08, 0.2) * o.castLean, happy: a > 0.72 && a < 0.92 ? 1 : 0, quiet: 1 };
+    glow: 0.4 * bump(a, 0.08, 0.4), sy: 1 - 0.06 * bump(a, 0.08, 0.2) * o.castLean, happy: a > 0.72 && a < 0.92 ? 1 : 0, quiet: 1, reach: target, reachK: 0.95 * env * (1 - seg(a, 0.55, 0.75)) };
 }
 
 const spark = (p, C, x, y, a = 1) => { p.px(x, y, WHITE); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) p.dot(x + dx, y + dy, C[6], a); p.glow(x, y, 4, C[5], 0.35 * a); };
@@ -339,6 +341,8 @@ function crossMods(o, t, way) {
     m.rot = ux * 0.25 * fly;
     m.lookX = ux * 1.7 * look; m.lookY = uy * 1.2 * look;
     m.grow = 1 - 0.95 * ease.inCubic(seg(a, X.shrink[0], X.shrink[1]));
+    // (a figure dives in arms first)
+    m.armUp = 0.9 * E(seg(a, X.lean[1] - 0.04, X.leap[0] + 0.08)); m.hold = 0.7 * w * (1 - m.armUp);
     if (a >= X.shrink[1]) m.vis = 0;
     return m;
   }
@@ -351,6 +355,7 @@ function crossMods(o, t, way) {
   m.rot = -Math.sign(bx || 1) * 0.2 * bump(g, 0, 0.7);
   m.lookX = Math.sin(TAU * lk) * 1.5 * o.crossLook; m.lookY = -0.4 * Math.sin(Math.PI * lk) * o.crossLook;
   m.happy = a > 0.8 && a < 0.94 ? 1 : 0;
+  m.armOpen = 0.8 * bump(g, 0, 0.8);
   return m;
 }
 // both portals while it goes through: the first (worlds inside) and the one it comes out of (our void inside)
@@ -378,7 +383,7 @@ function reflect(p, o, t, M, C, k, room, [cx, cy]) {
   if (!scratch.has(key)) { if (scratch.size > 4) scratch.clear(); scratch.set(key, createFrame(f.w, f.h, f.ox, f.oy)); }
   const tf = clearFrame(scratch.get(key)), tp = painterFor(tf);
   tp.place(p.tx, p.ty);
-  blobBack(tp, t, o, M, C); blobFront(tp, t, o, M, C);
+  bodyBack(tp, t, o, M, C, total(o), 2); bodyFront(tp, t, o, M, C, total(o));
   const Hh = o.pH / 2, Wh = o.pShape === "circle" ? Hh : Hh * o.pRatio, inner = Math.max(1, Math.round(o.pRim)) + Math.max(0, Math.round(o.pLip));
   const x0 = Math.max(Math.floor(room[0]), Math.floor(cx - Wh)), x1 = Math.min(Math.ceil(room[2]) - 1, Math.ceil(cx + Wh)), y0 = Math.max(Math.floor(room[1]), Math.floor(cy - Hh)), y1 = Math.min(Math.ceil(room[3]) - 1, Math.ceil(cy + Hh));
   const dark = C[1], amt = clamp(0.45 - 0.2 * o.crossMirror, 0.1, 0.6);
@@ -443,17 +448,19 @@ export function drawBack(p, t, o) {
   // (back home, a portal kept open sits on its own plane, as in "live")
   const backFront = o.mode === "return" && o.pLayer === "front";
   if (!backFront) drawPortal(p, o, Cp, pl.back, pl.wt, pl.P, pl.room);
-  blobBack(p, t, o, pl.M, C);
-  ambient(p, t, o, false, C);
+  bodyBack(p, t, o, pl.M, C, total(o));
+  bodyAmbient(p, t, o, false, C);
 }
 
 export function draw(p, t, o) {
   const C = fit(o.palette, 8), pl = plan(o, t), Cp = paletteFor(o, o.pHue || 0), front = o.pLayer === "front" && !crossy(o);
-  const st = blobFront(p, t, o, pl.M, C);
-  ambient(p, t, o, true, C);
+  const st = bodyFront(p, t, o, pl.M, C, total(o));
+  bodyAmbient(p, t, o, true, C);
   if (front) drawPortal(p, o, Cp, pl.g, pl.wt, pl.P, pl.room);
   if (o.mode === "return" && o.pLayer === "front") drawPortal(p, o, Cp, pl.back, pl.wt, pl.P, pl.room);
-  if (o.mode === "open" || o.mode === "close") castFx(p, o, Cp, t, pl.a, [st.x, st.y], Math.max(2, pl.Wh), Math.max(2, pl.Hh));
-  if (o.mode === "reopen" && pl.mp) castFx(p, { ...o, mode: "open", pX: pl.mp[0], pY: pl.mp[1] }, Cp, t, pl.a, [st.x, st.y], Math.max(2, pl.Wh), Math.max(2, pl.Hh));
+  // (the light comes from a figure's hand)
+  const from = (x, y) => (st.hands && st.hands.length ? st.hands.reduce((b, h) => (Math.hypot(h[0] - x, h[1] - y) < Math.hypot(b[0] - x, b[1] - y) ? h : b)) : [st.x, st.y]);
+  if (o.mode === "open" || o.mode === "close") castFx(p, o, Cp, t, pl.a, from(o.pX, o.pY), Math.max(2, pl.Wh), Math.max(2, pl.Hh));
+  if (o.mode === "reopen" && pl.mp) castFx(p, { ...o, mode: "open", pX: pl.mp[0], pY: pl.mp[1] }, Cp, t, pl.a, from(pl.mp[0], pl.mp[1]), Math.max(2, pl.Wh), Math.max(2, pl.Hh));
   if (crossy(o)) crossFx(p, o, Cp, pl.a, pl.way);
 }
