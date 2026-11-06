@@ -104,8 +104,9 @@ export function renderWorld(w0, wt, P, T, X0, Y0, bw, bh, cam = [0, 0]) {
   const u = (((wt / P) % 1) + 1) % 1, sky = hex(w.wSky), dir = DIRS[w.wDir] || DIRS.none, par = Math.max(0, w.wParallax);
   col.fill(sky);
   // a layer's shift on screen: whole tiles of voyage a loop (more for the nearer layers), plus the camera
+  // (wAllMove: every layer travels at least one tile a loop, so even the far nebula slides by when the blob flies)
   const shift = (depth) => {
-    const tiles = w.wState === "moving" ? whole(w.wDrift * depth) : 0, d = depth * par;
+    const tiles = w.wState === "moving" ? (w.wAllMove && w.wDrift > 0 ? Math.max(1, whole(w.wDrift * depth)) : whole(w.wDrift * depth)) : 0, d = depth * par;
     return [Math.round(u * tiles * T) * dir[0] - Math.round(cam[0] * d), Math.round(u * tiles * T) * dir[1] - Math.round(cam[1] * d)];
   };
   const addLight = (x, y, c, k) => {

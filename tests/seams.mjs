@@ -6,6 +6,7 @@
 //   portal               open: first == idle, last == live; live loops on itself; close: first == live, last == idle
 //                        cross: first == live, last == beyond (the blob at rest in the other world); beyond loops on itself
 //   worlds               a world loops on itself (its own period, whole blob loops)
+//   world actions        free loops: frame at t == frame at t + T, every speed style, direction, surges and still
 // Run: npm test      (exit code 1 on any failure)
 import { createFrame, clearFrame, painterFor, composite } from "../pixelfx/src/core/index.js";
 import * as idle from "../pixelfx/src/fx/creature/ice-blob-idle.js";
@@ -16,6 +17,7 @@ import * as clock from "../pixelfx/src/fx/creature/ice-blob-clock.js";
 import * as elec from "../pixelfx/src/fx/creature/ice-blob-electric.js";
 import * as portal from "../pixelfx/src/fx/creature/ice-blob-portal.js";
 import * as worlds from "../pixelfx/src/fx/creature/ice-worlds.js";
+import * as explore from "../pixelfx/src/fx/creature/ice-blob-explore.js";
 
 const W = 320, H = 200, Ni = 120; // Ni: frames in one idle loop (D * fps with the defaults)
 function render(mod, o, t) {
@@ -109,6 +111,18 @@ for (const [name, more] of elecCases) {
   for (const more of [{}, { wState: "moving", wDrift: 3, wDir: "downright", wLoops: 3, wNebMorph: 2 }]) {
     const o = { ...worlds.meta.options, room, ...more }, P = worlds.worldPeriod(o.duration, worlds.worldOf(o));
     report(`world space${Object.keys(more).length ? " drift" : ""}`, diff(render(worlds, o, 0), render(worlds, o, P)), diff(render(worlds, o, P / 7), render(worlds, o, P + P / 7)));
+  }
+}
+
+// world actions (tab Action monde): free endless loops, the world scrolling past at the blob's speed
+{
+  const room = [-160, -115, 160, 85];
+  const cases = [...explore.STYLES.map((st) => [{ exStyle: st }, st]), [{ exStyle: "comet", exSpeed: 9, exDir: "upleft", exSurges: 3, exSurge: 0.8, loops: 3 }, "comet fast upleft"],
+    [{ exStyle: "ghosts", exSpeed: 1.25, exDir: "down", exSurges: 0, exHue: 40 }, "ghosts slow down"], [{ exStyle: "flame", exSpeed: 0 }, "flame still"],
+    [{ exStyle: "shock", exDrift: 0.35, exDir: "downright", world: { wNebMorph: 2, wShoot: 4 } }, "shock drift world"]];
+  for (const [more, tag] of cases) {
+    const o = { ...explore.meta.options, room, ...more }, T = o.duration * o.loops;
+    report(`explore move ${tag}`.slice(0, 34), diff(render(explore, o, 0), render(explore, o, T)), diff(render(explore, o, T / 3 - 1 / 30), render(explore, o, T + T / 3 - 1 / 30)));
   }
 }
 
