@@ -549,19 +549,23 @@ function elecGroups() {
 ANIMS.worlds = { name: "Mondes", fx: PFX.worlds, file: "monde", id: "creature/ice-worlds", mode: "scene", groups: null };
 // the surface tab: worlds seen from the ground of a planet (plain…). Same list of worlds, its own kinds and selection
 ANIMS.surface = { name: "Surface planète", fx: PFX.worlds, file: "surface", id: "creature/ice-surface", mode: "scene", groups: null };
-const WORLD_TYPE_LIST = [["space", "Espace", "étoiles lointaines, nébuleuse"], ["plain", "Plaine", "herbe, arbres, rochers, eau"]];
+// the second version: a valley in a painted pixel-art style (gros pixels, contours, aplats)
+ANIMS.surface2 = { name: "Surface planète v2", fx: PFX.worlds, file: "surface2", id: "creature/ice-surface-v2", mode: "scene", groups: null };
+const WORLD_TYPE_LIST = [["space", "Espace", "étoiles lointaines, nébuleuse"], ["plain", "Plaine", "herbe, arbres, rochers, eau"], ["valley", "Vallée", "rivière, chêne, rochers, prairie en terrasses"]];
 const worldTypeName = (t) => (WORLD_TYPE_LIST.find((x) => x[0] === t) || WORLD_TYPE_LIST[0])[1];
-const SURFACE_TYPES = new Set(PFX.worlds.SURFACE_TYPES);
-const isWorldTab = (a = S.anim) => a === "worlds" || a === "surface";
+const SURFACE_TYPES = new Set(PFX.worlds.SURFACE_TYPES), SURFACE2_TYPES = new Set(PFX.worlds.SURFACE2_TYPES);
+const isWorldTab = (a = S.anim) => a === "worlds" || a === "surface" || a === "surface2";
+const isSurfTab = (a = S.anim) => a === "surface" || a === "surface2";
+const WORLD_TABS = ["worlds", "surface", "surface2"];
 // which tab makes a world of that type, and which kinds that tab offers
-const tabOfType = (t) => (SURFACE_TYPES.has(t) ? "surface" : "worlds");
+const tabOfType = (t) => (SURFACE_TYPES.has(t) ? "surface" : SURFACE2_TYPES.has(t) ? "surface2" : "worlds");
 const tabTypes = (a = S.anim) => WORLD_TYPE_LIST.filter(([t]) => tabOfType(t) === a);
 const tabWorlds = (a = S.anim) => S.worlds.list.filter((w) => tabOfType(w.wType) === a);
-const selKey = (a = S.anim) => (a === "surface" ? "selSurf" : "sel");
+const selKey = (a = S.anim) => (a === "surface" ? "selSurf" : a === "surface2" ? "selSurf2" : "sel");
 const WORLD_KEYS = new Set(Object.values(PFX.worlds.DEFAULTS).flatMap((d) => Object.keys(d)));
 const worldNew = (id, name, type = "space") => ({ id, name, ...PFX.worlds.DEFAULTS[type] });
-const worldsDef = () => ({ list: [worldNew(1, "Espace profond"), worldNew(2, "Plaine verte", "plain")], sel: 1, selSurf: 2, nextId: 3 });
-const selWorld = () => { const a = S.anim === "surface" ? "surface" : "worlds", l = tabWorlds(a); return l.find((w) => w.id === S.worlds[selKey(a)]) || l[0] || S.worlds.list[0]; };
+const worldsDef = () => ({ list: [worldNew(1, "Espace profond"), worldNew(2, "Plaine verte", "plain"), worldNew(3, "Vallée de la rivière", "valley")], sel: 1, selSurf: 2, selSurf2: 3, nextId: 4 });
+const selWorld = () => { const a = isSurfTab() ? S.anim : "worlds", l = tabWorlds(a); return l.find((w) => w.id === S.worlds[selKey(a)]) || l[0] || S.worlds.list[0]; };
 const worldById = (id) => S.worlds.list.find((w) => w.id === +id) || S.worlds.list[0];
 const worldsView = () => ({ ...S.shared, ...S.blob, ...selWorld() });
 // colour moods for a plain: every colour, plus what goes with the hour (stars, moon, fireflies)
@@ -630,17 +634,60 @@ WORLD_PARAMS.plain = [
     ["wParallax", "Profondeur (parallaxe)", 0, 2, 0.05, ""], ["wCamX", "Caméra, horizontale", -400, 400, 1, " px"], ["wCamY", "Caméra, verticale", -200, 200, 1, " px"], ["wSeed", "Disposition (graine)", 0, 999, 1, ""]] },
   { title: "Temps", hint: "la boucle du monde", key: "wtime", open: true, rows: [["wLoops", "Durée de la boucle du monde", 1, 12, 1, " × boucle du blob"]] },
 ];
+// colour moods for a valley (v2)
+const VALLEY_PRESETS = {
+  "Jour": { wSkyTop: "#2c7fe0", wSkyLow: "#bfe8f8", wSun: "sun", wSunCol: "#fffbe6", wSunY: 11, wStars: 0, wCloudCol: "#ffffff", wCloudShade: "#a9c9ea", wMountCol: "#8494bd", wSnowCol: "#eef6ff", wForestCol: "#2f6a36", wGrassDark: "#2f7f22", wGrassLight: "#8bd240", wLeafDark: "#1b5520", wLeafLight: "#72bd38", wTrunk: "#7a4a28", wRockCol: "#938471", wWaterCol: "#2f92e6", wWaterLight: "#8ed8ff", wBankCol: "#8a5a30", wPathCol: "#c89c64", wFlowerA: "#ffe14a", wFlowerB: "#ff5f4a", wFlowerC: "#6aa6ff", wMoteCol: "#fffbd0", wMotes: 8, wBirds: 2 },
+  "Soir": { wSkyTop: "#2a2a78", wSkyLow: "#ffb07a", wSun: "sun", wSunCol: "#ffe0a0", wSunY: 34, wStars: 20, wCloudCol: "#ffd2b0", wCloudShade: "#b07aa0", wMountCol: "#6a5a90", wSnowCol: "#ffd8c8", wForestCol: "#2a4a3a", wGrassDark: "#2a5a2a", wGrassLight: "#a0b848", wLeafDark: "#1a3a22", wLeafLight: "#8aa83a", wTrunk: "#5a3624", wRockCol: "#8a7068", wWaterCol: "#6a6ac8", wWaterLight: "#ffb890", wBankCol: "#6a4030", wPathCol: "#c0885a", wFlowerA: "#ffd060", wFlowerB: "#ff6a6a", wFlowerC: "#b08aff", wMoteCol: "#ffe0a0", wMotes: 14, wBirds: 3 },
+  "Nuit": { wSkyTop: "#040a20", wSkyLow: "#1c3a6a", wSun: "moon", wSunCol: "#e6f6ff", wSunY: 13, wStars: 140, wCloudCol: "#4a628e", wCloudShade: "#24365a", wMountCol: "#1e2c52", wSnowCol: "#9fc0e0", wForestCol: "#0c2018", wGrassDark: "#0c2a1c", wGrassLight: "#2c6a4a", wLeafDark: "#06180f", wLeafLight: "#245a40", wTrunk: "#2a1e18", wRockCol: "#4c5468", wWaterCol: "#16346a", wWaterLight: "#6aa0e0", wBankCol: "#2a2020", wPathCol: "#4a4a5a", wFlowerA: "#9fe0ff", wFlowerB: "#c8a0ff", wFlowerC: "#ffffff", wMoteCol: "#b8ffe0", wMotes: 30, wBirds: 0 },
+  "Automne": { wSkyTop: "#3a86d0", wSkyLow: "#d8eef0", wSun: "sun", wSunCol: "#fff2d0", wSunY: 13, wStars: 0, wCloudCol: "#ffffff", wCloudShade: "#b0c4d8", wMountCol: "#8a90b0", wSnowCol: "#ffffff", wForestCol: "#8a4a20", wGrassDark: "#5a6a24", wGrassLight: "#c0b848", wLeafDark: "#8a2a12", wLeafLight: "#f0a030", wTrunk: "#5a3a24", wRockCol: "#8f8070", wWaterCol: "#3a86c0", wWaterLight: "#a8dcf0", wBankCol: "#7a4a28", wPathCol: "#b8905a", wFlowerA: "#ffd040", wFlowerB: "#e06030", wFlowerC: "#ffffff", wMoteCol: "#ffd890", wMotes: 16, wBirds: 3 },
+};
+const SURF_PRESETS = { plain: PLAIN_PRESETS, valley: VALLEY_PRESETS };
+WORLD_PARAMS.valley = [
+  { title: "Couleurs", hint: "ciel, prairie, eau, arbres, rochers", key: "wcol", open: true, worldPresets: true, rows: [
+    ["wSkyTop", "Ciel en haut", { color: true }], ["wSkyLow", "Ciel à l’horizon", { color: true }], ["wSunCol", "Soleil ou lune", { color: true }], ["wCloudCol", "Nuages", { color: true }],
+    ["wCloudShade", "Ombre des nuages", { color: true }], ["wMountCol", "Montagnes", { color: true }], ["wForestCol", "Bois au loin", { color: true }], ["wGrassDark", "Herbe sombre", { color: true }],
+    ["wGrassLight", "Herbe claire", { color: true }], ["wLeafDark", "Feuillage sombre", { color: true }], ["wLeafLight", "Feuillage clair", { color: true }], ["wTrunk", "Troncs", { color: true }],
+    ["wRockCol", "Rochers", { color: true }], ["wWaterCol", "Eau", { color: true }], ["wWaterLight", "Reflets de l’eau", { color: true }], ["wBankCol", "Berges", { color: true }],
+    ["wPathCol", "Chemin", { color: true }], ["wFlowerA", "Fleurs, première couleur", { color: true }], ["wFlowerB", "Fleurs, deuxième couleur", { color: true }], ["wFlowerC", "Fleurs, troisième couleur", { color: true }],
+    ["wMoteCol", "Pollen ou lucioles", { color: true }]] },
+  { title: "Style", hint: "taille des pixels", key: "wstyle", open: true, rows: [["wPix", "Taille des pixels", 1, 4, 1, " × pixel de la scène"]] },
+  { title: "Ciel", hint: "soleil, nuages, oiseaux", key: "wsky", rows: [
+    ["wSkySteps", "Paliers du ciel", 2, 12, 1, ""], ["wSkyDither", "Tramage en lignes entre les paliers", 0, 1.5, 0.05, ""], ["wStars", "Étoiles (pour la nuit)", 0, 400, 1, ""],
+    ["wSun", "Dans le ciel", { select: SUN_LIST }], ["wSunX", "Soleil, position horizontale", 0, 100, 0.5, " %"], ["wSunY", "Soleil, hauteur", 0, 80, 0.5, " %"],
+    ["wSunSize", "Taille du soleil", 1, 15, 0.5, " % de la hauteur"], ["wHalo", "Halo du soleil", 0, 2, 0.05, ""], ["wSunGlow", "Lueur du soleil", 0, 2.5, 0.05, ""],
+    ["wClouds", "Nuages", 0, 24, 1, ""], ["wCloudSize", "Taille des nuages", 0.3, 3, 0.05, "×"], ["wCloudWind", "Vent dans les nuages (écrans par boucle)", -4, 4, 1, ""],
+    ["wCloudMorph", "Les nuages gonflent (fois par boucle)", 0, 4, 1, ""], ["wBirds", "Oiseaux par boucle", 0, 12, 1, ""]] },
+  { title: "Au loin", hint: "horizon, montagnes, collines, bois", key: "wrelief", rows: [
+    ["wHorizon", "Hauteur de l’horizon", 20, 75, 0.5, " %"], ["wMount", "Montagnes", 0, 2.5, 0.05, "×"], ["wSnow", "Neige sur les sommets", 0, 1, 0.01, ""],
+    ["wHills", "Collines", 0, 3, 0.05, "×"], ["wForest", "Bois à l’horizon", 0, 2, 0.05, "×"], ["wHaze", "Brume au loin", 0, 1, 0.01, ""]] },
+  { title: "Prairie", hint: "terrasses, herbe, fleurs, vent", key: "wgrass", rows: [
+    ["wTerraces", "Terrasses (bords de prairie)", 0, 5, 1, ""], ["wPatches", "Taches de lumière", 0, 2, 0.05, ""], ["wGrassTex", "Brins d’herbe dessinés", 0, 2, 0.05, ""],
+    ["wFlowers", "Fleurs", 0, 3, 0.05, ""], ["wBlades", "Hautes herbes devant", 0, 2, 0.05, ""], ["wGrassH", "Hauteur des hautes herbes", 0, 25, 0.5, " % de la hauteur"],
+    ["wSway", "Force du vent", 0, 3, 0.05, ""], ["wGust", "Rafales par boucle", 0, 6, 1, ""], ["wMotes", "Pollen ou lucioles", 0, 120, 1, ""]] },
+  { title: "Rivière et chemin", hint: "l’eau qui serpente, le chemin de terre", key: "wwater", rows: [
+    ["wRiver", "Rivière", { select: [["1", "Oui"], ["0", "Non"]] }], ["wRiverW", "Largeur de la rivière (devant)", 4, 40, 0.5, " % de la hauteur"], ["wMeander", "Méandres", 0, 3, 0.05, ""],
+    ["wFlow", "Courant (vitesse)", 0.1, 4, 0.05, ""], ["wShimmer", "Lignes de courant", 0, 2, 0.05, ""],
+    ["wPath", "Chemin", { select: [["1", "Oui"], ["0", "Non"]] }], ["wPathW", "Largeur du chemin (devant)", 2, 20, 0.5, " % de la hauteur"]] },
+  { title: "Arbres et rochers", hint: "le grand chêne, les autres, buissons, rochers", key: "wtrees", rows: [
+    ["wBigTree", "Grand chêne", { select: [["1", "Oui"], ["0", "Non"]] }], ["wTreeSize", "Taille du grand chêne", 10, 90, 0.5, " % de la hauteur"], ["wTrees", "Autres arbres", 0, 30, 1, ""],
+    ["wBushes", "Buissons", 0, 40, 1, ""], ["wRockPile", "Amas de rochers", { select: [["1", "Oui"], ["0", "Non"]] }], ["wPileSize", "Taille de l’amas", 5, 60, 0.5, " % de la hauteur"],
+    ["wRocks", "Pierres", 0, 30, 1, ""]] },
+  { title: "Mouvement", hint: "immobile ou en mouvement", key: "wmove", open: true, rows: [
+    ["wState", "État du monde", { select: WORLD_STATES }], ["wDrift", "Vitesse du défilement (en mouvement)", 1, 12, 1, ""], ["wDir", "Le sol défile", { select: DIR_LIST.filter((d) => d[0] === "left" || d[0] === "right") }],
+    ["wParallax", "Profondeur (parallaxe)", 0, 2, 0.05, ""], ["wCamX", "Caméra, horizontale", -400, 400, 1, " px"], ["wCamY", "Caméra, verticale", -200, 200, 1, " px"], ["wSeed", "Disposition (graine)", 0, 999, 1, ""]] },
+  { title: "Temps", hint: "la boucle du monde", key: "wtime", open: true, rows: [["wLoops", "Durée de la boucle du monde", 1, 12, 1, " × boucle du blob"]] },
+];
 function worldGroups() {
-  const w = selWorld(), n = tabWorlds().length, word = S.anim === "surface" ? "surface" : "monde";
+  const w = selWorld(), n = tabWorlds().length, word = isSurfTab() ? "surface" : "monde";
   return [
-    { title: S.anim === "surface" ? "Mes surfaces" : "Mes mondes", hint: `${n} ${word}${n > 1 ? "s" : ""}`, key: "wlist", open: true, worldList: true, rows: [] },
-    { title: S.anim === "surface" ? "Type de surface" : "Type de monde", hint: worldTypeName(w.wType), key: "wtype", pickerList: tabTypes(), pickerKey: "wType", rows: [] },
+    { title: isSurfTab() ? "Mes surfaces" : "Mes mondes", hint: `${n} ${word}${n > 1 ? "s" : ""}`, key: "wlist", open: true, worldList: true, rows: [] },
+    { title: isSurfTab() ? "Type de surface" : "Type de monde", hint: worldTypeName(w.wType), key: "wtype", pickerList: tabTypes(), pickerKey: "wType", rows: [] },
     ...(WORLD_PARAMS[w.wType] || WORLD_PARAMS.space).map((g) => g.key !== "wmove" || w.wState === "moving" ? g : { ...g, rows: g.rows.filter((r) => r[0] !== "wDrift" && r[0] !== "wDir") }),
   ];
 }
 function worldListMarkup(rows) {
   const w = selWorld();
-  rows.insertAdjacentHTML("beforeend", `<div class="row"><label for="in-wname"><span>${S.anim === "surface" ? "Nom de la surface" : "Nom du monde"}</span></label><div class="inline"><input type="text" id="in-wname" maxlength="40" value=""></div></div>`);
+  rows.insertAdjacentHTML("beforeend", `<div class="row"><label for="in-wname"><span>${isSurfTab() ? "Nom de la surface" : "Nom du monde"}</span></label><div class="inline"><input type="text" id="in-wname" maxlength="40" value=""></div></div>`);
   const nm = rows.querySelector("#in-wname");
   nm.value = w.name;
   nm.oninput = () => { w.name = nm.value.trim() || "Sans nom"; const b = rows.querySelector(`[data-wid="${w.id}"] strong`); if (b) b.textContent = w.name; persist(); };
@@ -656,8 +703,8 @@ function worldListMarkup(rows) {
     ul.appendChild(r);
   }
   rows.appendChild(ul);
-  rows.insertAdjacentHTML("beforeend", `<div class="row"><div class="inline"><button type="button" id="wNew">${S.anim === "surface" ? "Nouvelle surface" : "Nouveau monde"}</button><button type="button" id="wDup">Dupliquer</button><button type="button" id="wSave">Enregistrer en fichier</button><button type="button" id="wOpen">Ouvrir un fichier</button><input type="file" id="wFile" accept=".json,application/json" hidden></div>
-    <p class="note">${S.anim === "surface" ? "Tes surfaces sont gardées dans ce navigateur et dans « Enregistrer les réglages ». Glisse dans l’aperçu pour déplacer la caméra : l’herbe proche défile plus vite que les montagnes." : "Tes mondes sont gardés dans ce navigateur et dans « Enregistrer les réglages ». Glisse dans l’aperçu pour déplacer la caméra : les étoiles proches défilent plus vite que les lointaines."}</p></div>`);
+  rows.insertAdjacentHTML("beforeend", `<div class="row"><div class="inline"><button type="button" id="wNew">${isSurfTab() ? "Nouvelle surface" : "Nouveau monde"}</button><button type="button" id="wDup">Dupliquer</button><button type="button" id="wSave">Enregistrer en fichier</button><button type="button" id="wOpen">Ouvrir un fichier</button><input type="file" id="wFile" accept=".json,application/json" hidden></div>
+    <p class="note">${isSurfTab() ? "Tes surfaces sont gardées dans ce navigateur et dans « Enregistrer les réglages ». Glisse dans l’aperçu pour déplacer la caméra : l’herbe proche défile plus vite que les montagnes." : "Tes mondes sont gardés dans ce navigateur et dans « Enregistrer les réglages ». Glisse dans l’aperçu pour déplacer la caméra : les étoiles proches défilent plus vite que les lointaines."}</p></div>`);
   rows.querySelector("#wNew").onclick = () => addWorld();
   rows.querySelector("#wDup").onclick = () => addWorld({ ...selWorld(), name: selWorld().name + " (copie)" });
   rows.querySelector("#wSave").onclick = () => { const x = selWorld(); run([["Monde", async () => JSON.stringify({ couveuseWorld: 1, world: x }, null, 1), "json", "monde-" + slug(x.name)]], `Monde « ${x.name} » enregistré.`); };
@@ -673,7 +720,7 @@ function addWorld(from) {
   say(`Monde « ${w.name} » créé.`);
 }
 function removeWorld(id) {
-  if (tabWorlds().length <= 1) { say(S.anim === "surface" ? "Il faut garder au moins une surface." : "Il faut garder au moins un monde.", true); return; }
+  if (tabWorlds().length <= 1) { say(isSurfTab() ? "Il faut garder au moins une surface." : "Il faut garder au moins un monde.", true); return; }
   const i = S.worlds.list.findIndex((w) => w.id === id), [w] = S.worlds.list.splice(i, 1);
   if (S.worlds[selKey()] === id) S.worlds[selKey()] = tabWorlds()[0].id;
   if (S.portal.pWorld === id) S.portal.pWorld = S.worlds.list[0].id;
@@ -860,7 +907,9 @@ function sanitize(v) {
   s.worlds.nextId = Math.max(s.worlds.nextId || 1, ...s.worlds.list.map((w) => w.id + 1));
   // older saves have no surface yet: give them the default plain
   if (!s.worlds.list.some((w) => SURFACE_TYPES.has(w.wType))) s.worlds.list.push(worldNew(s.worlds.nextId++, "Plaine verte", "plain"));
-  for (const a of ["worlds", "surface"]) { const own = s.worlds.list.filter((w) => tabOfType(w.wType) === a); if (own.length && !own.some((w) => w.id === s.worlds[selKey(a)])) s.worlds[selKey(a)] = own[0].id; }
+  // nor the second version's valley
+  if (!s.worlds.list.some((w) => SURFACE2_TYPES.has(w.wType))) s.worlds.list.push(worldNew(s.worlds.nextId++, "Vallée de la rivière", "valley"));
+  for (const a of WORLD_TABS) { const own = s.worlds.list.filter((w) => tabOfType(w.wType) === a); if (own.length && !own.some((w) => w.id === s.worlds[selKey(a)])) s.worlds[selKey(a)] = own[0].id; }
   s.portal = { ...f.portal, ...((v && v.portal) || {}) };
   if (!PORTAL_MODES.some((m) => m[0] === s.portal.mode)) s.portal.mode = f.portal.mode;
   if (!s.worlds.list.some((w) => w.id === s.portal.pWorld)) s.portal.pWorld = s.worlds.list[0].id;
@@ -1013,6 +1062,7 @@ function buildControls() {
   if (S.anim === "clock") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence et la place de l’onglet Blob né. Il part de sa position de repos, affiche l’heure, puis revient exactement à son repos : la première et la dernière image sont celles de la boucle du blob né.</p>`);
   if (S.anim === "portal") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence et la place de l’onglet Blob né. Il ouvre un portail vers un autre monde, qu’on ne voit qu’à travers lui. Glisse le portail dans l’aperçu pour le placer, et sa poignée carrée pour changer sa taille. Les mondes se créent et se règlent dans les onglets Mondes et Surface planète.</p>`);
   if (S.anim === "explore") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence et la place de l’onglet Blob né, et explore un des mondes des onglets Mondes et Surface planète. En vrai il reste sur place : c’est le monde qui défile derrière lui, les étoiles proches plus vite que les lointaines. Une seule vitesse règle tout : plus il va vite, plus le décor défile et plus il se déforme. Boucle libre, sans raccord visible, qui n’a pas besoin de revenir au blob né.</p>`);
+  if (S.anim === "surface2") controls.insertAdjacentHTML("beforeend", `<p class="note intro">La surface d’une planète, deuxième version : une vallée dans un pixel art « peint », à gros pixels, avec des contours sombres et des aplats de couleur. Prairie en terrasses, rivière qui serpente vers nous, chemin de terre, grand chêne, amas de rochers, buissons et hautes herbes. Comme la première : immobile, elle vit sur place (vent, nuages, courant de la rivière) ; en mouvement, l’herbe proche défile plus vite que les montagnes, en boucle parfaite. Elle sert aussi dans les onglets Portail et Action monde.</p>`);
   if (S.anim === "surface") controls.insertAdjacentHTML("beforeend", `<p class="note intro">La surface d’une planète, vue du sol : pour l’instant une plaine, avec son ciel, ses montagnes, ses prairies, ses arbres, ses rochers et son eau. Elle est faite de couches à différentes profondeurs : immobile, elle vit sur place (vent dans l’herbe, nuages, reflets) ; en mouvement, l’herbe proche défile plus vite que les montagnes, en boucle parfaite. Le blob s’y promène dans l’onglet Action monde, ou y passe par un portail.</p>`);
   if (S.anim === "worlds") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Les mondes qu’on voit à travers les portails. Crée-les, règle-les et garde-les ici ; l’aperçu montre le monde entier, en boucle sans fin. Il est fait de couches à différentes profondeurs : quand la caméra bouge, les étoiles proches défilent plus vite que les lointaines.</p>`);
   const groups = isWorldTab() ? worldGroups() : S.anim === "explore" ? exploreGroups() : S.anim === "portal" ? portalGroups() : S.anim === "elec" ? elecGroups() : S.anim === "clock" ? clockGroups() : S.anim === "loops" ? loopGroups() : S.anim === "objects" ? objectGroups() : S.anim === "actions" ? actionGroups() : ANIMS[S.anim].groups;
@@ -1027,8 +1077,8 @@ function buildControls() {
     if (g.worldPresets) {
       const pr = document.createElement("div");
       pr.className = "presets";
-      const plain = V.wType === "plain";
-      for (const [name, cols] of Object.entries(plain ? PLAIN_PRESETS : WORLD_PRESETS)) {
+      const plain = !!SURF_PRESETS[V.wType];
+      for (const [name, cols] of Object.entries(plain ? SURF_PRESETS[V.wType] : WORLD_PRESETS)) {
         const b = document.createElement("button");
         b.className = "preset"; b.type = "button";
         b.innerHTML = `<i style="background:linear-gradient(90deg,${(plain ? plainSwatch(cols) : cols.slice(1)).join(",")})"></i>${name}`;
@@ -1540,7 +1590,7 @@ const nextPaint = () => new Promise((r) => setTimeout(r, 0));
 const objName = () => { const so = selObj(); return V.mode === "live" || !so ? "objets-scene" : `objets-${V.mode === "appear" ? "apparition" : "disparition"}-${so.shape}-${so.id}`; };
 const clockName = () => { const o = OPTS; return "heure-" + String(o.clkH).padStart(2, "0") + String(o.clkM).padStart(2, "0"); };
 const portalName = () => { const w = worldById(V.pWorld); return `portail-${{ open: "creation", live: "ouvert", close: "fermeture", cross: "traversee", beyond: "autre-monde", reopen: "ouverture-retour", beyondOpen: "autre-monde-portail-ouvert", return: "retour" }[V.mode]}-${slug(w.name)}`; };
-const base = () => isWorldTab() ? `${S.anim === "surface" ? "surface" : "monde"}-${slug(selWorld().name)}-${selWorld().wSeed}` : `creature-glace-${S.anim === "explore" ? `monde-${V.explore}${V.explore === "move" ? "-" + V.exStyle : ""}-${slug(worldById(V.exWorld).name)}` : S.anim === "portal" ? portalName() : S.anim === "clock" ? clockName() : S.anim === "loops" ? "boucle-" + V.loop : S.anim === "elec" ? "electricite-" + V.elec : S.anim === "actions" ? "action-" + V.action : S.anim === "objects" ? objName() : ANIMS[S.anim].file}-${V.seed}` + (V.exportWhat === "creature" ? "-seule" : "-scene");
+const base = () => isWorldTab() ? `${isSurfTab() ? "surface" : "monde"}-${slug(selWorld().name)}-${selWorld().wSeed}` : `creature-glace-${S.anim === "explore" ? `monde-${V.explore}${V.explore === "move" ? "-" + V.exStyle : ""}-${slug(worldById(V.exWorld).name)}` : S.anim === "portal" ? portalName() : S.anim === "clock" ? clockName() : S.anim === "loops" ? "boucle-" + V.loop : S.anim === "elec" ? "electricite-" + V.elec : S.anim === "actions" ? "action-" + V.action : S.anim === "objects" ? objName() : ANIMS[S.anim].file}-${V.seed}` + (V.exportWhat === "creature" ? "-seule" : "-scene");
 function frameSize() { return V.exportWhat === "creature" && ANIMS[S.anim].mode === "box" ? [B * V.scale, B * V.scale] : [SW, SH]; }
 async function allFrames(label) {
   const out = [], alone = V.exportWhat === "creature", box = ANIMS[S.anim].mode === "box";

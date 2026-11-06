@@ -120,6 +120,13 @@ for (const [name, more] of elecCases) {
   }
   // a portal onto a plain
   { const o = { ...portal.meta.options, mode: "live", world: { ...worlds.PLAIN, wState: "moving", wDrift: 2 } }, P = portal.total(o); report("portal live plain", diff(render(portal, o, 0), render(portal, o, P)), 0); }
+  // the valley (tab Surface planète v2): still, moving with wind and camera, at night travelling fast, fine pixels
+  for (const [more, tag] of [[{}, "still"], [{ wState: "moving", wDrift: 3, wDir: "right", wLoops: 2, wCloudWind: -2, wCamX: 30, wCamY: -10, wGust: 3, wFlow: 2 }, "moving"],
+    [{ wSun: "moon", wStars: 80, wState: "moving", wDrift: 5, wAllMove: 1, wDir: "left", wMotes: 40, wBirds: 5, wPix: 1 }, "night fast px1"], [{ wPix: 3, wSeed: 12, wLoops: 1 }, "px3"]]) {
+    const w = { ...worlds.VALLEY, ...more }, o = { ...worlds.meta.options, room, world: w }, P = worlds.worldPeriod(o.duration, worlds.worldOf(w));
+    report(`world valley ${tag}`, diff(render(worlds, o, 0), render(worlds, o, P)), diff(render(worlds, o, P / 7), render(worlds, o, P + P / 7)));
+  }
+  { const o = { ...portal.meta.options, mode: "live", world: { ...worlds.VALLEY, wState: "moving", wDrift: 2 } }, P = portal.total(o); report("portal live valley", diff(render(portal, o, 0), render(portal, o, P)), 0); }
 }
 
 // world actions (tab Action monde): free endless loops, the world scrolling past at the blob's speed
@@ -134,7 +141,8 @@ for (const [name, more] of elecCases) {
     [{ explore: "swim", exSpeed: 0 }, "still"], [{ explore: "turns", trTurns: 5, trFollow: 1, exDir: "downleft", exSpeed: 7 }, "downleft"],
     [{ explore: "turns", trFollow: 0, exSpeed: 0.5 }, "slow"], [{ explore: "collect", clCount: 9, clSpread: 90, exDir: "left", loops: 3 }, "many left"],
     // across a plain
-    ...["move", "look", "swim", "turns", "collect"].map((e) => [{ explore: e, world: { wType: "plain" } }, "plain"]), [{ exStyle: "flame", exSpeed: 6, exDir: "upright", exSurges: 2, loops: 3, world: { wType: "plain" } }, "plain fast"]];
+    ...["move", "look", "swim", "turns", "collect"].map((e) => [{ explore: e, world: { wType: "plain" } }, "plain"]),
+    ...["move", "look", "turns"].map((e) => [{ explore: e, world: { wType: "valley" } }, "valley"]), [{ exStyle: "flame", exSpeed: 6, exDir: "upright", exSurges: 2, loops: 3, world: { wType: "plain" } }, "plain fast"]];
   for (const [more, tag] of cases) {
     const o = { ...explore.meta.options, room, ...more }, T = o.duration * o.loops;
     report(`explore ${o.explore} ${tag}`.slice(0, 34), diff(render(explore, o, 0), render(explore, o, T)), diff(render(explore, o, T / 3 - 1 / 30), render(explore, o, T + T / 3 - 1 / 30)));

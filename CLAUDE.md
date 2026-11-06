@@ -74,6 +74,13 @@ After any change to an effect or to `app/`, run `npm run build && npm test`.
     banded sky, sun/moon, clouds, ridged mountains with snow, hills, three meadows at depths 0.45/0.7/1 with lake, ponds, trees,
     rocks, flowers, tall grass at 1.35 in front, motes, birds; `renderSurface()` has the same shape as `renderWorld()`, which
     dispatches to it for surface types; only sideways travel; sizes in % of the scene's height; every hash reads `wrap(lx, T)`)
+  - `pixelfx/src/fx/creature/ice-surface-v2.js` — tab **Surface planète v2** (type `valley`, a painted pixel-art style modelled on a
+    reference picture the author gave: chunky pixels `wPix` (drawn small, blown up in `renderValley()`), flat areas of colour, dark
+    outlines; the ground is ONE perspective plane (row scale `scaleAt(f)`, world x `gx` wraps on `Tw` = 2 tiles, a row moves
+    `k Tw s` a loop); terraces (`folds`) with a shaded slope and a grass fringe, a river and a path (`course()`, world x per depth),
+    oaks made of leaf pads in tiers over visible branches, boulders made of faceted blocks (`blockOf()`/`block()`), bushes, tufts;
+    rows of ground and every sprite are cached (`groundOf()`, `spriteOf()`); clouds/stars/motes repeat on `T`, so wind and drift
+    stay whole tiles. Procedural "new map" generation was asked then put aside by the author: style first)
   - `ice-spirit-birth.js` is the first, abandoned birth version; ignore it.
 - `app/main.js` the whole UI (state, controls, render pipeline, GIF encoder, export). `app/index.template.html` HTML + CSS.
   `app/entry.js` lists what the page imports from pixelfx (global `PFX`). `app/build.mjs` inlines it all.
@@ -108,8 +115,8 @@ If `npm test` reports a FAIL, fix the effect — never loosen the test.
   strings through `fit(...)`. Strings fail silently.
 - `p.dot` dithers with its alpha; for crisp pixel art prefer `p.px` with full colours, use `p.blend` for true translucency.
 - Bodies are drawn pixel by pixel in body space (`toBody`/`toScreen`); keep loops bounded to the body's extent.
-- UI: tabs Mondes and Surface planète share `S.worlds.list` (portals and Action monde pick from all of it); each tab shows its
-  own types (`tabOfType()`), has its own selection (`sel` / `selSurf`, via `selKey()`) and `isWorldTab()` covers both.
+- UI: tabs Mondes, Surface planète and Surface planète v2 share `S.worlds.list` (portals and Action monde pick from all of it); each tab shows its
+  own types (`tabOfType()`), has its own selection (`sel` / `selSurf` / `selSurf2`, via `selKey()`); `isWorldTab()` covers the three, `isSurfTab()` the two surfaces.
 - UI: `setV(k, v)` routes a key to the right store (`S.shared`, `S.blob`, `S.actions`, `S.objects`, `S.loops`, `S.clock`, `S.elec`, `S.portal`, `S.explore`, the selected world of `S.worlds`)
   per tab; add new keys to the tab's `*_KEYS` set or they land in `S.blob`.
 - UI: controls may be missing on some tabs — wire them with `on(id, event, fn)`, never `$(id).onclick =` directly.

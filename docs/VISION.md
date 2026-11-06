@@ -43,7 +43,7 @@ produit doit donc pouvoir se combiner : même scène, même place, mêmes raccor
 - Tout ce qui est nouveau (effets, objets, décors) reste **dans ce même style** : palette de 8 teintes,
   contours d’un pixel éclairés en haut à gauche, lueurs douces.
 
-## Ce qui existe (onze onglets)
+## Ce qui existe (douze onglets)
 
 Naissance · Blob né (repos) · Actions (19, retour au repos) · Objets (scène vivante, apparition,
 disparition) · Boucles (18 activités sans fin : dormir, magie, jongler…) · Heure (affiche une heure choisie
@@ -70,7 +70,7 @@ collines, trois prairies en profondeur avec un lac, des étangs, des arbres rond
 fleurs, de hautes herbes qui plient sous les rafales, du pollen ou des lucioles et des oiseaux ; tout est réglable, avec des
 ambiances Jour, Aube, Crépuscule, Nuit de glace, Printemps. Comme les mondes de l’espace : **immobile** ou **en
 mouvement** (le sol défile, l’herbe proche plus vite que les montagnes), en boucle parfaite ; le blob s’y promène dans
-Action monde et y passe par les portails).
+Action monde et y passe par les portails). · Surface planète v2 (une vallée dans le style d’une image de référence donnée par l’auteur : pixel art « peint », à gros pixels, aplats de couleur, contours sombres ; prairie en terrasses, rivière qui serpente vers nous avec sa berge de terre et ses lignes de courant, chemin, grand chêne en étages de feuillage, amas de rochers taillés en facettes, buissons, hautes herbes ; ambiances Jour, Soir, Nuit, Automne ; immobile ou en mouvement, en boucle parfaite. L’auteur veut d’abord retrouver ce style ; la génération d’une nouvelle carte au hasard par un bouton viendra plus tard).
 
 ## Directions déjà évoquées pour la suite
 

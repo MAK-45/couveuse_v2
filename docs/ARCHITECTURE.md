@@ -33,6 +33,7 @@ and only supply `M` plus their own extra drawing (`back`/`front` hooks). `ambien
 | ice-blob-explore.js | Action monde | `X.name = (o) => ({ mods(t), world(t) → { w, wt }, calm, back(p,C,Cf,t,st,M), front(...) })` (`world` gives the world and its clock for that frame: camera moves go in `wCamX/wCamY`, periodic; `calm` shows the idle's motes); actions move, look, swim, turns, collect (`Cf` = palette shifted by `exHue`). Free loop over `loops` blob loops; the world from `worldFor(o)` (moving at `exSpeed × exDrift` scenes a blob loop, against `exDir`), its clock warped by `pace(o,t).x` for the surges; `pace(o,t).k` = how much the body shows the speed |
 | ice-worlds.js | Mondes | `renderWorld(w, wt, P, T, X0, Y0, bw, bh, cam)` → `{ col, lit }` for a window of scene cells; layers at depths shifted by voyage + camera (parallax); `WORLD_TYPES`, `DEFAULTS`, `worldOf()`, `worldPeriod()` |
 | ice-surface.js | Surface planète | `renderSurface(w, wt, P, T, X0, Y0, bw, bh, cam, dims)` → `{ col, lit }`, called by `renderWorld` for surface types (`plain`); `dims` = the scene's size in cells (horizon, sun, sizes in % of its height). Layers back to front: sky, stars, sun/moon, birds, clouds (wind = whole tiles a loop), mountains (0.12), hills (0.3), meadows (0.45, 0.7, 1) with their lake/ponds/flowers/rocks/trees, tall grass (1.35), motes. Only the sideways part of a heading moves it |
+| ice-surface-v2.js | Surface planète v2 | `renderValley(w, wt, P, T, X0, Y0, bw, bh, cam, dims)` → `{ col, lit }`, called by `renderWorld` for `valley`; draws at 1/`wPix` and blows up. Sky (line-dithered bands), sun + halo, birds, cumulus, two mountain ranges (0.08, 0.13), hills (0.2), far woods (0.28), then the ground as one perspective plane: rows cached by `groundOf()` (meadow, terraces, flowers, path, banks), river flow lines each frame; items sorted by depth and drawn from cached sprites (`spriteOf()`): oaks (trunk + pads, crown rows sway), bushes, blocks, the rock pile, tufts; tall grass in front, motes |
 | ice-blob-clock.js | Heure | 5x7 font, cells laid out by `layout()`, styles in `drawCells()`, timetable in `phases()` |
 
 `prog(o, t)` (actions, objects, clock) maps time to the action's progress 0..1 inside the lead-in/lead-out.
@@ -44,7 +45,7 @@ Sections, in order (search for `// ----`):
 
 1. Constants: palettes, ratios, `SHARED_DEF` (scene/export settings shared by all tabs), `PER_DEF`.
 2. `ANIMS` registry: `{ name, fx, file, id, mode: "box" | "scene", groups }`. Tabs: birth, blob, actions,
-   objects, loops, clock, elec, portal, explore, worlds, surface (the worlds of `S.worlds` whose type is a planet surface). `mode: "box"` = drawn in its own square zone and blitted (birth only);
+   objects, loops, clock, elec, portal, explore, worlds, surface, surface2 (the worlds of `S.worlds` whose type is a planet surface, first or second version). `mode: "box"` = drawn in its own square zone and blitted (birth only);
    `"scene"` = drawn across the whole scene at `1/scale` resolution and upscaled.
 3. Per-tab UI tables: `ACTION_LIST/ACTION_PARAMS`, `LOOP_LIST/LOOP_PARAMS`, `OBJ_ROWS`, `clockGroups()`…
    A row is `[key, label, min, max, step, unit]` (slider) or `[key, label, { select | color | button }]`.
