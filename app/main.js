@@ -566,11 +566,11 @@ const worldById = (id) => S.worlds.list.find((w) => w.id === +id) || S.worlds.li
 const worldsView = () => ({ ...S.shared, ...S.blob, ...selWorld() });
 // colour moods for a plain: every colour, plus what goes with the hour (stars, moon, fireflies)
 const PLAIN_PRESETS = {
-  "Jour": { wSkyTop: "#1a4aa6", wSkyLow: "#9fe2f6", wSun: "sun", wSunCol: "#fff3c4", wSunY: 18, wStars: 0, wCloudCol: "#f4fbff", wMountCol: "#40619f", wSnowCol: "#eef9ff", wGrassDark: "#14472a", wGrassLight: "#8ad64e", wLeafDark: "#16432a", wLeafLight: "#6cc64e", wTrunk: "#6a4426", wRockCol: "#8e98aa", wWaterCol: "#3a9be0", wFlowerA: "#ffe066", wFlowerB: "#ff9ad0", wMoteCol: "#fff8c8", wMotes: 14, wBirds: 2 },
-  "Aube": { wSkyTop: "#3a3a8a", wSkyLow: "#ffc0a8", wSun: "sun", wSunCol: "#fff0d0", wSunY: 40, wStars: 0, wCloudCol: "#ffd8e0", wMountCol: "#5a4a8a", wSnowCol: "#ffe8f0", wGrassDark: "#1a3f34", wGrassLight: "#9ccf6a", wLeafDark: "#183a30", wLeafLight: "#7ab860", wTrunk: "#5a3a30", wRockCol: "#9a90a8", wWaterCol: "#6a8ad8", wFlowerA: "#ffe8a0", wFlowerB: "#ffa0c8", wMoteCol: "#fff0e0", wMotes: 14, wBirds: 3 },
-  "Crépuscule": { wSkyTop: "#1a0f3a", wSkyLow: "#ff8a4a", wSun: "sun", wSunCol: "#ffd070", wSunY: 44, wStars: 30, wCloudCol: "#ff9a7a", wMountCol: "#3a2450", wSnowCol: "#ffb0a0", wGrassDark: "#12221e", wGrassLight: "#6a8a3a", wLeafDark: "#101c18", wLeafLight: "#5a7a34", wTrunk: "#3a2420", wRockCol: "#6a5a6a", wWaterCol: "#c06a5a", wFlowerA: "#ffc060", wFlowerB: "#ff70a0", wMoteCol: "#ffe0a0", wMotes: 18, wBirds: 3 },
-  "Nuit de glace": { wSkyTop: "#02040e", wSkyLow: "#1a3a6a", wSun: "moon", wSunCol: "#e6f6ff", wSunY: 18, wStars: 160, wCloudCol: "#3a5682", wMountCol: "#1a2a50", wSnowCol: "#9fc8e8", wGrassDark: "#04140f", wGrassLight: "#2f7a5a", wLeafDark: "#03120c", wLeafLight: "#2a6a50", wTrunk: "#2a1e18", wRockCol: "#4a5670", wWaterCol: "#163a70", wFlowerA: "#9fe0ff", wFlowerB: "#c8a0ff", wMoteCol: "#b8ffe0", wMotes: 30, wBirds: 0 },
-  "Printemps": { wSkyTop: "#2a7ad8", wSkyLow: "#c8f4ff", wSun: "sun", wSunCol: "#ffffe0", wSunY: 16, wStars: 0, wCloudCol: "#ffffff", wMountCol: "#5a8ad0", wSnowCol: "#ffffff", wGrassDark: "#1f6a30", wGrassLight: "#b0ec5a", wLeafDark: "#2a5a30", wLeafLight: "#ffb0d8", wTrunk: "#6a4a36", wRockCol: "#a0a8b8", wWaterCol: "#4ab0f0", wFlowerA: "#ffffff", wFlowerB: "#ff80b0", wMoteCol: "#ffe0f0", wMotes: 24, wBirds: 3 },
+  "Jour": { wSpriteRecolor: 0, wSkyTop: "#1a4aa6", wSkyLow: "#9fe2f6", wSun: "sun", wSunCol: "#fff3c4", wSunY: 18, wStars: 0, wCloudCol: "#f4fbff", wMountCol: "#40619f", wSnowCol: "#eef9ff", wGrassDark: "#14472a", wGrassLight: "#8ad64e", wLeafDark: "#16432a", wLeafLight: "#6cc64e", wTrunk: "#6a4426", wRockCol: "#8e98aa", wWaterCol: "#3a9be0", wFlowerA: "#ffe066", wFlowerB: "#ff9ad0", wMoteCol: "#fff8c8", wMotes: 14, wBirds: 2 },
+  "Aube": { wSpriteRecolor: 0.5, wSkyTop: "#3a3a8a", wSkyLow: "#ffc0a8", wSun: "sun", wSunCol: "#fff0d0", wSunY: 40, wStars: 0, wCloudCol: "#ffd8e0", wMountCol: "#5a4a8a", wSnowCol: "#ffe8f0", wGrassDark: "#1a3f34", wGrassLight: "#9ccf6a", wLeafDark: "#183a30", wLeafLight: "#7ab860", wTrunk: "#5a3a30", wRockCol: "#9a90a8", wWaterCol: "#6a8ad8", wFlowerA: "#ffe8a0", wFlowerB: "#ffa0c8", wMoteCol: "#fff0e0", wMotes: 14, wBirds: 3 },
+  "Crépuscule": { wSpriteRecolor: 0.8, wSkyTop: "#1a0f3a", wSkyLow: "#ff8a4a", wSun: "sun", wSunCol: "#ffd070", wSunY: 44, wStars: 30, wCloudCol: "#ff9a7a", wMountCol: "#3a2450", wSnowCol: "#ffb0a0", wGrassDark: "#12221e", wGrassLight: "#6a8a3a", wLeafDark: "#101c18", wLeafLight: "#5a7a34", wTrunk: "#3a2420", wRockCol: "#6a5a6a", wWaterCol: "#c06a5a", wFlowerA: "#ffc060", wFlowerB: "#ff70a0", wMoteCol: "#ffe0a0", wMotes: 18, wBirds: 3 },
+  "Nuit de glace": { wSpriteRecolor: 1, wSkyTop: "#02040e", wSkyLow: "#1a3a6a", wSun: "moon", wSunCol: "#e6f6ff", wSunY: 18, wStars: 160, wCloudCol: "#3a5682", wMountCol: "#1a2a50", wSnowCol: "#9fc8e8", wGrassDark: "#04140f", wGrassLight: "#2f7a5a", wLeafDark: "#03120c", wLeafLight: "#2a6a50", wTrunk: "#2a1e18", wRockCol: "#4a5670", wWaterCol: "#163a70", wFlowerA: "#9fe0ff", wFlowerB: "#c8a0ff", wMoteCol: "#b8ffe0", wMotes: 30, wBirds: 0 },
+  "Printemps": { wSpriteRecolor: 0.6, wSkyTop: "#2a7ad8", wSkyLow: "#c8f4ff", wSun: "sun", wSunCol: "#ffffe0", wSunY: 16, wStars: 0, wCloudCol: "#ffffff", wMountCol: "#5a8ad0", wSnowCol: "#ffffff", wGrassDark: "#1f6a30", wGrassLight: "#b0ec5a", wLeafDark: "#2a5a30", wLeafLight: "#ffb0d8", wTrunk: "#6a4a36", wRockCol: "#a0a8b8", wWaterCol: "#4ab0f0", wFlowerA: "#ffffff", wFlowerB: "#ff80b0", wMoteCol: "#ffe0f0", wMotes: 24, wBirds: 3 },
 };
 const plainSwatch = (c) => [c.wSkyTop, c.wSkyLow, c.wMountCol, c.wGrassLight, c.wGrassDark, c.wWaterCol];
 // colour moods for a world: sky, nebula, its heart, the stars' tint
@@ -601,6 +601,7 @@ const WORLD_PARAMS = {
     { title: "Temps", hint: "la boucle du monde", key: "wtime", open: true, rows: [["wLoops", "Durée de la boucle du monde", 1, 12, 1, " × boucle du blob"]] },
   ],
 };
+const ART_LIST = [["sprite", "Sprite pixel art"], ["drawn", "Dessinés par le code"]];
 const SUN_LIST = [["sun", "Un soleil"], ["moon", "Une lune"], ["none", "Rien"]];
 WORLD_PARAMS.plain = [
   { title: "Couleurs", hint: "ciel, relief, herbe, eau", key: "wcol", open: true, worldPresets: true, rows: [
@@ -623,6 +624,10 @@ WORLD_PARAMS.plain = [
   { title: "Arbres et rochers", hint: "posés sur trois profondeurs", key: "wtrees", rows: [
     ["wTrees", "Arbres", 0, 40, 1, ""], ["wPines", "Part de sapins", 0, 1, 0.01, ""], ["wTreeSize", "Taille des arbres (les plus proches)", 5, 60, 0.5, " % de la hauteur"],
     ["wRocks", "Rochers", 0, 40, 1, ""], ["wRockSize", "Taille des rochers", 2, 25, 0.5, " % de la hauteur"], ["wMoss", "Mousse sur les rochers", 0, 1, 0.01, ""]] },
+  { title: "Sprites", hint: "arbres et rochers en pixel art", key: "wsprites", rows: [
+    ["wTreeArt", "Arbres ronds", { select: ART_LIST }], ["wTreeZoom", "Taille des arbres sprites (1 = pixel parfait)", 0.25, 3, 0.05, "×"],
+    ["wRockArt", "Rochers", { select: ART_LIST }], ["wRockZoom", "Taille des rochers sprites (1 = pixel parfait)", 0.25, 3, 0.05, "×"],
+    ["wSpriteRecolor", "Couleurs de l’ambiance sur les sprites", 0, 1, 0.01, ""]] },
   { title: "Eau", hint: "lac, étangs", key: "wwater", rows: [
     ["wLake", "Lac à l’horizon", 0, 1, 0.01, ""], ["wPonds", "Étangs", 0, 8, 1, ""], ["wPondSize", "Taille des étangs", 3, 40, 0.5, " % de la hauteur"], ["wShimmer", "Reflets", 0, 3, 0.05, ""]] },
   { title: "Mouvement", hint: "immobile ou en mouvement", key: "wmove", open: true, rows: [

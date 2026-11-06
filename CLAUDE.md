@@ -74,6 +74,11 @@ After any change to an effect or to `app/`, run `npm run build && npm test`.
     banded sky, sun/moon, clouds, ridged mountains with snow, hills, three meadows at depths 0.45/0.7/1 with lake, ponds, trees,
     rocks, flowers, tall grass at 1.35 in front, motes, birds; `renderSurface()` has the same shape as `renderWorld()`, which
     dispatches to it for surface types; only sideways travel; sizes in % of the scene's height; every hash reads `wrap(lx, T)`)
+  - `pixelfx/src/fx/creature/surface-sprites.js` — **generated**, don't edit: pixel-art sprites for the surface (round trees,
+    rocks) made by `python3 tools/sprites.py` from `assets/surface/tree-*.png` and `rock-*.png` (1 px grid; a fake grey
+    checkerboard background is removed). `spriteAt()` scales them: whole zoom = pixel perfect, below 1 = majority colour
+    + redrawn outline. `wTreeArt`/`wRockArt` "sprite" or "drawn", `wTreeZoom`/`wRockZoom`, `wSpriteRecolor` (0 = the art's
+    colours, 1 = the scene's leaf/trunk/rock ramps by each colour's brightness rank). Pines stay drawn by code.
   - `ice-spirit-birth.js` is the first, abandoned birth version; ignore it.
 - `app/main.js` the whole UI (state, controls, render pipeline, GIF encoder, export). `app/index.template.html` HTML + CSS.
   `app/entry.js` lists what the page imports from pixelfx (global `PFX`). `app/build.mjs` inlines it all.

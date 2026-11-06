@@ -11,6 +11,7 @@
 // scene's longer side, every layer repeats on it), gusts, sway, shimmer and twinkles run whole turns, birds use
 // cycle() on that period. Sizes are in % of the scene's height, so it looks the same whatever the scene's size.
 import { clamp, mix, hex, red, green, blue, rng, cycle, hash, TAU, WHITE } from "../../core/index.js";
+import { SPRITES } from "./surface-sprites.js";
 
 export const PLAIN = {
   wType: "plain", wSeed: 21, wLoops: 3,
@@ -25,8 +26,10 @@ export const PLAIN = {
   wGrassDark: "#14472a", wGrassLight: "#8ad64e", wGrassTex: 1, wBlades: 1, wGrassH: 8, wSway: 1, wGust: 2,
   wFlowers: 50, wFlowerA: "#ffe066", wFlowerB: "#ff9ad0",
   // trees, rocks, water
-  wTrees: 9, wPines: 0.3, wTreeSize: 24, wTrunk: "#6a4426", wLeafDark: "#16432a", wLeafLight: "#6cc64e",
+  wTrees: 6, wPines: 0, wTreeSize: 24, wTrunk: "#6a4426", wLeafDark: "#16432a", wLeafLight: "#6cc64e",
   wRocks: 6, wRockSize: 7, wRockCol: "#8e98aa", wMoss: 0.4,
+  // pixel-art sprites (assets/surface): trees and rocks drawn from them or by code, their size, recoloured or not
+  wTreeArt: "sprite", wTreeZoom: 1, wRockArt: "sprite", wRockZoom: 0.5, wSpriteRecolor: 0,
   wLake: 0.35, wPonds: 1, wPondSize: 12, wWaterCol: "#3a9be0", wShimmer: 1,
   // little lives: pollen or fireflies, birds
   wMotes: 14, wMoteCol: "#fff8c8", wBirds: 2,
@@ -72,6 +75,43 @@ function fbm1(x, T, size, s, oct = 3, ridged = false) {
     sum += v * amp; n += amp; amp *= 0.5; k *= 2;
   }
   return sum / n;
+}
+
+// ---- pixel-art sprites (surface-sprites.js, made from assets/surface/*.png by tools/sprites.py)
+const CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+const sprCache = new Map();
+/**
+ * A sprite at scale k, flipped or not, as palette indices (-1 clear). k >= 1 repeats pixels (whole k stays pixel
+ * perfect); k < 1 keeps, for each new pixel, the colour that covers most of it, then redraws the 1 px outline.
+ */
+export function spriteAt(spr, k, flip) {
+  const key = `${spr.name}|${k.toFixed(3)}|${flip ? 1 : 0}`;
+  if (sprCache.has(key)) return sprCache.get(key);
+  const src = (x, y) => { const ch = spr.rows[y][flip ? spr.w - 1 - x : x]; return ch === "." ? -1 : CHARS.indexOf(ch); };
+  const W = Math.max(1, Math.round(spr.w * k)), H = Math.max(1, Math.round(spr.h * k)), idx = new Int16Array(W * H).fill(-1);
+  if (Math.abs(k - 1) < 1e-6) { for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) idx[y * W + x] = src(x, y); }
+  else if (k > 1) { for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) idx[y * W + x] = src(Math.min(spr.w - 1, Math.floor((x + 0.5) / k)), Math.min(spr.h - 1, Math.floor((y + 0.5) / k))); }
+  else {
+    const line = spr.role.indexOf("line"), cnt = new Map();
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const sx0 = Math.floor(x / k), sx1 = Math.max(sx0 + 1, Math.min(spr.w, Math.floor((x + 1) / k))), sy0 = Math.floor(y / k), sy1 = Math.max(sy0 + 1, Math.min(spr.h, Math.floor((y + 1) / k)));
+      cnt.clear(); let clear = 0, all = 0;
+      for (let sy = sy0; sy < sy1; sy++) for (let sx = sx0; sx < sx1; sx++) { const i = src(sx, sy); all++; if (i < 0) clear++; else cnt.set(i, (cnt.get(i) || 0) + 1); }
+      if (clear * 2 > all) continue;
+      let best = -1, bn = 0;
+      for (const [i, n] of cnt) if (n > bn || (n === bn && i > best)) { best = i; bn = n; }
+      idx[y * W + x] = best;
+    }
+    if (line >= 0) { // the outline, 1 px, where the sprite meets the clear
+      const out = idx.slice(), at = (x, y) => (x < 0 || y < 0 || x >= W || y >= H ? -1 : idx[y * W + x]);
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (idx[y * W + x] >= 0 && (at(x - 1, y) < 0 || at(x + 1, y) < 0 || at(x, y - 1) < 0 || at(x, y + 1) < 0)) out[y * W + x] = line;
+      idx.set(out);
+    }
+  }
+  const im = { w: W, h: H, idx };
+  if (sprCache.size > 64) sprCache.clear();
+  sprCache.set(key, im);
+  return im;
 }
 
 // everything placed on the world, scattered once per layout and kept
@@ -164,6 +204,16 @@ export function renderSurface(w, wt, P, T, X0, Y0, bw, bh, cam = [0, 0], dims = 
   // the wind: a gust running along the ground, whole turns a loop and whole waves a tile
   const windAt = (lx, ph = 0) => (gust ? Math.sin(TAU * (u * gust - (lx / T) * 3 + ph)) * 0.6 + Math.sin(TAU * (u * gust * 2 - (lx / T) * 7 + ph * 2)) * 0.25 : 0);
   const lay = layoutOf(w, T, H);
+  const black = hex("#000000"), recol = clamp(w.wSpriteRecolor || 0, 0, 1);
+  const RAMPS = {
+    leaf: [mix(hex(w.wLeafDark), black, 0.45), mix(hex(w.wLeafLight), WHITE, 0.12)],
+    wood: [mix(hex(w.wTrunk), black, 0.5), mix(hex(w.wTrunk), WHITE, 0.35)],
+    stone: [mix(hex(w.wRockCol), black, 0.62), mix(hex(w.wRockCol), WHITE, 0.6)],
+  };
+  const palOf = (spr, k) => spr.pal.map((c, i) => {
+    const r = spr.role[i], own = hex(c), alt = RAMPS[r] ? mix(RAMPS[r][0], RAMPS[r][1], spr.lvl[i]) : mix(own, skyTop, 0.3);
+    return hz(mix(own, alt, recol), k);
+  });
 
   // ---- the sky, in hard bands, dithered between them
   const steps = Math.max(2, whole(w.wSkySteps, 2)), dith = clamp(w.wSkyDither, 0, 1.5);
@@ -340,8 +390,37 @@ export function renderSurface(w, wt, P, T, X0, Y0, bw, bh, cam = [0, 0], dims = 
         put(x, y + 1, B.dark); put(x, y, c);
         if (b === 2) { put(x - 1, y, mix(c, B.dark, 0.3)); put(x + 1, y, mix(c, B.dark, 0.3)); put(x, y - 1, mix(c, WHITE, 0.3)); put(x, y + 2, B.dark); }
       });
-      else if (it.k === 2) copies(o.x, sh, o.s + 3, (cx) => rock(cx, by, o, b));
+      else if (it.k === 2) {
+        if (w.wRockArt === "sprite" && SPRITES.rock.length) { const sp = rockSprite(o, b); copies(o.x, sh, sp.im.w / 2 + 3, (cx) => drawSprite(cx, by, sp, b, o, false)); }
+        else copies(o.x, sh, o.s + 3, (cx) => rock(cx, by, o, b));
+      } else if (w.wTreeArt === "sprite" && !o.pine && SPRITES.tree.length) { const sp = treeSprite(o, b); copies(o.x, sh, sp.im.w / 2 + 8, (cx) => drawSprite(cx, by, sp, b, o, true)); }
       else copies(o.x, sh, o.h * 0.6 + 3, (cx) => tree(cx, by, o, b));
+    }
+  }
+
+  // ---- sprites: their colours (the art's own, or the scene's ramps, then the haze of their meadow), size and side
+  function treeSprite(o, b) {
+    const spr = SPRITES.tree[o.seed % SPRITES.tree.length];
+    return { spr, im: spriteAt(spr, Math.max(0.05, w.wTreeZoom) * [0.42, 0.64, 1][b], (o.seed >> 4) & 1), pal: palOf(spr, [0.5, 0.18, 0][b]) };
+  }
+  function rockSprite(o, b) {
+    const spr = SPRITES.rock[o.seed % SPRITES.rock.length];
+    return { spr, im: spriteAt(spr, Math.max(0.05, w.wRockZoom) * [0.4, 0.65, 1][b], (o.seed >> 4) & 1), pal: palOf(spr, [0.45, 0.15, 0][b]) };
+  }
+  // its foot on the ground at (cx, by); a tree's crown bends in the gusts by whole pixels, row by row
+  function drawSprite(cx, by, { spr, im, pal }, b, o, isTree) {
+    const x0 = Math.round(cx - im.w / 2), yb = Math.floor(by), y0 = yb - im.h + 1, sd = mix(BANDS[b].dark, black, 0.35);
+    for (let x = Math.floor(cx - im.w * 0.34); x <= Math.ceil(cx + im.w * 0.34); x++) { put(x, yb, mix(get(x, yb), sd, 0.5)); put(x, yb + 1, mix(get(x, yb + 1), sd, 0.25)); }
+    const bend = isTree ? windAt(o.x, o.ph) * sway * im.h * 0.03 : 0, mossOn = !isTree && o.moss < w.wMoss, moss = BANDS[b].light;
+    for (let y = 0; y < im.h; y++) {
+      const f = (im.h - 1 - y) / im.h, dx = bend ? Math.round(bend * f * f) : 0;
+      for (let x = 0; x < im.w; x++) {
+        const i = im.idx[y * im.w + x];
+        if (i < 0) continue;
+        let c = pal[i];
+        if (mossOn && spr.role[i] !== "line" && f > 0.45 && (y === 0 || im.idx[(y - 1) * im.w + x] < 0 || spr.role[im.idx[(y - 1) * im.w + x]] === "line") && h01(x, y, o.seed) < 0.8) c = moss;
+        put(x0 + x + dx, y0 + y, c);
+      }
     }
   }
 
