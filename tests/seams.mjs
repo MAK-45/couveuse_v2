@@ -92,6 +92,17 @@ for (const [name, more] of elecCases) {
     report(`portal beyond self-loop${tag}`, diff(b0, render(portal, beyond, P)), diff(render(portal, beyond, P / 3), render(portal, beyond, P + P / 3)));
     const o = { ...live, mode: "cross", loops }, T = o.duration * loops, N = Ni * loops;
     report(`portal cross${tag}`, diff(render(portal, o, 0), render(portal, live, 0)), diff(render(portal, o, (N - 1) * T / N), bL));
+    // and home again: open the way back from "beyond", rest by it, go back through, home at rest (or with it open)
+    const bOpen = { ...live, mode: "beyondOpen" }, o0 = render(portal, bOpen, 0), oL = render(portal, bOpen, (M - 1) * P / M);
+    report(`portal beyondOpen loop${tag}`, diff(o0, render(portal, bOpen, P)), 0);
+    for (const st of portal.OPEN) {
+      const r = { ...live, mode: "reopen", openStyle: st, loops: 2 }, Tr = r.duration * 2, Nr = Ni * 2;
+      report(`portal reopen ${st}${tag}`.slice(0, 34), diff(render(portal, r, 0), b0), diff(render(portal, r, (Nr - 1) * Tr / Nr), oL));
+    }
+    for (const keep of [0, 1]) {
+      const r = { ...live, mode: "return", returnKeep: keep, loops }, Tr = r.duration * loops, Nr = Ni * loops;
+      report(`portal return${keep ? " keep" : ""}${tag}`.slice(0, 34), diff(render(portal, r, 0), o0), diff(render(portal, r, (Nr - 1) * Tr / Nr), keep ? render(portal, live, (M - 1) * P / M) : idL));
+    }
   }
   // a world alone (tab Mondes) loops on its own period
   for (const more of [{}, { wState: "moving", wDrift: 3, wDir: "downright", wLoops: 3, wNebMorph: 2 }]) {

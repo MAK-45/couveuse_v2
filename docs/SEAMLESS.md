@@ -6,6 +6,7 @@ The promise to the user: any GIF loops forever with no visible jump, and GIFs pl
     objects: live without X → appear X → live with X → remove X → live without X
     portal: rest → open → live (as often as you like) → close → rest
             or … → live → cross → beyond (the blob at rest in the other world, as often as you like)
+            → reopen → beyondOpen (as often as you like) → return → rest (or live, if the portal stays open)
     loops (Boucles) and worlds (Mondes): each one loops on itself (no chaining promise)
 
 `npm test` checks all of it pixel for pixel (`tests/seams.mjs`).
@@ -27,7 +28,7 @@ The promise to the user: any GIF loops forever with no visible jump, and GIFs pl
 - **Worlds.** A world's period is `wLoops` idle loops. Its layers move by whole tiles a loop (offsets rounded to
   whole pixels), twinkles and the nebula's warp turn whole turns, shooting stars use `cycle` on that period. The
   portal's `live` and `beyond` last that period; in `open` the world's clock is `t − T`, so it is at 0 on the frame after
-  the last; in `cross` it is `t − shift · E(seg(t/T, 0.1, 0.9))`, the shift being `T mod P` (or that minus P), so it
+  the last; in `cross`, `reopen` and `return` it is `t − shift · E(seg(t/T, 0.1, 0.9))`, the shift being `T mod P` (or that minus P), so it
   starts at 0 and ends on 0 exactly. A still world (`wState: "still"`) does not scroll at all.
 - **Encoding.** GIF frames carry a palette computed from that frame alone, so two identical frames in two
   different GIFs produce identical pixels.

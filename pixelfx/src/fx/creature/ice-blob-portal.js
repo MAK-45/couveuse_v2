@@ -8,7 +8,12 @@
 //          from the other side, they merge, the portal swells until the other world fills the scene, and the blob
 //          comes out of the portal seen from behind (set mirror-wise, on the other side of its spot), back to rest
 //   beyond the blob's rest in the other world: the world fills the scene (still or moving, as the world is set)
-// So: rest -> open -> live (as often as you like) -> close -> rest, or ... -> live -> cross -> beyond (looping).
+//   reopen     from "beyond", the blob opens a portal home (our dark world inside it), where it came out
+//   beyondOpen its rest in the other world with that portal open
+//   return     from "beyondOpen", the way back: the same crossing the other way, out of the first portal at home,
+//              which closes behind it (back on the Blob né's rest) or stays open (back on "live")
+// So: rest -> open -> live (as often as you like) -> close -> rest, or ... -> live -> cross -> beyond (looping)
+//     -> reopen -> beyondOpen (looping) -> return -> rest (or live).
 //
 // The world runs on its own clock, periodic over a whole number of the blob's loops (P). In "open" that clock is
 // set back by the animation's length, so it reaches 0 exactly on the last frame, where "live" starts; "close"
@@ -18,7 +23,7 @@ import { meta as idleMeta, blobBack, blobFront, ambient, state } from "./ice-blo
 import { hsl, fromHsl } from "./ice-blob-actions.js";
 import { renderWorld, worldOf, worldPeriod, worldTile, paintWorld } from "./ice-worlds.js";
 
-export const MODES = ["open", "live", "close", "cross", "beyond"];
+export const MODES = ["open", "live", "close", "cross", "beyond", "reopen", "beyondOpen", "return"];
 export const OPEN = ["tear", "spiral", "bloom"];
 export const CLOSE = ["seal", "implode", "fade"];
 export const SHAPES = ["oval", "circle", "arch", "rift", "diamond"];
@@ -47,7 +52,7 @@ export const meta = {
     openStyle: "tear", openPower: 1, openParticles: 24, openBeam: 1,
     closeStyle: "seal", closePower: 1, closeParticles: 24,
     // going through: the portal stays open behind it on the other side, its mirror image, the wind-up, the leap
-    crossKeep: 0, crossMirror: 1, crossSquash: 1, crossArc: 1, crossFlash: 1, crossLook: 1,
+    crossKeep: 0, returnKeep: 0, crossMirror: 1, crossSquash: 1, crossArc: 1, crossFlash: 1, crossLook: 1,
   },
 };
 
@@ -55,7 +60,8 @@ const E = ease.inOutSine;
 const roomOf = (o) => (Array.isArray(o.room) ? o.room : [-meta.origin[0], -meta.origin[1], meta.size[0] - meta.origin[0], meta.size[1] - meta.origin[1]]);
 const worldIn = (o) => worldOf(o.world);
 /** How long the animation lasts: "live" lasts the world's loop, the others a whole number of the blob's loops. */
-export const total = (o) => (o.mode === "live" || o.mode === "beyond" ? worldPeriod(o.duration, worldIn(o)) : o.duration * Math.max(1, Math.round(o.loops)));
+const LOOPING = new Set(["live", "beyond", "beyondOpen"]);
+export const total = (o) => (LOOPING.has(o.mode) ? worldPeriod(o.duration, worldIn(o)) : o.duration * Math.max(1, Math.round(o.loops)));
 // as for the actions: the lead-out outlasts a drop of light, so the last frame is the rest's
 const prog = (o, t) => { const T = total(o); return seg(((t / T) % 1 + 1) % 1, o.lead, 1 - Math.max(o.lead, Math.min(0.45, 1.7 / T))); };
 // the world's clock: in "open" it reaches 0 on the last frame, where "live" begins. In "cross" it starts at 0 (from
@@ -64,7 +70,7 @@ const prog = (o, t) => { const T = total(o); return seg(((t / T) % 1 + 1) % 1, o
 function clockOf(o, t, P) {
   let x = t;
   if (o.mode === "open") x = t - total(o);
-  if (o.mode === "cross") {
+  if (o.mode === "cross" || o.mode === "return" || o.mode === "reopen") {
     const T = total(o), r = ((T % P) + P) % P, shift = r > P / 2 ? r - P : r;
     x = t - shift * E(seg(((t / T) % 1 + 1) % 1, 0.1, 0.9));
   }
@@ -304,17 +310,23 @@ function mirrorSpot(o, room) {
   return [clamp(-o.pX, room[0] + m, Math.max(room[0] + m, room[2] - m)), o.pY];
 }
 // how far the portal must swell, from its centre, to cover the whole scene
-function coverScale(o, room) {
-  const Hh = o.pH / 2, Wh = o.pShape === "circle" ? Hh : Hh * o.pRatio, cx = o.pX, cy = o.pY;
+function coverScale(o, room, [cx, cy]) {
+  const Hh = o.pH / 2, Wh = o.pShape === "circle" ? Hh : Hh * o.pRatio;
   const far = Math.max(...[[room[0], room[1]], [room[2], room[1]], [room[0], room[3]], [room[2], room[3]]].map(([x, y]) => Math.max(Math.abs(x - cx) / Wh, Math.abs(y - cy) / Hh)));
   return far * (o.pShape === "oval" || o.pShape === "circle" || o.pShape === "arch" ? 1.5 : 2.2) + 1;
 }
 // the timetable of the crossing (progress a): wind-up, the leap, the merge, the swell, out on the other side
 const X = { lean: [0.04, 0.22], leap: [0.2, 0.44], shrink: [0.36, 0.47], merge: [0.41, 0.53], swell: [0.46, 0.6], open2: [0.58, 0.7], out: [0.64, 0.86], close2: [0.86, 0.96] };
-function crossMods(o, t, mp) {
+// a way through: in at one portal, out of the other (there: in at the portal, out of its mirror; back: the reverse)
+function wayOf(o, room) {
+  const mp = mirrorSpot(o, room), home = [o.pX, o.pY];
+  return o.mode === "return" ? { in: mp, out: home, inVoid: true, keep: o.returnKeep > 0 } : { in: home, out: mp, inVoid: false, keep: o.crossKeep > 0 };
+}
+function crossMods(o, t, way) {
+  const mp = way.out;
   const a = prog(o, t);
   if (a <= 0 || a >= 1) return { quiet: 0 };
-  const st = state(o, t, null), tx = o.pX - st.x, ty = o.pY - st.y, d = Math.hypot(tx, ty) || 1, ux = tx / d, uy = ty / d, S = o.size;
+  const st = state(o, t, null), tx = way.in[0] - st.x, ty = way.in[1] - st.y, d = Math.hypot(tx, ty) || 1, ux = tx / d, uy = ty / d, S = o.size;
   const m = { quiet: 1, glow: 0.45 * bump(a, 0.08, 0.46) };
   if (a < 0.5) {
     // it gathers itself (backs off a little, squashes), looks at the portal, then leaps in and shrinks into it
@@ -341,16 +353,17 @@ function crossMods(o, t, mp) {
   return m;
 }
 // both portals while it goes through: the first (worlds inside) and the one it comes out of (our void inside)
-function crossing(o, a, room) {
-  const Hh = o.pH / 2, Wh = o.pShape === "circle" ? Hh : Hh * o.pRatio, slit = Math.min(1, 1.1 / Math.max(1, Wh)), mp = mirrorSpot(o, room);
-  let main = null, back = null, full = false;
+function crossing(o, a, room, way) {
+  const Hh = o.pH / 2, Wh = o.pShape === "circle" ? Hh : Hh * o.pRatio, slit = Math.min(1, 1.1 / Math.max(1, Wh)), mp = way.out;
+  let main = null, back = null;
   const z = seg(a, X.swell[0], X.swell[1]);
-  if (z < 1) { const k = 1 + (coverScale(o, room) - 1) * ease.inCubic(z); main = { ...FULL, sx: k, sy: k, lens: 1 - z, hot: 0.8 * bump(a, X.merge[0], X.merge[1]) }; }
-  else full = true;
+  // there: the world fills the scene once the portal has swollen over it; back: it does until then
+  const full = way.inVoid ? z < 1 : z >= 1;
+  if (z < 1) { const k = 1 + (coverScale(o, room, way.in) - 1) * ease.inCubic(z); main = { ...FULL, cx: way.in[0], cy: way.in[1], inner: way.inVoid ? "void" : undefined, sx: k, sy: k, lens: 1 - z, hot: 0.8 * bump(a, X.merge[0], X.merge[1]) }; }
   if (a > X.open2[0]) {
     const k1 = seg(a, X.open2[0], 0.64), k2 = seg(a, 0.62, X.open2[1]), c1 = seg(a, X.close2[0], 0.92), c2 = seg(a, 0.92, X.close2[1]);
-    back = { ...FULL, cx: mp[0], cy: mp[1], inner: "void", sx: k2 > 0 ? slit + (1 - slit) * ease.outBack(k2, 1.3) : slit, sy: ease.outCubic(k1), hot: 1 - seg(a, 0.64, 0.8), open: k2 };
-    if (!(o.crossKeep > 0) && c1 > 0) { back.sx = 1 - (1 - slit) * ease.inCubic(c1); back.sy = 1 - ease.inCubic(c2); back.hot = c1; back.open = 1 - c1; back.show = c2 < 1; }
+    back = { ...FULL, cx: mp[0], cy: mp[1], inner: way.inVoid ? undefined : "void", sx: k2 > 0 ? slit + (1 - slit) * ease.outBack(k2, 1.3) : slit, sy: ease.outCubic(k1), hot: 1 - seg(a, 0.64, 0.8), open: k2 };
+    if (!way.keep && c1 > 0) { back.sx = 1 - (1 - slit) * ease.inCubic(c1); back.sy = 1 - ease.inCubic(c2); back.hot = c1; back.open = 1 - c1; back.show = c2 < 1; }
   }
   return { main, back, full, mp };
 }
@@ -358,14 +371,14 @@ function crossing(o, a, room) {
 // the blob's mirror image in the portal: the same blob, drawn aside and flipped across the portal's middle,
 // darker, only where the portal's inside is, dissolving in as it starts (none on the first frame)
 const scratch = new Map();
-function reflect(p, o, t, M, C, k, room) {
+function reflect(p, o, t, M, C, k, room, [cx, cy]) {
   if (k <= 0) return;
   const f = p.frame, key = f.w + "x" + f.h + "x" + f.ox + "x" + f.oy;
   if (!scratch.has(key)) { if (scratch.size > 4) scratch.clear(); scratch.set(key, createFrame(f.w, f.h, f.ox, f.oy)); }
   const tf = clearFrame(scratch.get(key)), tp = painterFor(tf);
   tp.place(p.tx, p.ty);
   blobBack(tp, t, o, M, C); blobFront(tp, t, o, M, C);
-  const Hh = o.pH / 2, Wh = o.pShape === "circle" ? Hh : Hh * o.pRatio, cx = o.pX, cy = o.pY, inner = Math.max(1, Math.round(o.pRim)) + Math.max(0, Math.round(o.pLip));
+  const Hh = o.pH / 2, Wh = o.pShape === "circle" ? Hh : Hh * o.pRatio, inner = Math.max(1, Math.round(o.pRim)) + Math.max(0, Math.round(o.pLip));
   const x0 = Math.max(Math.floor(room[0]), Math.floor(cx - Wh)), x1 = Math.min(Math.ceil(room[2]) - 1, Math.ceil(cx + Wh)), y0 = Math.max(Math.floor(room[1]), Math.floor(cy - Hh)), y1 = Math.min(Math.ceil(room[3]) - 1, Math.ceil(cy + Hh));
   const dark = C[1], amt = clamp(0.45 - 0.2 * o.crossMirror, 0.1, 0.6);
   for (let y = y0; y <= y1; y++)
@@ -380,13 +393,14 @@ function reflect(p, o, t, M, C, k, room) {
 }
 
 // the light of going through: the merge, the ripple, the way out, the last spark
-function crossFx(p, o, C, a, mp) {
+function crossFx(p, o, C, a, way) {
+  const mp = way.out, [ix, iy] = way.in;
   if (a <= 0 || a >= 1) return;
   const Pw = o.crossFlash, g = rng(o.seed, 808), Hh = o.pH / 2, Wh = o.pShape === "circle" ? Hh : Hh * o.pRatio;
   const fl = bump(a, X.merge[0], X.merge[1]);
-  if (fl > 0) { p.glow(o.pX, o.pY, Math.max(Wh, Hh) * 1.3, WHITE, 0.5 * fl * Pw); p.glow(o.pX, o.pY, 6, WHITE, 0.9 * fl * Pw); }
+  if (fl > 0) { p.glow(ix, iy, Math.max(Wh, Hh) * 1.3, WHITE, 0.5 * fl * Pw); p.glow(ix, iy, 6, WHITE, 0.9 * fl * Pw); }
   const rk = seg(a, 0.44, 0.56);
-  if (rk > 0 && rk < 1) { const R = Math.max(Wh, Hh) * (0.2 + 0.9 * ease.outCubic(rk)); p.glowRing(o.pX, o.pY, R, 4, C[5], 0.45 * (1 - rk) * Pw); }
+  if (rk > 0 && rk < 1) { const R = Math.max(Wh, Hh) * (0.2 + 0.9 * ease.outCubic(rk)); p.glowRing(ix, iy, R, 4, C[5], 0.45 * (1 - rk) * Pw); }
   const fo = bump(a, 0.6, 0.72);
   if (fo > 0) { p.glow(mp[0], mp[1], Math.max(Wh, Hh) * 1.2, WHITE, 0.4 * fo * Pw); p.glow(mp[0], mp[1], 5, WHITE, 0.8 * fo * Pw); }
   const sk = seg(a, X.out[0], 0.8);
@@ -395,42 +409,51 @@ function crossFx(p, o, C, a, mp) {
     p.dot(mp[0] + Math.cos(th) * R, mp[1] + Math.sin(th) * R * 0.8, i % 3 ? C[6] : WHITE, 1 - sk);
     if (i % 4 === 0) p.glow(mp[0] + Math.cos(th) * R, mp[1] + Math.sin(th) * R * 0.8, 3, C[5], 0.3 * (1 - sk) * Pw);
   }
-  const fc = o.crossKeep > 0 ? 0 : bump(a, 0.93, 0.99);
+  const fc = way.keep ? 0 : bump(a, 0.93, 0.99);
   if (fc > 0) { p.glow(mp[0], mp[1], 10, WHITE, 0.5 * fc * Pw); spark(p, C, mp[0], mp[1], fc); }
 }
 
 function plan(o, t) {
   const W = worldIn(o), P = worldPeriod(o.duration, W), wt = clockOf(o, t, P), room = roomOf(o), mode = o.mode;
-  const a = mode === "live" || mode === "beyond" ? 0 : prog(o, t), Hh = o.pH / 2, Wh = o.pShape === "circle" ? Hh : Hh * o.pRatio;
-  const view = [Math.round(o.pViewX || 0), Math.round(o.pViewY || 0)];
-  if (mode === "cross") {
-    const cr = crossing(o, a, room);
-    return { P, wt, room, a, view, Wh, Hh, g: cr.main, back: cr.back, full: cr.full, mp: cr.mp, M: (tt) => crossMods(o, tt, cr.mp) };
+  const a = LOOPING.has(mode) ? 0 : prog(o, t), Hh = o.pH / 2, Wh = o.pShape === "circle" ? Hh : Hh * o.pRatio;
+  const view = [Math.round(o.pViewX || 0), Math.round(o.pViewY || 0)], base = { P, wt, room, a, view, Wh, Hh };
+  if (mode === "cross" || mode === "return") {
+    const way = wayOf(o, room), cr = crossing(o, a, room, way);
+    return { ...base, way, g: cr.main, back: cr.back, full: cr.full, M: (tt) => crossMods(o, tt, way) };
   }
-  if (mode === "beyond") {
-    const mp = mirrorSpot(o, room);
-    return { P, wt, room, a, view, Wh, Hh, g: null, back: o.crossKeep > 0 ? { ...FULL, cx: mp[0], cy: mp[1], inner: "void" } : null, full: true, mp, M: null };
+  const mp = mirrorSpot(o, room), home = { ...FULL, cx: mp[0], cy: mp[1], inner: "void" };
+  if (mode === "beyond" || mode === "beyondOpen") return { ...base, g: null, back: mode === "beyondOpen" || o.crossKeep > 0 ? home : null, full: true, M: null };
+  if (mode === "reopen") {
+    // in the other world it opens the way home where it came out: the same making, our dark world inside
+    if (o.crossKeep > 0) return { ...base, g: null, back: home, full: true, M: null };
+    const g = opening(o, a, Wh);
+    return { ...base, g: null, back: g && { ...g, cx: mp[0], cy: mp[1], inner: "void" }, full: true, mp, M: (tt) => castMods(o, tt, mp) };
   }
   const g = mode === "open" ? opening(o, a, Wh) : mode === "close" ? closing(o, a, Wh) : FULL;
   const M = mode === "live" ? null : (tt) => castMods(o, tt, [o.pX, o.pY]);
-  return { P, wt, room, a, view, g, M, Wh, Hh, back: null, full: false };
+  return { ...base, g, M, back: null, full: false };
 }
 
+const crossy = (o) => o.mode === "cross" || o.mode === "return";
 export function drawBack(p, t, o) {
-  const C = fit(o.palette, 8), pl = plan(o, t), Cp = paletteFor(o, o.pHue || 0), front = o.pLayer === "front" && o.mode !== "cross";
+  const C = fit(o.palette, 8), pl = plan(o, t), Cp = paletteFor(o, o.pHue || 0), front = o.pLayer === "front" && !crossy(o);
   if (pl.full) paintWorld(p, worldIn(o), pl.wt, pl.P, pl.room, pl.view);
   if (!front) drawPortal(p, o, Cp, pl.g, pl.wt, pl.P, pl.room);
-  if (o.mode === "cross" && pl.a > 0 && pl.a < X.shrink[1] && o.crossMirror > 0) reflect(p, o, t, pl.M, C, seg(pl.a, 0.03, 0.18), pl.room);
-  drawPortal(p, o, Cp, pl.back, pl.wt, pl.P, pl.room);
+  if (crossy(o) && pl.a > 0 && pl.a < X.shrink[1] && o.crossMirror > 0) reflect(p, o, t, pl.M, C, seg(pl.a, 0.03, 0.18), pl.room, pl.way.in);
+  // (back home, a portal kept open sits on its own plane, as in "live")
+  const backFront = o.mode === "return" && o.pLayer === "front";
+  if (!backFront) drawPortal(p, o, Cp, pl.back, pl.wt, pl.P, pl.room);
   blobBack(p, t, o, pl.M, C);
   ambient(p, t, o, false, C);
 }
 
 export function draw(p, t, o) {
-  const C = fit(o.palette, 8), pl = plan(o, t), Cp = paletteFor(o, o.pHue || 0), front = o.pLayer === "front" && o.mode !== "cross";
+  const C = fit(o.palette, 8), pl = plan(o, t), Cp = paletteFor(o, o.pHue || 0), front = o.pLayer === "front" && !crossy(o);
   const st = blobFront(p, t, o, pl.M, C);
   ambient(p, t, o, true, C);
   if (front) drawPortal(p, o, Cp, pl.g, pl.wt, pl.P, pl.room);
+  if (o.mode === "return" && o.pLayer === "front") drawPortal(p, o, Cp, pl.back, pl.wt, pl.P, pl.room);
   if (o.mode === "open" || o.mode === "close") castFx(p, o, Cp, t, pl.a, [st.x, st.y], Math.max(2, pl.Wh), Math.max(2, pl.Hh));
-  if (o.mode === "cross") crossFx(p, o, Cp, pl.a, pl.mp);
+  if (o.mode === "reopen" && pl.mp) castFx(p, { ...o, mode: "open", pX: pl.mp[0], pY: pl.mp[1] }, Cp, t, pl.a, [st.x, st.y], Math.max(2, pl.Wh), Math.max(2, pl.Hh));
+  if (crossy(o)) crossFx(p, o, Cp, pl.a, pl.way);
 }
