@@ -2,6 +2,7 @@ Add a new action to the **Actions** tab: $ARGUMENTS
 
 Before anything: ask the author whether they want it to start and end on the Blob né's rest (chains, like Actions)
 or to be a free endless loop (like Boucles), and wait for the answer. Ask in French.
+Then load the `pixelfx` skill (`anthropic-skills:pixelfx`) and use its render → look → refine loop.
 
 The blob leaves its rest, does the action, and is back at rest exactly (first/last frames = the idle's).
 
@@ -10,3 +11,5 @@ The blob leaves its rest, does the action, and is back at rest exactly (first/la
 3. Add its options with defaults in `meta.options` and its id to `ACTIONS`.
 4. In `app/main.js`: an entry in `ACTION_LIST` (French name + short description), its rows in `ACTION_PARAMS`, a default duration in `LOOPS_DEF` if not 2; scene-relative lengths go in `SCENE_LENGTHS` / `SCENE_ACTION_DEF`.
 5. `npm run build && npm test` (the action test runs automatically from `ACTIONS`). Render a contact sheet with `npm run render -- creature/ice-blob-actions` after setting the default action if you want to look at it.
+
+Last step: publish `dist/couveuse.html` as the artifact (same link, `downloads` capability) and give the author the link to test it live.

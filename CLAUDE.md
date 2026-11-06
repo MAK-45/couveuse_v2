@@ -15,6 +15,22 @@ which kind they want, and wait for the answer — never pick for them:
 Ask in French, e.g. « Tu veux une boucle parfaite qui part du blob né et y revient (pour enchaîner les GIF), ou une
 animation en boucle libre qui n’a pas besoin de partir du blob né ? »
 
+## Use the pixelfx skill for every effect
+
+Whenever you create or change an effect, animation or anything drawn (new tab, action, loop, object, style),
+**load the `pixelfx` skill first** (Skill tool, `anthropic-skills:pixelfx`) and follow its draft → render → look →
+refine loop: render contact sheets (`npm run render`), look at them, and fix what looks wrong before handing over.
+The pixelfx core is vendored in `pixelfx/`; the skill is the authority on how to use it and how to make effects look
+hand-animated.
+
+## After every change: give the author the live artifact
+
+Every time you change something the author can see (an effect, the UI, a setting), finish by publishing the page so
+they can test it live: `npm run build && npm test`, then publish `dist/couveuse.html` with the Artifact tool and give
+the link in the reply. Keep the same artifact (same file path in this session; from a new session pass
+`url: https://claude.ai/artifact/5HNUpL3pxyw7Q51r4jnzWQ`, read it first) so the link never changes, and keep the
+`downloads` capability declared (the exports save through it). Say what to try in it.
+
 ## What the author wants (full version: docs/VISION.md — read it before adding a feature)
 
 Bring a little creature of ice-light to life in a scene and produce all its animations from **one web
@@ -98,7 +114,8 @@ If `npm test` reports a FAIL, fix the effect — never loosen the test.
 
 ## Adding things (recipes in .claude/commands/)
 
-First ask: from rest and back, or free loop? (see « Always ask first » above)
+First ask: from rest and back, or free loop? (see « Always ask first » above). Load the `pixelfx` skill.
+When done: build, test, publish the artifact and give the link.
 
 - `/new-action` an action that leaves and comes back to rest.
 - `/new-loop` an endless activity.
