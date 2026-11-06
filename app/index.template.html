@@ -130,6 +130,9 @@ canvas#view:active { cursor: grabbing; }
 .act strong { font-size: 14px; font-weight: 600; }
 .act span { font-size: 12px; font-weight: 400; color: var(--muted); }
 .act[aria-checked="true"] { border-color: var(--glow); box-shadow: inset 0 0 0 1px var(--glow), 0 0 14px var(--glow-soft); }
+.act:disabled { opacity: 0.42; cursor: not-allowed; border-style: dashed; }
+.note.unfit { margin-top: 8px; }
+.note.unfit b { color: var(--ink); font-weight: 600; }
 .controls .actions .act { padding: 8px 10px; }
 .note.intro { padding: 0 22px 14px; margin: 0; max-width: 60ch; }
 .addshapes { gap: 6px; }

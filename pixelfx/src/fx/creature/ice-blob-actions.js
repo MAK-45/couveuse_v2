@@ -2,10 +2,25 @@
 // bursting into frost, teleporting, napping, swelling. Each action runs over a whole number of the idle's loops
 // with the idle going on underneath, and every change it makes is zero at both ends: the first and last frames
 // are the idle's first frame, so an idle GIF and any action GIF chain end to end.
+// In one of the transformation's new forms (o.form "human", levitating, or "grounded", on its legs with gravity) the
+// same actions are done by that figure (bodyBack/bodyFront from ice-blob-transform.js) and start and end on its
+// "live" loop; on its legs they keep to the floor (strolls along it, jumps, crouches) and a few can't be done at all
+// (FORM_FIT says which and why).
 import { fit, clamp, lerp, seg, bump, ease, noise2, rng, TAU, WHITE, hex, toHex } from "../../core/index.js";
-import { meta as idleMeta, blobBack, blobFront, ambient, state as idleState } from "./ice-blob-idle.js";
+import { meta as idleMeta, state as idleState } from "./ice-blob-idle.js";
+import { bodyBack, bodyFront, bodyAmbient } from "./ice-blob-transform.js";
 
 export const ACTIONS = ["walk", "jump", "aura", "morph", "spin", "split", "burst", "teleport", "nap", "inflate", "dance", "scared", "freeze", "drop", "rainbow", "comet", "melt", "curious", "portal"];
+/** What a new form can't do, and why (the page shows it; the effect then just rests). */
+export const FORM_FIT = {
+  grounded: {
+    spin: "Il tourne sur lui-même en l’air, comme une roue : debout sur ses jambes, la gravité l’en empêche.",
+    drop: "Il tombe jusqu’au sol et rebondit : sur ses jambes, il y est déjà.",
+    comet: "Il file en grandes boucles dans le ciel : au sol, il ne peut pas voler.",
+    portal: "Il vole d’un portail à l’autre à travers la scène : au sol, il ne peut pas voler.",
+  },
+};
+export const fitsForm = (o, name = o.action) => !(FORM_FIT[o.form] && FORM_FIT[o.form][name]);
 
 export const meta = {
   name: "Ice blob actions",
@@ -19,7 +34,7 @@ export const meta = {
   bg: "black",
   options: {
     ...idleMeta.options,
-    action: "walk", loops: 2, lead: 0.08,
+    form: "blob", action: "walk", loops: 2, lead: 0.08,
     // the stroll: stops picked at random inside a zone (offsets from its spot, in its own pixels)
     walkStops: 4, walkRoute: 1, walkMinX: -140, walkMaxX: 140, walkMinY: -50, walkMaxY: 50, walkPause: 0.35, walkCurve: 0.5,
     walkHops: 2, walkHop: 4, walkSquash: 1, walkLook: 1, walkJoy: 0.5,
@@ -99,14 +114,17 @@ const A = {};
 // the stroll: it sets off, goes from stop to stop around the scene at an easy pace, pauses at each to look
 // about (sometimes a little hop of joy), and comes home. Stops are seeded, inside the zone it's given.
 A.walk = (o) => {
-  const n = Math.max(1, Math.min(10, Math.round(o.walkStops))), R = rng(o.seed, 313, Math.round(o.walkRoute));
+  // on its legs it strolls along the floor: the stops keep only their x
+  const gr = o.form === "grounded", n = Math.max(1, Math.min(10, Math.round(o.walkStops))), R = rng(o.seed, 313, Math.round(o.walkRoute));
   const pts = [[0, 0]], X0 = Math.min(o.walkMinX, o.walkMaxX), X1 = Math.max(o.walkMinX, o.walkMaxX), Y0 = Math.min(o.walkMinY, o.walkMaxY), Y1 = Math.max(o.walkMinY, o.walkMaxY);
   const span = Math.hypot(X1 - X0, Y1 - Y0) || 1;
   for (let i = 0; i < n; i++) {
     // a few tries for a stop far enough from the last one, so it really goes places
     let best = null, bd = -1;
     for (let k = 0; k < 8; k++) {
-      const c = [R.range(X0, X1), R.range(Y0, Y1)], d = Math.hypot(c[0] - pts[i][0], c[1] - pts[i][1]);
+      const c = [R.range(X0, X1), R.range(Y0, Y1)];
+      if (gr) c[1] = 0;
+      const d = Math.hypot(c[0] - pts[i][0], c[1] - pts[i][1]);
       if (d > bd) { bd = d; best = c; }
       if (d > span * 0.35) break;
     }
@@ -138,8 +156,8 @@ A.walk = (o) => {
           happy: joy > 0.1 ? 1 : 0, sy: 1 - joy * 0.1 + bump(k, 0.75, 0.95) * 0.06, quiet: 1 };
       }
       const { l } = seg0, s = ease.inOutSine(k), nx = -(l.b[1] - l.a[1]) / l.d, ny = (l.b[0] - l.a[0]) / l.d;
-      const bend = Math.sin(Math.PI * s) * o.walkCurve * l.d * 0.22 * l.side;
-      const hop = seg0.hops ? Math.abs(Math.sin(Math.PI * seg0.hops * k)) : 0, w = Math.sin(Math.PI * k) ** 0.5, land = 1 - hop;
+      const bend = gr ? 0 : Math.sin(Math.PI * s) * o.walkCurve * l.d * 0.22 * l.side;
+      const hop = seg0.hops && !gr ? Math.abs(Math.sin(Math.PI * seg0.hops * k)) : 0, w = Math.sin(Math.PI * k) ** 0.5, land = 1 - hop;
       const sq = (land > 0.85 ? ((land - 0.85) / 0.15) * 0.18 : -hop * 0.06) * o.walkSquash * w;
       return { dx: lerp(l.a[0], l.b[0], s) + nx * bend, dy: lerp(l.a[1], l.b[1], s) + ny * bend - o.walkHop * hop * w, sy: 1 - sq, sx: 1 + sq * 0.8, quiet: 1 };
     },
@@ -154,7 +172,8 @@ A.jump = (o) => ({
     if (f < r0) { const c = Math.sin((f / r0) * Math.PI * 0.5); return { sy: 1 - 0.3 * q * c, sx: 1 + 0.22 * q * c, dy: 2 * c, quiet: 1 }; }
     if (f < r1) {
       const g = (f - r0) / air, h = 4 * g * (1 - g), v = 1 - h;
-      return { dy: -o.jumpHeight * h, sy: 1 + 0.25 * q * v * (g < 0.5 ? 1 : 0.6), sx: 1 - 0.15 * q * v, rot: TAU * Math.round(o.jumpFlips) * ease.inOutQuad(g), quiet: 1, happy: g > 0.2 && g < 0.8 ? 1 : 0 };
+      return { dy: -o.jumpHeight * h, sy: 1 + 0.25 * q * v * (g < 0.5 ? 1 : 0.6), sx: 1 - 0.15 * q * v, rot: TAU * Math.round(o.jumpFlips) * ease.inOutQuad(g), quiet: 1, happy: g > 0.2 && g < 0.8 ? 1 : 0,
+        armUp: 0.75 * Math.sin(Math.PI * g) * (Math.round(o.jumpFlips) ? 0.4 : 1) };
     }
     const g = (f - r1) / (1 - r1), c = Math.sin(Math.PI * g) * (1 - g * 0.3);
     return { sy: 1 - 0.32 * q * c, sx: 1 + 0.25 * q * c, quiet: 1 };
@@ -165,7 +184,9 @@ A.aura = (o) => ({
   env: (t) => { const a = prog(o, t); return a <= 0 || a >= 1 ? 0 : Math.sin(Math.PI * a) ** 2; },
   mods(t) {
     const a = prog(o, t), e = this.env(t);
-    return { dy: -o.auraRise * e, glow: 0.6 * o.auraPower * e, halo: 1 + 1.8 * o.auraPower * e, shut: o.auraEyes === "closed" ? clamp(e * 1.6) : 0, happy: o.auraEyes === "happy" && e > 0.3 ? 1 : 0, quiet: a > 0 && a < 1 ? 1 : 0 };
+    // (on its legs it stays on the floor and spreads its arms)
+    return { dy: o.form === "grounded" ? 0 : -o.auraRise * e, glow: 0.6 * o.auraPower * e, halo: 1 + 1.8 * o.auraPower * e, shut: o.auraEyes === "closed" ? clamp(e * 1.6) : 0, happy: o.auraEyes === "happy" && e > 0.3 ? 1 : 0, quiet: a > 0 && a < 1 ? 1 : 0,
+      armOpen: E(clamp(e * 1.4)), armUp: 0.35 * e * e };
   },
   back(p, C, t, st) {
     const a = prog(o, t), e = this.env(t);
@@ -211,7 +232,7 @@ A.morph = (o) => ({
   env(t) { const a = prog(o, t); return a <= 0 || a >= 1 ? 0 : plateau(a, clamp(o.morphHold, 0, 0.9)); },
   mods(t) {
     const a = prog(o, t), e = this.env(t), sh = SHAPES[o.morphShape] || SHAPES.star;
-    return { morph: o.morphAmount * e, shape: sh, rot: TAU * Math.round(o.morphSpin) * E(a), glow: 0.25 * o.morphFlash * bump(e, 0.2, 0.8), quiet: a > 0 && a < 1 ? 1 : 0 };
+    return { morph: o.morphAmount * e, shape: sh, rot: TAU * Math.round(o.morphSpin) * E(a), glow: 0.25 * o.morphFlash * bump(e, 0.2, 0.8), quiet: a > 0 && a < 1 ? 1 : 0, armOpen: 0.7 * e };
   },
   front(p, C, t, st) {
     const e = this.env(t), f = bump(e, 0.15, 0.85) * o.morphFlash;
@@ -231,7 +252,7 @@ A.spin = (o) => ({
   env(t) { const a = prog(o, t); return a <= 0 || a >= 1 ? 0 : Math.sin(Math.PI * a) ** 2; },
   mods(t) {
     const a = prog(o, t), e = this.env(t);
-    return { rot: TAU * Math.max(1, Math.round(o.spinTurns)) * ease.inOutCubic(a), dy: -o.spinRise * e, sx: 1 + o.spinStretch * e, sy: 1 - o.spinStretch * 0.45 * e, grow: 1 - o.spinShrink * e, quiet: a > 0 && a < 1 ? 1 : 0 };
+    return { rot: TAU * Math.max(1, Math.round(o.spinTurns)) * ease.inOutCubic(a), dy: -o.spinRise * e, sx: 1 + o.spinStretch * e, sy: 1 - o.spinStretch * 0.45 * e, grow: 1 - o.spinShrink * e, quiet: a > 0 && a < 1 ? 1 : 0, armOpen: e };
   },
   back(p, C, t, st) { this.trail(p, C, t, st, false); },
   front(p, C, t, st) { this.trail(p, C, t, st, true); },
@@ -256,6 +277,8 @@ A.split = (o) => {
   const env = (t) => { const a = prog(o, t); return a <= 0 || a >= 1 ? 0 : plateau(a, 0.4); };
   const copy = (i) => (t) => {
     const a = prog(o, t), e = env(t), th = (i / n()) * TAU + TAU * o.splitOrbit * E(a) - Math.PI / 2, r = o.splitDistance * e;
+    // on its legs the copies line up along the floor, every one on its own feet
+    if (o.form === "grounded") { const k = i ? Math.ceil(i / 2) * (i % 2 ? 1 : -1) : 0; return { dx: k * r * 1.1, grow: 1 - o.splitShrink * e, halo: i ? e : 1, quiet: a > 0 && a < 1 ? 1 : 0 }; }
     return { dx: Math.cos(th) * r, dy: Math.sin(th) * r * 0.55, grow: 1 - o.splitShrink * e, halo: i ? e : 1, quiet: a > 0 && a < 1 ? 1 : 0 };
   };
   return {
@@ -277,11 +300,11 @@ A.burst = (o) => {
       if (a <= 0 || a >= 1) return {};
       if (a < CH) {
         const k = a / CH, sh = k * k * 2.2 * o.burstCharge;
-        return { grow: 1 - 0.28 * E(k), dx: (noise2(t * 40, 1, o.seed) - 0.5) * sh, dy: (noise2(1, t * 40, o.seed) - 0.5) * sh, glow: 0.8 * k, shut: 0.8, quiet: 1 };
+        return { grow: 1 - 0.28 * E(k), dx: (noise2(t * 40, 1, o.seed) - 0.5) * sh, dy: (noise2(1, t * 40, o.seed) - 0.5) * sh, glow: 0.8 * k, shut: 0.8, quiet: 1, hold: E(k) };
       }
       if (a < BACK1) return { vis: 0, grow: 0, quiet: 1 };
       const k = (a - BACK1) / (1 - BACK1);
-      return { grow: ease.outBack(k, 2.2), glow: 0.6 * (1 - k), quiet: 1, happy: k < 0.7 ? 1 : 0 };
+      return { grow: ease.outBack(k, 2.2), glow: 0.6 * (1 - k), quiet: 1, happy: k < 0.7 ? 1 : 0, armOpen: bump(k, 0, 1) };
     },
     front(p, C, t, st) {
       const a = prog(o, t);
@@ -330,7 +353,8 @@ A.teleport = (o) => {
   return {
     mods(t) {
       const a = prog(o, t), g = scaleAt(a), at = there(a);
-      return { dx: at ? o.tpX : 0, dy: at ? o.tpY : 0, still: 1, grow: g, vis: g > 0.03 ? 1 : 0, sy: 1 + (1 - g) * 1.4, sx: 1 - (1 - g) * 0.5, quiet: a > 0 && a < 1 ? 1 : 0 };
+      // (on its legs it lands on the floor wherever it goes)
+      return { dx: at ? o.tpX : 0, dy: at && o.form !== "grounded" ? o.tpY : 0, still: 1, grow: g, vis: g > 0.03 ? 1 : 0, sy: 1 + (1 - g) * 1.4, sx: 1 - (1 - g) * 0.5, quiet: a > 0 && a < 1 ? 1 : 0, armUp: 1 - g };
     },
     front(p, C, t, st) {
       const a = prog(o, t);
@@ -356,7 +380,8 @@ A.nap = (o) => ({
   mods(t) {
     const a = prog(o, t), e = this.env(t), wake = bump(a, 0.86, 0.97);
     const br = Math.sin(TAU * 3 * a) * 0.07 * o.napBreath * e;
-    return { dy: o.napSink * e - wake * 8, sy: 1 + br - wake * 0.05, sx: 1 - br * 0.6 + wake * 0.05, shut: clamp(e * 1.4), glow: -0.25 * o.napDim * e, halo: 1 - 0.6 * o.napDim * e, lookY: 0.5 * e, quiet: a > 0 && a < 1 ? 1 : 0 };
+    return { dy: o.napSink * e - wake * 8, sy: 1 + br - wake * 0.05, sx: 1 - br * 0.6 + wake * 0.05, shut: clamp(e * 1.4), glow: -0.25 * o.napDim * e, halo: 1 - 0.6 * o.napDim * e, lookY: 0.5 * e, quiet: a > 0 && a < 1 ? 1 : 0,
+      hold: 0.8 * e, armUp: 0.8 * wake };
   },
   front(p, C, t, st) {
     const a = prog(o, t), e = this.env(t), n = Math.round(o.napBubbles);
@@ -389,7 +414,7 @@ A.inflate = (o) => {
         const d = seg(a, POP + 0.06, 1);
         j = Math.sin(d * Math.PI * 7) * Math.exp(-d * 4) * (1 - d) * 0.35 * o.inflateJiggle * (k >= 1 ? 1 : 0);
       }
-      return { grow: g, sx: 1 + j, sy: 1 - j, happy: a > UP * 0.6 && a < POP ? 1 : 0, glow: 0.2 * (g - 1), quiet: 1 };
+      return { grow: g, sx: 1 + j, sy: 1 - j, happy: a > UP * 0.6 && a < POP ? 1 : 0, glow: 0.2 * (g - 1), quiet: 1, armOpen: clamp((g - 1) / Math.max(0.01, big)) };
     },
     front(p, C, t, st) {
       const a = prog(o, t), f = bump(a, POP - 0.01, POP + 0.12);
@@ -408,7 +433,8 @@ A.dance = (o) => {
   return {
     mods(t) {
       const a = prog(o, t), e = env(t), b = Math.sin(Math.PI * n() * a), up = Math.abs(b);
-      return { dx: o.danceAmp * b * e, dy: -o.danceBounce * up * e, rot: ((o.danceWiggle * Math.PI) / 180) * b * e, sy: 1 - 0.12 * (1 - up) * e, sx: 1 + 0.1 * (1 - up) * e, happy: e > 0.3 ? 1 : 0, quiet: a > 0 && a < 1 ? 1 : 0 };
+      return { dx: o.danceAmp * b * e, dy: -o.danceBounce * up * e, rot: ((o.danceWiggle * Math.PI) / 180) * b * e, sy: 1 - 0.12 * (1 - up) * e, sx: 1 + 0.1 * (1 - up) * e, happy: e > 0.3 ? 1 : 0, quiet: a > 0 && a < 1 ? 1 : 0,
+        armUp: e * (0.45 + 0.4 * up), armOpen: 0.3 * e * (1 - up) };
     },
     front(p, C, t, st) {
       const a = prog(o, t), e = env(t);
@@ -436,7 +462,8 @@ A.scared = (o) => {
     mods(t) {
       const a = prog(o, t), k = shape(a), sh = k.shake * 2.2 * o.scareShake;
       return { dx: dir * o.scareRetreat * E(k.back) + (noise2(t * 35, 3, o.seed) - 0.5) * sh, dy: -k.start * 10 + (noise2(4, t * 35, o.seed) - 0.5) * sh * 0.6,
-        grow: 1 - o.scareShrink * k.back, sy: 1 + k.start * 0.25, sx: 1 - k.start * 0.15, eyeScale: 1 + 0.45 * Math.max(k.start * 1.5, k.back * 0.8), lookX: -dir * k.back * 1.2, quiet: a > 0 && a < 1 ? 1 : 0 };
+        grow: 1 - o.scareShrink * k.back, sy: 1 + k.start * 0.25, sx: 1 - k.start * 0.15, eyeScale: 1 + 0.45 * Math.max(k.start * 1.5, k.back * 0.8), lookX: -dir * k.back * 1.2, quiet: a > 0 && a < 1 ? 1 : 0,
+        armUp: 0.8 * k.start, hold: 0.85 * k.back * (1 - k.start) };
     },
     front(p, C, t, st) {
       const a = prog(o, t), k = shape(a);
@@ -522,7 +549,8 @@ A.drop = (o) => {
     mods(t) {
       const a = prog(o, t), H = Math.max(0, o.dropFloor), k = yAt(a, H), q = k.imp * 0.35 * o.dropSquash;
       const rise = a > REST && a < 1 ? Math.sin(Math.PI * seg(a, REST, 1)) : 0;
-      return { dy: k.y, sy: 1 - q + rise * 0.08, sx: 1 + q * 0.9 - rise * 0.04, shut: a > FALL && a < REST ? 0.0 : 0, happy: a > REST - 0.06 && a < REST + 0.1 ? 1 : 0, eyeScale: a > 0 && a < FALL ? 1.3 : 1, quiet: a > 0 && a < 1 ? 1 : 0 };
+      return { dy: k.y, sy: 1 - q + rise * 0.08, sx: 1 + q * 0.9 - rise * 0.04, shut: a > FALL && a < REST ? 0.0 : 0, happy: a > REST - 0.06 && a < REST + 0.1 ? 1 : 0, eyeScale: a > 0 && a < FALL ? 1.3 : 1, quiet: a > 0 && a < 1 ? 1 : 0,
+        armUp: 0.9 * bump(a, 0, FALL + 0.04), armOpen: 0.6 * rise };
     },
     front(p, C, t, st) {
       const a = prog(o, t);
@@ -554,7 +582,7 @@ A.rainbow = (o) => {
       const sh = 360 * Math.max(1, Math.round(o.rainbowTurns)) * E(a), e = env(t);
       return base.map(([h, s, l]) => fromHsl((((h + sh) % 360) + 360) % 360, clamp(s * (1 + (o.rainbowSat - 1) * e) + 0.35 * o.rainbowSat * e * (1 - s)), l));
     },
-    mods(t) { const a = prog(o, t), e = env(t); return { glow: 0.3 * o.rainbowGlow * e, halo: 1 + o.rainbowGlow * e, happy: e > 0.5 ? 1 : 0, quiet: a > 0 && a < 1 ? 1 : 0 }; },
+    mods(t) { const a = prog(o, t), e = env(t); return { glow: 0.3 * o.rainbowGlow * e, halo: 1 + o.rainbowGlow * e, happy: e > 0.5 ? 1 : 0, quiet: a > 0 && a < 1 ? 1 : 0, armOpen: 0.8 * e }; },
     front(p, C, t, st) {
       const e = env(t), a = prog(o, t);
       if (e < 0.1 || o.rainbowSparkles <= 0) return;
@@ -602,9 +630,10 @@ A.melt = (o) => {
   return {
     mods(t) {
       const a = prog(o, t), e = env(t), back = a > 0.5 ? Math.sin(Math.PI * seg(a, 0.55, 1)) : 0;
-      const w = o.meltWidth;
+      // (a figure pours itself into the puddle; on its legs the puddle lies on its floor)
+      const w = o.meltWidth, fm = o.form === "human" || o.form === "grounded";
       return { dy: o.meltDrop * E(e), sx: 1 + (w - 1) * E(e) - back * 0.12, sy: 1 - 0.72 * E(e) + back * 0.25, shut: o.meltEyes === "closed" ? e : 0, happy: o.meltEyes === "happy" && e > 0.5 ? 1 : 0,
-        morph: 0.5 * e, shape: (th) => 1 / Math.sqrt((Math.cos(th) / 1.1) ** 2 + (Math.sin(th) / 0.9) ** 2) * (1 + 0.35 * Math.max(0, Math.sin(th)) ** 2), quiet: a > 0 && a < 1 ? 1 : 0 };
+        morph: (fm ? 0.9 : 0.5) * e, shape: (th) => 1 / Math.sqrt((Math.cos(th) / 1.1) ** 2 + (Math.sin(th) / 0.9) ** 2) * (1 + 0.35 * Math.max(0, Math.sin(th)) ** 2), quiet: a > 0 && a < 1 ? 1 : 0 };
     },
     back(p, C, t, st) {
       const e = env(t), a = prog(o, t), n = Math.round(o.meltRipples);
@@ -626,7 +655,8 @@ A.curious = (o) => {
     mods(t) {
       const a = prog(o, t), e = env(t), g = Math.sin(Math.PI * n() * a), lean = Math.sign(g) * Math.abs(g) ** 0.6;
       const peek = bump(((a * n()) % 1), 0.25, 0.75);
-      return { dx: o.curiousPeek * lean * e, dy: -3 * peek * e, rot: o.curiousLean * lean * e, lookX: 1.4 * lean * e, lookY: -0.4 * peek * e, eyeScale: 1 + (o.curiousEyes - 1) * peek * e, quiet: a > 0 && a < 1 ? 1 : 0 };
+      return { dx: o.curiousPeek * lean * e, dy: -3 * peek * e, rot: o.curiousLean * lean * e, lookX: 1.4 * lean * e, lookY: -0.4 * peek * e, eyeScale: 1 + (o.curiousEyes - 1) * peek * e, quiet: a > 0 && a < 1 ? 1 : 0,
+        hold: 0.5 * e * (1 - peek) };
     },
   };
 };
@@ -759,6 +789,7 @@ A.portal = (o) => {
         out.x -= (dx / d) * 3 * bump(a, w[0], openAt(w) + 0.02) * (shots ? 1 : 0);
         out.y -= (dy / d) * 3 * bump(a, w[0], openAt(w) + 0.02) * (shots ? 1 : 0);
         out.ex.lookX = (dx / d) * 1.3 * k; out.ex.lookY = (dy / d) * 0.9 * k;
+        out.ex.reach = [P.x, P.y]; out.ex.reachK = k;
       }
     }
     for (const r of runs) {
@@ -886,7 +917,8 @@ A.portal = (o) => {
       for (const P of [PA, PB]) {
         const w = P === PA ? OA : OB, k = seg(c.a, w[0], openAt(w));
         if (k <= 0 || k >= 1) continue;
-        const R = P.ramp, fx = st.x, fy = st.y;
+        // (from its hand, when it has hands)
+        const R = P.ramp, hd = st.hands ? st.hands.reduce((b, h) => (Math.hypot(h[0] - P.x, h[1] - P.y) < Math.hypot(b[0] - P.x, b[1] - P.y) ? h : b)) : null, fx = hd ? hd[0] : st.x, fy = hd ? hd[1] : st.y;
         const at = (q) => { const kk = ease.inQuad(clamp(q)); return [lerp(fx, P.x, kk), lerp(fy, P.y, kk)]; };
         const [hx, hy] = at(k), [ex, ey] = at(k - 0.22);
         // a streak of its colour, a bright head
@@ -926,25 +958,28 @@ export function fromHsl(h, s, l) {
   return "#" + [r, g, b].map((v) => Math.round(clamp(v + m) * 255).toString(16).padStart(2, "0")).join("");
 }
 
+// an action its form can't do: it just rests in that form
+const REST = { mods: () => ({}) };
 function actionOf(o) {
-  return (A[o.action] || A.walk)(o);
+  return fitsForm(o) ? (A[o.action] || A.walk)(o) : REST;
 }
 
 export function drawBack(p, t, o) {
-  const C0 = actionOf(o), C = fit(C0.palette ? C0.palette(t) : o.palette, 8), act = actionOf(o), list = act.copies ? act.copies(t) : [(tt) => act.mods(tt)];
+  const C0 = actionOf(o), C = fit(C0.palette ? C0.palette(t) : o.palette, 8), act = actionOf(o), list = act.copies ? act.copies(t) : [(tt) => act.mods(tt)], T = total(o);
   let st = null;
-  list.forEach((M, i) => { const s = clipped(p, M.clip, () => blobBack(p, t, o, M, C)); if (i === 0) st = s; });
-  ambient(p, t, o, false, C, drift(act, t));
+  // (on a floor: the first draws it, the copies only their reflection in it)
+  list.forEach((M, i) => { const s = clipped(p, M.clip, () => bodyBack(p, t, o, M, C, T, i ? 1 : 0)); if (i === 0) st = s; });
+  bodyAmbient(p, t, o, false, C, drift(act, t));
   if (act.back) act.back(p, C, t, st);
 }
 
 export function draw(p, t, o) {
-  const C0 = actionOf(o), C = fit(C0.palette ? C0.palette(t) : o.palette, 8), act = actionOf(o), list = act.copies ? act.copies(t) : [(tt) => act.mods(tt)];
+  const C0 = actionOf(o), C = fit(C0.palette ? C0.palette(t) : o.palette, 8), act = actionOf(o), list = act.copies ? act.copies(t) : [(tt) => act.mods(tt)], T = total(o);
   let st = null;
   // copies drawn back to front by height, so the lower ones cover the higher
   const order = list.map((M, i) => [M, M(t).dy || 0, i]).sort((x, y) => x[1] - y[1]);
-  for (const [M, , i] of order) { const s = clipped(p, M.clip, () => blobFront(p, t, o, M, C)); if (i === 0) st = s; }
-  ambient(p, t, o, true, C, drift(act, t));
+  for (const [M, , i] of order) { const s = clipped(p, M.clip, () => bodyFront(p, t, o, M, C, T)); if (i === 0) st = s; }
+  bodyAmbient(p, t, o, true, C, drift(act, t));
   if (act.front) act.front(p, C, t, st);
 }
 

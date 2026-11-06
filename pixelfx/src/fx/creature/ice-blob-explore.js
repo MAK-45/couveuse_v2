@@ -14,11 +14,24 @@
 // the speed surges a whole number of times a loop (the world's clock is warped by a sine that integrates to zero over
 // the loop, so the distance stays whole tiles), every ripple runs whole turns and every particle is on cycle(t, P).
 import { fit, clamp, lerp, ease, tileNoise, tileFbm, rng, cycle, TAU, WHITE, hex } from "../../core/index.js";
-import { meta as idleMeta, blobBack, blobFront, ambient, state, shapeOf } from "./ice-blob-idle.js";
+import { meta as idleMeta, state, shapeOf } from "./ice-blob-idle.js";
+import { bodyBack, bodyFront, bodyAmbient, isForm, formMask } from "./ice-blob-transform.js";
 import { hsl, fromHsl } from "./ice-blob-actions.js";
 import { worldOf, worldTile, paintWorld } from "./ice-worlds.js";
 
 export const EXPLORE = ["move", "look", "swim", "turns", "collect"];
+/** What a new form can't do, and why (the page shows it; the effect then just rests). In its levitating human form it
+ * flies as the blob does (stretched a little, a comet's tail of light, arms reaching ahead); on its legs it can only
+ * stand on its floor and look round the world. */
+export const FORM_FIT = {
+  grounded: {
+    move: "Il file à travers le monde en volant : sur ses jambes, avec la gravité, il ne peut pas voler.",
+    swim: "Il nage dans le vide du monde : au sol, la gravité le retient.",
+    turns: "Il vole en slalom à travers le monde : au sol, il ne peut pas voler.",
+    collect: "Il fonce en volant sur les étoiles pour les avaler : au sol, il ne peut pas voler.",
+  },
+};
+export const fitsForm = (o, name = o.explore) => !(FORM_FIT[o.form] && FORM_FIT[o.form][name]);
 export const STYLES = ["comet", "stretch", "ghosts", "shock", "flame"];
 // travel directions (degrees, y down) and the way the world scrolls for each
 export const HEADINGS = { right: 0, downright: 45, down: 90, downleft: 135, left: 180, upleft: 225, up: 270, upright: 315 };
@@ -38,7 +51,7 @@ export const meta = {
     ...idleMeta.options,
     // the world it travels through (null: deep space with its defaults) and the scene's bounds in local pixels
     world: null, room: null,
-    explore: "move", loops: 2,
+    form: "blob", explore: "move", loops: 2,
     // speed: one knob for the world and the body; how much each follows it; surges of speed a loop
     exSpeed: 3, exDir: "right", exDrift: 1, exDeform: 1, exSurge: 0.35, exSurges: 1,
     // the body at speed: stretch, tail, lean, ripples, eyes ahead, pushed back by the speed
@@ -114,8 +127,11 @@ function dropMods(o, k, head, u, x = {}) {
     return Math.min(2.4, r);
   };
   const look = x.look || [c * o.exLook * clamp(k * 2.5) * 2, s * o.exLook * clamp(k * 2.5) * 1.4];
-  return { sx: 1 + str * ax, sy: 1 - str * ax * 0.8, rot: lean, morph: clamp(k * 1.4, 0, 0.92), shape, lookX: look[0], lookY: look[1],
-    glow: 0.12 * k * o.exPower, halo: 1 + 0.45 * k * o.exPower, quiet: 1 };
+  // a figure keeps its shape (only a little of it streams into the drop) and reaches ahead with both arms
+  // a figure also lies down along its way, head first, the faster the more (as one flies)
+  const fig = isForm(o), lie = fig ? (head + Math.PI / 2 - TAU * Math.round((head + Math.PI / 2) / TAU)) * 0.85 * clamp(k * 2.5) : 0;
+  return { sx: 1 + str * ax, sy: 1 - str * ax * 0.8, rot: lean + lie, morph: clamp(k * 1.4, 0, 0.92) * (fig ? 0.22 : 1), shape, lookX: look[0], lookY: look[1],
+    glow: 0.12 * k * o.exPower, halo: 1 + 0.45 * k * o.exPower, quiet: 1, ...(fig ? { armUp: 0.9 * clamp(k * 2) } : {}) };
 }
 // streaks of wind sliding past the whole scene, against the way it goes (dir(t) gives the way as [c, s] if it changes)
 function speedLines(p, C, t, st, k, front, o, tr, dir) {
@@ -247,6 +263,18 @@ X.move = (o) => {
     if (!n || k <= 0.02) return;
     const gap = o.size * (0.35 + 0.9 * k) * o.exLength;
     for (let i = n; i >= 1; i--) {
+      if (isForm(o)) {
+        // a figure leaves its own silhouette behind
+        const mk = formMask(o, t - i * 0.07, M, P), ox = -c * gap * i, oy = -s * gap * i, al = 0.6 * (1 - i / (n + 1)) * clamp(k * 2.2) * Math.min(1.4, o.exPower), Ci = shifted(C, o.exHue * i);
+        for (let j = 0; j < mk.H; j++)
+          for (let q = 0; q < mk.W; q++) {
+            if (!mk.inside(q, j)) continue;
+            const px = mk.X0 + q + 0.5 + ox, py = mk.Y0 + j + 0.5 + oy, rim = !mk.inside(q - 1, j) || !mk.inside(q + 1, j) || !mk.inside(q, j - 1) || !mk.inside(q, j + 1);
+            p.blend(px, py, rim ? Ci[6] : Ci[5], rim ? Math.min(1, al * 1.6) : al * 0.8);
+            if (rim) p.light(px, py, Ci[5], 0.3 * al);
+          }
+        continue;
+      }
       const st = state(o, t - i * 0.07, M), rad = shapeOf(o, st.u, st.m), ox = -c * gap * i, oy = -s * gap * i;
       const cx = st.x + ox, cy = st.y + oy, E = o.size * 2.6 * Math.max(st.sx, st.sy), al = 0.6 * (1 - i / (n + 1)) * clamp(k * 2.2) * Math.min(1.4, o.exPower);
       const Ci = shifted(C, o.exHue * i);
@@ -359,17 +387,19 @@ X.look = (o) => {
   const stare = (q) => (q <= 0 ? 0 : ease.inOutSine(clamp(q / 0.18)) * (1 - ease.inOutSine(seg2(q, 0.72, 1))));
   const mods = (t) => {
     const [vx, vy] = camV(t), vm = Math.hypot(vx, vy) || 1, idle = 0.6 * Math.min(1, vm / 30);
-    let gx = (vx / vm) * idle, gy = (vy / vm) * idle * 0.6, wonder = 0, hop = 0, lean = 0, dxs = 0;
+    let gx = (vx / vm) * idle, gy = (vy / vm) * idle * 0.6, wonder = 0, hop = 0, lean = 0, dxs = 0, at = null;
     for (const sp of spots) {
       const q = presence(sp, t), w = stare(q);
       if (w <= 0) continue;
       const [x, y] = where(sp, t), d = Math.hypot(x, y) || 1;
       gx = lerp(gx, (x / d) * 2, w); gy = lerp(gy, (y / d) * 1.5, w);
+      if (w > wonder) at = [x, y];
       wonder = Math.max(wonder, w); hop = Math.max(hop, Math.sin(Math.PI * clamp(q / 0.22)) * (q < 0.22 ? 1 : 0));
       lean += (x / d) * w * 0.12 * o.lkLean; dxs += (x / d) * w * o.size * 0.18 * o.lkLean;
     }
+    // (a figure points at the star it stares at)
     return { lookX: gx * o.exLook, lookY: gy * o.exLook, eyeScale: 1 + 0.2 * wonder * o.lkWonder, dy: -hop * 4 * o.lkWonder, rot: lean, dx: dxs,
-      sy: 1 + 0.05 * hop * o.lkWonder, sx: 1 - 0.03 * hop * o.lkWonder, halo: 1 + 0.3 * wonder * o.lkWonder, glow: 0.12 * wonder * o.lkWonder };
+      sy: 1 + 0.05 * hop * o.lkWonder, sx: 1 - 0.03 * hop * o.lkWonder, halo: 1 + 0.3 * wonder * o.lkWonder, glow: 0.12 * wonder * o.lkWonder, ...(at ? { reach: at, reachK: 0.85 * wonder } : {}) };
   };
   return {
     mods,
@@ -405,7 +435,9 @@ X.swim = (o) => {
     const sk = stroke(t), k = kOf(sk.f), gather = Math.sin(Math.PI * seg2(sk.ph, 0.55, 1)) ** 1.5 * Math.min(1, o.exSpeed);
     const m = dropMods(o, k, a, phase(o, t), { squash: 0.2 * gather, tail: 0.5 * o.swSway * Math.sin(sk.th), wave: 1 + o.swWave, ripple: n * 2,
       fins: 0.4 * o.swFins * (0.45 + 0.55 * Math.cos(sk.th)) * Math.min(1, o.exSpeed) });
-    return { ...m, rot: m.rot + 0.12 * o.swSway * Math.sin(sk.th + 0.6) * Math.min(1, o.exSpeed), dx: c * gather * o.size * 0.12, dy: s * gather * o.size * 0.12, quiet: o.exSpeed > 0 ? 1 : 0 };
+    // (a figure swims with its arms: they gather, then pull wide)
+    return { ...m, rot: m.rot + 0.12 * o.swSway * Math.sin(sk.th + 0.6) * Math.min(1, o.exSpeed), dx: c * gather * o.size * 0.12, dy: s * gather * o.size * 0.12, quiet: o.exSpeed > 0 ? 1 : 0,
+      ...(isForm(o) ? { reachK: 0.4 * gather, armUp: 0.7 * gather, armOpen: 0.9 * (0.5 + 0.5 * Math.cos(sk.th)) * Math.min(1, o.exSpeed) } : {}) };
   };
   return {
     mods,
@@ -566,13 +598,15 @@ X.collect = (o) => {
 };
 
 const cache = new WeakMap();
+// an action its form can't do: it just rests in that form, the world still round it
+const REST = (o) => ({ mods: () => ({}), calm: true, world: (t) => ({ w: { ...worldOf(o.world), wLoops: whole(o.loops, 1), wState: "still" }, wt: t }), back() {}, front() {} });
 const actOf = (o) => {
   let x = cache.get(o);
-  if (!x) { x = (X[o.explore] || X.move)(o); cache.set(o, x); }
+  if (!x) { x = fitsForm(o) ? (X[o.explore] || X.move)(o) : REST(o); cache.set(o, x); }
   return x;
 };
 // the blob's own look, its light on the ground only if asked
-const bodyOf = (o) => ({ ...o, ground: o.ground * clamp(o.exGround, 0, 2) });
+const BODY = new WeakMap(), bodyOf = (o) => { let b = BODY.get(o); if (!b) { b = { ...o, ground: o.ground * clamp(o.exGround, 0, 2) }; BODY.set(o, b); } return b; };
 
 export function drawBack(p, t, o) {
   const C = fit(o.palette, 8), Cf = shifted(C, o.exHue || 0), act = actOf(o), ob = bodyOf(o), M = (tt) => act.mods(tt), P = total(o);
@@ -580,13 +614,13 @@ export function drawBack(p, t, o) {
   paintWorld(p, w, ((wt % P) + P) % P, P, roomOf(o));
   const st = state(ob, t, M);
   act.back(p, C, Cf, t, st, M);
-  blobBack(p, t, ob, M, C);
-  if (act.calm) ambient(p, t, ob, false, C);
+  bodyBack(p, t, ob, M, C, P);
+  if (act.calm) bodyAmbient(p, t, ob, false, C);
 }
 
 export function draw(p, t, o) {
   const C = fit(o.palette, 8), Cf = shifted(C, o.exHue || 0), act = actOf(o), ob = bodyOf(o), M = (tt) => act.mods(tt);
-  const st = blobFront(p, t, ob, M, C);
-  if (act.calm) ambient(p, t, ob, true, C);
+  const st = bodyFront(p, t, ob, M, C, total(o));
+  if (act.calm) bodyAmbient(p, t, ob, true, C);
   act.front(p, C, Cf, t, st, M);
 }

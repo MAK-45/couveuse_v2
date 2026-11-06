@@ -2,12 +2,24 @@
 // meditating, dancing, bouncing, flying a round, singing, blowing bubbles of light. Each runs over a whole number
 // of the blob's own loops with its rest going on underneath, every rhythm a whole number of beats a loop, every
 // particle on the loop's clock: the GIF loops with no seam. It starts where the blob rests.
+// In one of the transformation's new forms (o.form "human" or "grounded") the figure does them, with its arms (raised
+// for magic, holding the book, on the rope of the swing...); on its legs it keeps to its floor (it sits down
+// cross-legged to sleep or meditate) and the two that need flying can't be done (FORM_FIT).
 import { fit, clamp, lerp, seg, bump, ease, noise2, rng, cycle, TAU, WHITE, hex } from "../../core/index.js";
-import { meta as idleMeta, blobBack, blobFront, ambient } from "./ice-blob-idle.js";
+import { meta as idleMeta } from "./ice-blob-idle.js";
+import { bodyBack, bodyFront, bodyAmbient, formCentre } from "./ice-blob-transform.js";
 import { drawObject } from "./ice-scene-objects.js";
 import { hsl, fromHsl } from "./ice-blob-actions.js";
 
 export const LOOPS = ["sleep", "magic", "conjure", "juggle", "meditate", "dance", "bounce", "orbit", "sing", "bubbles", "read", "draw", "rain", "stars", "hiccup", "top", "swing", "firefly"];
+/** What a new form can't do, and why (the page shows it; the effect then just rests). */
+export const FORM_FIT = {
+  grounded: {
+    orbit: "Il fait le tour de la scène en volant : au sol, il ne peut pas voler.",
+    top: "Il tournoie sur lui-même comme une toupie, à plat : debout sur ses jambes, la gravité l’en empêche.",
+  },
+};
+export const fitsForm = (o, name = o.loop) => !(FORM_FIT[o.form] && FORM_FIT[o.form][name]);
 
 export const meta = {
   name: "Ice blob loops",
@@ -21,7 +33,7 @@ export const meta = {
   bg: "black",
   options: {
     ...idleMeta.options,
-    loop: "sleep", loops: 2,
+    form: "blob", loop: "sleep", loops: 2,
     sleepBreaths: 3, sleepDepth: 1, sleepSink: 8, sleepBubbles: 4, sleepDim: 0.5, sleepTwitch: 1,
     magicCircle: 34, magicTurns: 1, magicRunes: 8, magicPulses: 2, magicSparkles: 24, magicRise: 8, magicHue: 0, magicEyes: "closed",
     conjureCount: 3, conjureShape: "cycle", conjureRadius: 50, conjureSize: 10, conjureStyle: "halo", conjureHold: 0.55,
@@ -49,6 +61,10 @@ const total = (o) => o.duration * Math.max(1, Math.round(o.loops));
 const phase = (o, t) => (((t / total(o)) % 1) + 1) % 1;
 const whole = (v, lo = 1) => Math.max(lo, Math.round(v));
 const shifted = (C, hue) => (hue ? C.map((c) => { const [h, s, l] = hsl(c); return hex(fromHsl((((h + hue) % 360) + 360) % 360, s, l)); }) : C);
+// in a new form: where its head is (bubbles of sleep, notes, hiccups come from it) and what is under it
+const formed = (o) => o.form === "human" || o.form === "grounded", gnd = (o) => o.form === "grounded";
+const headAt = (st, o, x, y) => (st.head ? [st.head[0] + st.headR * 0.8 + (x - st.x - o.size * 0.55) * 0.6, st.head[1] - st.headR * 0.9 + (y - st.y + o.size * 0.85)] : [x, y]);
+const under = (st) => (st.floor != null ? st.floor - 1 : Math.max(...st.feet.map((f) => f[1])) + 3);
 const spark = (p, C, x, y, a = 1) => { p.px(x, y, WHITE); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) p.dot(x + dx, y + dy, C[6], a); p.glow(x, y, 4, C[5], 0.35 * a); };
 const ring = (p, x, y, rx, ry, c, a, filter) => { for (let j = 0, m = Math.ceil(Math.max(rx, ry) * 6); j < m; j++) { const th = (j / m) * TAU; if (!filter || filter(th)) p.dot(x + Math.cos(th) * rx, y + Math.sin(th) * ry, c, a); } };
 // tiny pixel glyphs: runes for the magic, notes for the song
@@ -72,15 +88,16 @@ const L = {};
 L.sleep = (o) => ({
   mods(t) {
     const ph = phase(o, t), n = whole(o.sleepBreaths), b = Math.sin(TAU * n * ph), tw = o.sleepTwitch > 0 ? bump(ph, 0.7, 0.74) * o.sleepTwitch : 0;
+    // (a figure curls up as it floats; on its legs it sits down cross-legged on its floor and nods off)
     return { dy: o.sleepSink - b * 1.5, sy: 1 + 0.06 * o.sleepDepth * b, sx: 1 - 0.035 * o.sleepDepth * b, shut: 1 - tw * 0.6, halo: 1 - 0.55 * o.sleepDim, glow: -0.22 * o.sleepDim + 0.08 * (b + 1) * 0.5,
-      dx: tw * Math.sin(t * 90) * 1.5, lookY: 0.5, quiet: 1 };
+      dx: tw * Math.sin(t * 90) * 1.5, lookY: 0.5, quiet: 1, ...(gnd(o) ? { seat: 1, arms: "down", rot: 0.05 + 0.02 * b } : { hold: 0.75, legs: o.huLegs === "spirit" ? "spirit" : "lotus" }) };
   },
   front(p, C, t, st) {
     const ph = phase(o, t), n = whole(o.sleepBubbles, 0);
     for (let i = 0; i < n; i++) {
       const k = (((ph - i / n) % 1) + 1) % 1 / 0.45;
       if (k >= 1) continue;
-      const s = 1 + Math.round(2.5 * Math.min(1, k * 1.4)), x = st.x + o.size * 0.55 + Math.sin(k * 7 + i) * 2.5 + k * 10, y = st.y - o.size * 0.85 - k * o.size * 1.9;
+      const s = 1 + Math.round(2.5 * Math.min(1, k * 1.4)), [x, y] = headAt(st, o, st.x + o.size * 0.55 + Math.sin(k * 7 + i) * 2.5 + k * 10, st.y - o.size * 0.85 - k * o.size * 1.9);
       if (k < 0.88) { ring(p, x, y, s, s, C[6], 0.9); p.dot(x - s * 0.45, y - s * 0.45, WHITE, 1); }
       else { const q = (k - 0.88) / 0.12; for (let j = 0; j < 6; j++) { const th = (j / 6) * TAU; p.dot(x + Math.cos(th) * (s + q * 4), y + Math.sin(th) * (s + q * 4), C[6], 1 - q); } }
     }
@@ -93,10 +110,12 @@ L.magic = (o) => {
   return {
     mods(t) {
       const ph = phase(o, t), pu = Math.max(0, Math.sin(TAU * whole(o.magicPulses) * ph)) ** 3;
-      return { dy: -o.magicRise + Math.sin(TAU * 2 * ph) * 1.5, glow: 0.08 + 0.3 * pu, halo: 1.3 + 0.8 * pu, shut: o.magicEyes === "closed" ? 1 : 0, happy: o.magicEyes === "happy" ? 1 : 0, quiet: 1 };
+      // (a figure raises its arms over the circle; on its legs it stays standing on the floor)
+      return { dy: gnd(o) ? 0 : -o.magicRise + Math.sin(TAU * 2 * ph) * 1.5, glow: 0.08 + 0.3 * pu, halo: 1.3 + 0.8 * pu, shut: o.magicEyes === "closed" ? 1 : 0, happy: o.magicEyes === "happy" ? 1 : 0, quiet: 1,
+        armUp: 0.55 + 0.35 * pu, armOpen: 0.4 * (1 - pu) };
     },
     circle(p, C0, t, st, front) {
-      const C = pal(C0), ph = phase(o, t), R = o.magicCircle, cy = st.y - this.mods(t).dy + o.size * 1.25 + o.magicRise * 0.3, cx = st.x;
+      const C = pal(C0), ph = phase(o, t), R = o.magicCircle, cy = st.feet ? under(st) + (gnd(o) ? 0 : o.magicRise * 0.3) : st.y - this.mods(t).dy + o.size * 1.25 + o.magicRise * 0.3, cx = st.x;
       const rot = TAU * whole(o.magicTurns, 0) * ph, pu = Math.max(0, Math.sin(TAU * whole(o.magicPulses) * ph)) ** 3;
       const side = (th) => (Math.sin(th) >= 0) === front;
       if (!front) { p.glow(cx, cy, R * 1.3, C[4], 0.3 + 0.25 * pu); p.glow(cx, cy, R * 0.6, C[6], 0.15 + 0.2 * pu); }
@@ -144,7 +163,8 @@ L.conjure = (o) => {
   return {
     mods(t) {
       const { n, i, k } = slot(o, t), [x, y] = where(o, i, n), cast = bump(k, 0, IN + 0.05), d = Math.hypot(x, y) || 1;
-      return { lookX: (x / d) * 1.5, lookY: (y / d) * 1.1, dx: (x / d) * 3 * cast, dy: (y / d) * 2 * cast, glow: 0.35 * cast, happy: k > OUT - 0.05 && k < OUT + 0.15 ? 1 : 0, quiet: 1 };
+      return { lookX: (x / d) * 1.5, lookY: (y / d) * 1.1, dx: (x / d) * 3 * cast, dy: (y / d) * 2 * cast, glow: 0.35 * cast, happy: k > OUT - 0.05 && k < OUT + 0.15 ? 1 : 0, quiet: 1,
+        reach: [x, y], reachK: bump(k, 0, IN + 0.15) };
     },
     front(p, C, t, st) {
       const { n, i, k } = slot(o, t), ob = obAt(o, i, n), [ox, oy] = [ob.x, ob.y];
@@ -176,12 +196,13 @@ L.juggle = (o) => {
       const ph = phase(o, t), thr = (ph * c * n) % 1, kick = bump(thr, 0, 0.2);
       let hi = [0, -1];
       for (let i = 0; i < n; i++) { const [x, y] = posOf(ph, i); if (y < hi[1] * 50) hi = [x, y / 50]; }
-      return { dy: kick * 2.5, sy: 1 - 0.07 * kick, sx: 1 + 0.05 * kick, lookX: clamp(hi[0] / (o.juggleWidth || 1)) * 1.1, lookY: -0.9, happy: 0, quiet: 1 };
+      return { dy: kick * 2.5, sy: 1 - 0.07 * kick, sx: 1 + 0.05 * kick, lookX: clamp(hi[0] / (o.juggleWidth || 1)) * 1.1, lookY: -0.9, happy: 0, quiet: 1, hold: 0.55, armOpen: 0.25 + 0.1 * kick };
     },
     draw(p, C, t, st, front) {
-      const ph = phase(o, t);
+      // (a figure throws them from its hands)
+      const ph = phase(o, t), hy = st.hands && st.hands.length ? (st.hands[0][1] + st.hands[st.hands.length - 1][1]) / 2 - st.y + o.size * 0.2 - 3 : 0;
       for (let i = 0; i < n; i++) {
-        const [x, y, up] = posOf(ph, i);
+        const [x, y0, up] = posOf(ph, i), y = y0 + hy;
         if (up !== !front && !front) continue;
         if (front && up) {
           drawObject(p, o, { shape: o.juggleShape === "cycle" ? ["sphere", "cube", "gem", "crystal", "pyramid"][i % 5] : o.juggleShape, x: st.x + x, y: st.y + y, size: o.juggleSize, spinY: 2, spinX: 1, tilt: 0.3, float: 0, floatTurns: 0, hue: o.juggleShape === "cycle" ? i * 70 : 0, glow: 1, ph: i / n }, t);
@@ -199,7 +220,9 @@ L.juggle = (o) => {
 L.meditate = (o) => ({
   mods(t) {
     const ph = phase(o, t);
-    return { dy: -o.medRise + Math.sin(TAU * 2 * ph) * 2.5, shut: 1, glow: 0.2 * o.medGlow, halo: 1 + 0.6 * o.medGlow, rot: TAU * Math.round(o.medSpin) * ph, sy: 1 + 0.03 * Math.sin(TAU * 2 * ph), quiet: 1 };
+    // (a figure sits cross-legged in the air, hands down; on its legs it sits so on its floor)
+    return { dy: -o.medRise + Math.sin(TAU * 2 * ph) * 2.5, shut: 1, glow: 0.2 * o.medGlow, halo: 1 + 0.6 * o.medGlow, rot: TAU * Math.round(o.medSpin) * ph, sy: 1 + 0.03 * Math.sin(TAU * 2 * ph), quiet: 1,
+      legs: "lotus", arms: "down", ...(gnd(o) ? { seat: 1, rot: 0 } : {}) };
   },
   orbs(p, C, t, st, front) {
     const ph = phase(o, t), n = whole(o.medOrbs, 0), R = o.size * o.medOrbit;
@@ -230,7 +253,7 @@ L.dance = (o) => {
   return {
     mods(t) {
       const ph = phase(o, t), b = Math.sin(Math.PI * n() * ph), up = Math.abs(b);
-      return { dx: o.danceAmp * b, dy: -o.danceBounce * up, rot: ((o.danceWiggle * Math.PI) / 180) * b, sy: 1 - 0.12 * (1 - up), sx: 1 + 0.1 * (1 - up), happy: 1, quiet: 1 };
+      return { dx: o.danceAmp * b, dy: -o.danceBounce * up, rot: ((o.danceWiggle * Math.PI) / 180) * b, sy: 1 - 0.12 * (1 - up), sx: 1 + 0.1 * (1 - up), happy: 1, quiet: 1, armUp: 0.45 + 0.4 * up, armOpen: 0.3 * (1 - up) };
     },
     front(p, C, t, st) {
       if (o.danceSparkles <= 0) return;
@@ -249,7 +272,7 @@ L.bounce = (o) => {
     mods(t) {
       const ph = phase(o, t), { f, r0, air, g } = at(ph), q = o.bounceSquash;
       if (f < r0) { const c = Math.sin((f / r0) * Math.PI * 0.5); return { sy: 1 - 0.28 * q * c, sx: 1 + 0.2 * q * c, dy: 2 * c, quiet: 1 }; }
-      if (f < r0 + air) { const h = 4 * g * (1 - g); return { dy: -o.bounceHeight * h, sy: 1 + 0.2 * q * (1 - h), sx: 1 - 0.12 * q * (1 - h), rot: TAU * Math.round(o.bounceFlips) * ease.inOutQuad(g), happy: g > 0.25 && g < 0.75 ? 1 : 0, quiet: 1 }; }
+      if (f < r0 + air) { const h = 4 * g * (1 - g); return { dy: -o.bounceHeight * h, sy: 1 + 0.2 * q * (1 - h), sx: 1 - 0.12 * q * (1 - h), rot: TAU * Math.round(o.bounceFlips) * ease.inOutQuad(g), happy: g > 0.25 && g < 0.75 ? 1 : 0, quiet: 1, armUp: 0.7 * Math.sin(Math.PI * g) }; }
       const c = Math.sin(((f - r0 - air) / (1 - r0 - air)) * Math.PI * 0.5 + Math.PI * 0.5);
       return { sy: 1 - 0.28 * q * c, sx: 1 + 0.2 * q * c, dy: 2 * c, quiet: 1 };
     },
@@ -258,7 +281,7 @@ L.bounce = (o) => {
       const ph = phase(o, t), { f, r0, air } = at(ph), k = f > r0 + air ? (f - r0 - air) / (1 - r0 - air) : f < r0 ? 1 + f / r0 : 2;
       const kk = k <= 1 ? k * 0.5 : k < 2 ? 0.5 + (k - 1) * 0.5 : 2;
       if (kk >= 1) return;
-      const gy = st.y + o.size * 0.95;
+      const gy = st.feet ? under(st) : st.y + o.size * 0.95;
       for (let j = 0; j < 8; j++) { const side = j % 2 ? 1 : -1, sp = 0.4 + (j >> 1) * 0.25; p.dot(st.x + side * (o.size * 0.6 + kk * 24 * sp), gy - Math.sin(Math.PI * kk) * 5 * sp, C[5], (1 - kk) * o.bounceDust); }
       p.glow(st.x, gy, o.size * 1.4, C[6], 0.3 * (1 - kk) * o.bounceDust);
     },
@@ -278,7 +301,7 @@ L.orbit = (o) => {
     at,
     mods(t) {
       const ph = phase(o, t), [x, y] = at(ph), [x1, y1] = at(ph + 0.002), vx = x1 - x;
-      return { dx: x, dy: y, rot: clamp(vx * 0.5, -0.5, 0.5) * o.orbitBank, sx: 1 + Math.min(0.15, Math.abs(vx) * 0.04), quiet: 1, still: 0 };
+      return { dx: x, dy: y, rot: clamp(vx * 0.5, -0.5, 0.5) * o.orbitBank, sx: 1 + Math.min(0.15, Math.abs(vx) * 0.04), quiet: 1, still: 0, armOpen: 0.7 };
     },
     back(p, C, t, st) {
       if (o.orbitTrail <= 0) return;
@@ -298,14 +321,14 @@ L.sing = (o) => {
   return {
     mods(t) {
       const ph = phase(o, t), b = Math.sin(TAU * n() * ph * 0.5), beat = Math.abs(Math.sin(Math.PI * n() * ph));
-      return { dx: o.singSway * b, rot: 0.18 * b, dy: -o.singBounce * beat, sy: 1 + 0.06 * beat, sx: 1 - 0.04 * beat, happy: 1, quiet: 1 };
+      return { dx: o.singSway * b, rot: 0.18 * b, dy: -o.singBounce * beat, sy: 1 + 0.06 * beat, sx: 1 - 0.04 * beat, happy: 1, quiet: 1, hold: 0.5 * (1 - beat), armOpen: 0.55 * beat };
     },
     front(p, C0, t, st) {
       const C = shifted(C0, o.singHue), ph = phase(o, t), m = whole(o.singNotes, 0);
       for (let i = 0; i < m; i++) {
         const k = (((ph - i / m) % 1) + 1) % 1 / 0.5;
         if (k >= 1) continue;
-        const side = i % 2 ? 1 : -1, x = st.x + side * (o.size * 0.9 + k * 22) + Math.sin(k * 9 + i) * 3, y = st.y - o.size * 0.6 - k * o.size * 2.2;
+        const side = i % 2 ? 1 : -1, x = (st.head ? st.head[0] : st.x) + side * (o.size * 0.9 + k * 22) + Math.sin(k * 9 + i) * 3, y = (st.head ? st.head[1] + o.size * 0.3 : st.y) - o.size * 0.6 - k * o.size * 2.2;
         const a = Math.sin(Math.PI * Math.min(1, k * 1.1));
         glyph(p, GLYPHS.notes[i % GLYPHS.notes.length], x, y, k < 0.5 ? WHITE : C[6], a, Math.max(1, Math.round(o.singNoteSize)));
         p.glow(x, y, 6, C[5], 0.35 * a);
@@ -320,15 +343,17 @@ L.bubbles = (o) => {
   return {
     mods(t) {
       const ph = phase(o, t), f = (ph * n()) % 1, puff = bump(f, 0, 0.18);
-      return { sx: 1 - 0.1 * puff, sy: 1 + 0.08 * puff, dx: -dir * puff * 2, lookX: dir * 0.8, happy: f > 0.2 && f < 0.5 ? 1 : 0, quiet: 1 };
+      return { sx: 1 - 0.1 * puff, sy: 1 + 0.08 * puff, dx: -dir * puff * 2, lookX: dir * 0.8, happy: f > 0.2 && f < 0.5 ? 1 : 0, quiet: 1, hold: 0.3 + 0.4 * puff };
     },
     front(p, C, t, st) {
       const ph = phase(o, t), m = n(), g = rng(o.seed, 333);
       for (let i = 0; i < m; i++) {
         const born = i / m, k = (((ph - born) % 1) + 1) % 1 / 0.6, s = o.bubbleSize * g.range(0.7, 1.3), up = g.range(0.4, 1);
         if (k >= 1) continue;
-        const D = o.bubbleDrift, x = st.x + (dir ? dir * (o.size * 0.9 + k * D) : Math.sin(k * 6 + i) * 6) + Math.sin(k * 10 + i) * 2;
-        const y = st.y - o.size * 0.1 - k * D * (dir ? 0.6 * up : 1.1);
+        // (a figure blows them from its mouth)
+        const D = o.bubbleDrift, [bx, by] = st.head ? [st.head[0] - (dir ? dir * (o.size * 0.9 - st.headR * 0.8) : 0), st.head[1] + st.headR * 0.45 + o.size * 0.1] : [st.x, st.y];
+        const x = bx + (dir ? dir * (o.size * 0.9 + k * D) : Math.sin(k * 6 + i) * 6) + Math.sin(k * 10 + i) * 2;
+        const y = by - o.size * 0.1 - k * D * (dir ? 0.6 * up : 1.1);
         const r = s * Math.min(1, k * 6);
         if (k < 0.9) {
           ring(p, x, y, r * (1 + 0.08 * Math.sin(k * 30)), r * (1 - 0.08 * Math.sin(k * 30)), C[6], 0.95);
@@ -347,11 +372,12 @@ L.bubbles = (o) => {
 // ---- reading: a book of light open under its nose, pages turning, its eyes running along the lines
 L.read = (o) => {
   const n = () => whole(o.readPages);
-  const book = (st, t) => { const ph = phase(o, t); return { x: st.x, y: st.y + o.size * 0.95 + Math.sin(TAU * 2 * ph) * 0.8 }; };
+  // (a figure holds it in its hands)
+  const book = (st, t) => { const ph = phase(o, t), h = st.hands && st.hands.length === 2 ? st.hands : null; return h ? { x: (h[0][0] + h[1][0]) / 2, y: (h[0][1] + h[1][1]) / 2 + o.readSize * 0.3 + Math.sin(TAU * 2 * ph) * 0.8 } : { x: st.x, y: st.y + o.size * 0.95 + Math.sin(TAU * 2 * ph) * 0.8 }; };
   return {
     mods(t) {
       const ph = phase(o, t), f = (ph * n()) % 1, line = (f * 4) % 1, nod = Math.sin(TAU * n() * ph) * o.readNod;
-      return { lookX: lerp(-1, 1, Math.min(1, line * 1.15)) * 0.9, lookY: 0.9, rot: 0.05 * nod, dy: 1.5 * nod, quiet: 1 };
+      return { lookX: lerp(-1, 1, Math.min(1, line * 1.15)) * 0.9, lookY: 0.9, rot: 0.05 * nod, dy: 1.5 * nod, quiet: 1, hold: 1 };
     },
     front(p, C0, t, st) {
       const C = shifted(C0, o.readHue), ph = phase(o, t), { x, y } = book(st, t), W = o.readSize / 2, H = o.readSize * 0.32;
@@ -395,8 +421,9 @@ L.draw = (o) => {
   return {
     mods(t) {
       const { draw } = timing(t), [px, py] = path(draw), d = o.drawSide === "left" ? -1 : o.drawSide === "up" ? 0 : 1;
-      const lx = d * 0.9 + px * 0.4, ly = (d ? -0.2 : -1) + py * 0.4;
-      return { lookX: lx, lookY: ly, dx: d * 2, rot: d * 0.08, happy: timing(t).glow > 0.5 ? 1 : 0, quiet: 1 };
+      const lx = d * 0.9 + px * 0.4, ly = (d ? -0.2 : -1) + py * 0.4, [cx, cy] = centre({ x: 0, y: 0 }), [fx, fy] = formCentre(o);
+      // (a figure draws with its finger)
+      return { lookX: lx, lookY: ly, dx: d * 2, rot: d * 0.08, happy: timing(t).glow > 0.5 ? 1 : 0, quiet: 1, reach: [fx + cx + px * o.drawSize, fy + cy + py * o.drawSize], reachK: 0.9 * (1 - timing(t).fade) };
     },
     front(p, C0, t, st) {
       const C = shifted(C0, o.drawHue), { draw, glow, fade } = timing(t), [cx, cy] = centre(st), R = o.drawSize, al = 1 - fade;
@@ -422,7 +449,7 @@ L.rain = (o) => {
   return {
     mods(t) {
       const ph = phase(o, t), sw = Math.sin(TAU * 4 * ph);
-      return happy ? { happy: 1, rot: 0.08 * sw, dx: 2 * sw, lookY: -0.6, quiet: 1 } : { shut: 0.55, dy: 4, sy: 0.95, sx: 1.04, lookY: 0.6, glow: -0.1, quiet: 1 };
+      return happy ? { happy: 1, rot: 0.08 * sw, dx: 2 * sw, lookY: -0.6, quiet: 1, armOpen: 0.75, armUp: 0.2 + 0.1 * sw } : { shut: 0.55, dy: 4, sy: 0.95, sx: 1.04, lookY: 0.6, glow: -0.1, quiet: 1, hold: 0.8 };
     },
     cloud(st, t) { const ph = phase(o, t); return [st.x - st.m.dx * 0.5 + Math.sin(TAU * ph) * 3, st.y - o.size - o.rainHeight + Math.sin(TAU * 2 * ph) * 1.5]; },
     back(p, C0, t, st) {
@@ -432,8 +459,9 @@ L.rain = (o) => {
     drops(p, C, t, st) {
       const [cx, cy] = this.cloud(st, t), W = o.rainCloud;
       cycle(t, total(o), Math.round(o.rainDrops), o.seed + 71, (g) => g.range(0.45, 0.7), (age, life, r) => {
-        const x = cx + r.range(-W, W), k = age / life, y0 = cy + 3, top = st.y - o.size * 0.85, hit = Math.abs(x - st.x) < o.size * 0.75;
-        const yEnd = hit ? top : st.y + o.size * 2.5, y = lerp(y0, yEnd, k);
+        // (on a figure, the drops land on its head and its arms)
+        const x = cx + r.range(-W, W), k = age / life, y0 = cy + 3, top = st.top ? st.top[1] + Math.abs(x - st.top[0]) * 0.5 : st.y - o.size * 0.85, hit = st.top ? Math.abs(x - st.top[0]) < st.U * 0.45 : Math.abs(x - st.x) < o.size * 0.75;
+        const yEnd = hit ? top : st.feet ? under(st) : st.y + o.size * 2.5, y = lerp(y0, yEnd, k);
         if (k < 0.97) { p.px(x, y, C[6]); p.px(x, y - 1, C[5]); p.dot(x, y - 2, C[4], 0.6); }
         else if (o.rainSplash > 0) for (const sd of [-1, 1]) p.dot(x + sd * 2, yEnd - 1, WHITE, o.rainSplash);
       });
@@ -460,7 +488,7 @@ L.stars = (o) => {
       const ph = phase(o, t);
       let lx = 0, wow = 0;
       for (let i = 0; i < n(); i++) { const s = shot(ph, i); if (s.k > 0 && s.k < 1) { lx = s.dir * lerp(-1, 1, s.k); wow = Math.max(wow, Math.sin(Math.PI * s.k)); } const after = shot(ph - 0.04, i); if (after.k > 0.6 && after.k < 1) wow = Math.max(wow, 0.6); }
-      return { lookY: -1.3, lookX: lx * 1.2 + Math.sin(TAU * ph) * 0.3, eyeScale: 1 + 0.35 * wow * o.starsWonder, dy: -4 * wow * o.starsWonder, happy: 0, quiet: 1 };
+      return { lookY: -1.3, lookX: lx * 1.2 + Math.sin(TAU * ph) * 0.3, eyeScale: 1 + 0.35 * wow * o.starsWonder, dy: -4 * wow * o.starsWonder, happy: 0, quiet: 1, hold: 0.35 * (1 - wow), armOpen: 0.5 * wow };
     },
     back(p, C, t, st) {
       const ph = phase(o, t), g = rng(o.seed, 321), A = o.starsArea;
@@ -487,13 +515,13 @@ L.hiccup = (o) => {
   return {
     mods(t) {
       const d = at(phase(o, t)), k = d / 0.08, jolt = k < 1 ? Math.sin(Math.PI * Math.min(1, k * 1.6)) * (1 - k * 0.3) : 0, wide = d < 0.12 ? 1 - d / 0.12 : 0;
-      return { dy: -o.hicStrength * jolt, sy: 1 + 0.18 * jolt, sx: 1 - 0.12 * jolt, eyeScale: 1 + 0.4 * wide * o.hicSurprise, shut: d > 0.12 && d < 0.15 ? 1 : 0, quiet: 1 };
+      return { dy: -o.hicStrength * jolt, sy: 1 + 0.18 * jolt, sx: 1 - 0.12 * jolt, eyeScale: 1 + 0.4 * wide * o.hicSurprise, shut: d > 0.12 && d < 0.15 ? 1 : 0, quiet: 1, armOpen: 0.6 * jolt };
     },
     front(p, C, t, st) {
       if (o.hicBubble <= 0) return;
       const d = at(phase(o, t)), k = seg(d, 0.02, 0.12);
       if (k <= 0 || k >= 1) return;
-      const x = st.x + o.size * 0.9 + k * 6, y = st.y - o.size * 0.9 - k * 10, r = 2 + k * 3;
+      const [x, y] = st.head ? [st.head[0] + st.headR + 3 + k * 6, st.head[1] - k * 10] : [st.x + o.size * 0.9 + k * 6, st.y - o.size * 0.9 - k * 10], r = 2 + k * 3;
       if (k < 0.7) { ring(p, x, y, r, r, C[6], o.hicBubble); p.dot(x - r * 0.4, y - r * 0.4, WHITE, 1); }
       else for (let j = 0; j < 6; j++) { const th = (j / 6) * TAU; spark(p, C, x + Math.cos(th) * (r + 3), y + Math.sin(th) * (r + 3), (1 - k) * 3 * o.hicBubble); }
     },
@@ -504,7 +532,7 @@ L.hiccup = (o) => {
 L.top = (o) => ({
   mods(t) {
     const ph = phase(o, t), wob = Math.sin(TAU * 2 * ph) * o.topWobble, dr = o.topDrift;
-    return { rot: TAU * whole(o.topTurns) * ph + wob, sx: 1 + o.topStretch, sy: 1 - o.topStretch * 0.4, dx: Math.sin(TAU * ph) * dr, dy: (1 - Math.cos(TAU * ph)) * dr * 0.25 - 2, happy: 1, quiet: 1 };
+    return { rot: TAU * whole(o.topTurns) * ph + wob, sx: 1 + o.topStretch, sy: 1 - o.topStretch * 0.4, dx: Math.sin(TAU * ph) * dr, dy: (1 - Math.cos(TAU * ph)) * dr * 0.25 - 2, happy: 1, quiet: 1, armOpen: 1 };
   },
   blur(p, C, t, st, front) {
     if (o.topTrail <= 0) return;
@@ -527,14 +555,16 @@ L.swing = (o) => {
   return {
     mods(t) {
       const th = ang(phase(o, t)), Lr = o.swingLength, top = Math.abs(th) / Math.max(0.01, (o.swingAngle * Math.PI) / 180);
-      return { dx: Lr * Math.sin(th), dy: -Lr * (1 - Math.cos(th)), rot: -th * 0.9, happy: top > 0.8 ? 1 : 0, quiet: 1 };
+      // (a figure holds the ropes over its head; on its legs it hangs clear of its floor)
+      const lift = gnd(o) ? o.size * (o.huHeight || 1) * 0.55 : 0;
+      return { dx: Lr * Math.sin(th), dy: -Lr * (1 - Math.cos(th)) - lift, rot: -th * 0.9, happy: top > 0.8 ? 1 : 0, quiet: 1, armUp: 1 };
     },
     back(p, C, t, st) {
       if (o.swingRope <= 0) return;
       const ax = st.x - st.m.dx, ay = st.y - st.m.dy - o.swingLength - o.size * 0.9, th = ang(phase(o, t));
       const tx = st.x + Math.sin(th) * o.size * 0.9 * 0, ty = st.y - o.size * 0.85;
       for (const off of [-o.size * 0.35, o.size * 0.35]) {
-        const bx = tx + Math.cos(th) * off, by = ty + Math.sin(th) * off;
+        const hd = st.hands && st.hands.length === 2 ? st.hands[off < 0 ? 1 : 0] : null, bx = hd ? hd[0] : tx + Math.cos(th) * off, by = hd ? hd[1] : ty + Math.sin(th) * off;
         p.line(ax + off * 0.3, ay, bx, by, C[5], 0.8 * Math.min(1, o.swingRope));
         p.glowLine(ax + off * 0.3, ay, bx, by, 3, C[5], 0.12 * o.swingRope);
       }
@@ -552,7 +582,8 @@ L.firefly = (o) => {
   return {
     mods(t) {
       const ph = phase(o, t), [x, y] = pos(ph, 0, whole(o.flyCount)), d = Math.hypot(x, y) || 1;
-      return { lookX: (x / d) * 1.6, lookY: (y / d) * 1.2, dx: (x / d) * 3 * o.flyFollow, rot: (x / d) * 0.12 * o.flyFollow, happy: Math.abs(x) < o.size * 0.5 && y < 0 ? 1 : 0, quiet: 1 };
+      const [fx, fy] = formCentre(o);
+      return { lookX: (x / d) * 1.6, lookY: (y / d) * 1.2, dx: (x / d) * 3 * o.flyFollow, rot: (x / d) * 0.12 * o.flyFollow, happy: Math.abs(x) < o.size * 0.5 && y < 0 ? 1 : 0, quiet: 1, reach: [fx + x, fy + y], reachK: 0.45 };
     },
     fly(p, C0, t, st, front) {
       const C = shifted(C0, o.flyHue), ph = phase(o, t), n = whole(o.flyCount), bx = st.x - st.m.dx, by = st.y - st.m.dy;
@@ -570,18 +601,19 @@ L.firefly = (o) => {
   };
 };
 
-function loopOf(o) { return (L[o.loop] || L.sleep)(o); }
+// a loop its form can't do: it just rests in that form
+function loopOf(o) { return fitsForm(o) ? (L[o.loop] || L.sleep)(o) : { mods: () => ({}) }; }
 
 export function drawBack(p, t, o) {
   const C = fit(o.palette, 8), act = loopOf(o), M = (tt) => act.mods(tt);
-  const st = blobBack(p, t, o, M, C);
-  ambient(p, t, o, false, C);
+  const st = bodyBack(p, t, o, M, C, total(o));
+  bodyAmbient(p, t, o, false, C);
   if (act.back) act.back(p, C, t, st);
 }
 
 export function draw(p, t, o) {
   const C = fit(o.palette, 8), act = loopOf(o), M = (tt) => act.mods(tt);
-  const st = blobFront(p, t, o, M, C);
-  ambient(p, t, o, true, C);
+  const st = bodyFront(p, t, o, M, C, total(o));
+  bodyAmbient(p, t, o, true, C);
   if (act.front) act.front(p, C, t, st);
 }

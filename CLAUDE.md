@@ -15,6 +15,11 @@ which kind they want, and wait for the answer — never pick for them:
 Ask in French, e.g. « Tu veux une boucle parfaite qui part du blob né et y revient (pour enchaîner les GIF), ou une
 animation en boucle libre qui n’a pas besoin de partir du blob né ? »
 
+Every animation must also work in the transformation's **new forms** (levitating human, human on its legs): draw the
+creature with `bodyBack`/`bodyFront`/`bodyAmbient`, give the figure arm poses that fit, keep it on its floor on its legs,
+and when it really can't be done in a form (flying on its legs...) list it in the module's `FORM_FIT` with the reason
+in French. See « The new forms in every tab » below.
+
 ## Use the pixelfx skill for every effect
 
 Whenever you create or change an effect, animation or anything drawn (new tab, action, loop, object, style),
@@ -80,7 +85,9 @@ After any change to an effect or to `app/`, run `npm run build && npm test`.
     `huArms` float/open/down; the body is a signed distance field: the blob's `r - rad(angle)` blended with the figure's smooth
     union of round cones/ovals (`human()`), lit by one shader like the blob's body (`body()`), hair as its own field behind it;
     `chore(o, c, style)` gives the change at c (0 blob .. 1 new form), exactly neutral at both ends; the figure's clock is
-    `t - T` in `transform`; reuses the idle's eyes, sparks and drops via `drawEyes`/`drawSparks`/`drawDrips`; keys start with `tf`, `rv`, `hu`)
+    `t - T` in `transform`; reuses the idle's eyes, sparks and drops via `drawEyes`/`drawSparks`/`drawDrips`; keys start with `tf`, `rv`, `hu`.
+    It is also the **form engine** of every other tab: `bodyBack`/`bodyFront`/`bodyAmbient` draw the creature in `o.form`
+    (`build(o, t, ext)` with c = 1 and the tab's modifiers), `figClock`, `walking()` for the legs, `FORM_DEFAULTS`, `formExtent`, `formCentre`, `formMask`, `floorFor`)
   - `pixelfx/src/fx/creature/ice-worlds.js` — tab **Mondes** (backdrops seen only through portals; `renderWorld()` draws a window of a world in depth layers with a camera; type `space` for now; two states, `wState` "still" (lives in place) or "moving" (travels at `wDrift`); every world key starts with `w`)
   - `pixelfx/src/fx/creature/ice-surface.js` — tab **Surface planète** (planet surfaces seen from the ground; type `plain` for now:
     banded sky, sun/moon, clouds, ridged mountains with snow, hills, three meadows at depths 0.45/0.7/1 with lake, ponds, trees,
@@ -110,6 +117,10 @@ Read the relevant doc before a non-trivial change; don't load every file.
    where `beyond` starts. A still world never translates; only a moving one scrolls. The world is pinned to the scene (`o.room`).
 6. GIFs get **one palette per frame** computed from that frame only: identical frames encode identically, so
    chained GIFs join exactly. Don't go back to a global palette.
+7. In a **new form** "rest" is the Transformation's `live` loop: a tab passes its length `T` to `bodyBack`/`bodyFront`, and
+   `figClock` nudges the figure's own clock (period `liveLoops · D`) mid-way so it lands back on that loop at the end, slope 1
+   near both ends (drops). Every form modifier is applied as `x * 1` / `x + 0` at rest, so at rest a tab draws exactly the
+   `live` frame; never compute the rest pose another way.
 
 If `npm test` reports a FAIL, fix the effect — never loosen the test.
 
@@ -127,6 +138,28 @@ If `npm test` reports a FAIL, fix the effect — never loosen the test.
 - UI: controls may be missing on some tabs — wire them with `on(id, event, fn)`, never `$(id).onclick =` directly.
 - UI: distances the user sets in **% of the scene** are converted to effect pixels in `effOpts()`.
 - `localStorage` key is `couveuse-v3`; `sanitize()` must merge old saves with new defaults.
+
+## The new forms in every tab
+
+- Tabs Actions, Objets, Boucles, Heure, Électricité, Portail, Action monde draw the creature with `bodyBack(p, t, o, M, C, T, part)`,
+  `bodyFront(p, t, o, M, C, T)`, `bodyAmbient(...)` from `ice-blob-transform.js`, never `blobBack`/`blobFront` directly. With
+  `o.form` "blob" they are the idle's own; with "human" / "grounded" they draw the figure with the Transformation tab's
+  settings (`FORM_DEFAULTS` fill what's missing) and return an `st` whose `x, y` is the middle of its body, plus `hands`,
+  `head`, `headR`, `feet`, `top`, `floor`, `U`: emit beams/bolts from the nearest hand, put books in its hands, clouds over its head.
+- The same modifiers as the blob move the figure. On its legs (`walking()`): `dx` = steps along the floor (leading foot
+  first, a pure function of `dx`), `dy < 0` = a jump (legs leave the floor and hang), `dy > 0` or `sy < 1` = it bends its
+  knees, `rot` = a lean over its hips (a flip in the air), `grow` round the floor under it. A tab sets `dy: 0` where the blob
+  only floats up (aura, magic...). Extra modifiers for figures (ignored by the blob): `armUp`, `armOpen`, `hold` (0..1),
+  `reach: [x, y]` + `reachK` (one arm points at a local point), `legs`/`arms` (pose override, e.g. "lotus"/"down"), `seat`
+  (on its legs: sits cross-legged on its floor). Electricity's `settle()` passes them through `NEUTRAL`.
+- What a form can't do: each module exports `FORM_FIT = { grounded: { name: "raison en français" } }` and `fitsForm(o)`;
+  the effect then just rests, the UI greys the button and lists the reasons.
+- Seam tests: the "in a new form" block of `tests/seams.mjs` checks every tab in both forms against `live`'s frames.
+- UI: the form is `S.shared.bodyForm` ("blob", "human", "grounded"), picked in each `FORM_TABS` tab's « Forme » group
+  (`formMarkup`, `setBodyForm`); picking a human form there sets `S.transform.form`, and the Transformation tab's form choice
+  carries over while a human form is in use. `effOpts()` merges the figure settings from `S.transform` (floor % → px, `room`),
+  and uses `formExtent()` to keep strolls, falls and flights inside the scene. `fixFit()` moves a choice a form can't do.
+  `GROUNDED_IDLE` hides settings a figure on its legs has no use for.
 
 ## Conventions
 

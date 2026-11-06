@@ -21,6 +21,29 @@ and inlines everything into `dist/couveuse.html`.
 Actions, objects, loops and clock all draw the same blob with `blobBack(p, t, o, M)` / `blobFront(p, t, o, M)`
 and only supply `M` plus their own extra drawing (`back`/`front` hooks). `ambient()` draws the floating motes.
 
+## The new forms (the creature in every tab)
+
+Every tab that draws the creature (actions, objects, loops, clock, electricity, portal, world actions) calls
+`bodyBack(p, t, o, M, C, T, part)` / `bodyFront(p, t, o, M, C, T)` / `bodyAmbient(...)` from `ice-blob-transform.js`
+instead of the idle's functions. With `o.form` "human" (levitating) or "grounded" (on its legs, on its floor of ice) they
+draw the Transformation's figure, fully formed (c = 1), through the same `build()` as that tab's `live` loop:
+
+- `formFrame(o, t, M, T)`: the idle state with the tab's modifiers, the figure's clock `figClock(o, t, T)` (nudged so a
+  T-long animation lands back on the live loop), the walking speed; cached for back, front and copies.
+- the modifiers act on the figure: levitating, it moves, squashes (60 %), turns and scales as the blob; on its legs
+  `grounding(..., xm)` + `walking()` turn `dx` into steps, `dy < 0` into a jump (feet leave the floor, `X.air`), `dy > 0`
+  and squash into bent knees, `rot` into a lean of the upper body (`X.lean`, `turnParts`) or a flip in the air, `grow`
+  into a scale round the floor under it; `morph`/`shape` blend the figure into the blob's shape (`k = 1 - morph`).
+- figure-only modifiers: `armUp`, `armOpen`, `hold`, `reach` + `reachK` (arm angles blended in `posed()`), `legs` / `arms`
+  (pose overrides), `seat` (on its legs: sits cross-legged on its floor).
+- `bodyFront` returns the state with `x, y` at the middle of the body and `hands`, `head`, `headR`, `feet`, `top`, `floor`,
+  `U`, so a tab's effects come from its hands or sit on its head; `formExtent`, `formCentre`, `formMask` (afterimages),
+  `floorFor` help tabs and the page.
+- each module's `FORM_FIT[form][name]` says, in French, what can't be done in a form and why (the effect then rests).
+
+In the page, the form is `S.shared.bodyForm`, picked in a « Forme » group at the top of those tabs; the figure's settings
+always come from `S.transform` (merged in `effOpts()`).
+
 ## Effect modules
 
 | File | Tab | Shape of an entry |

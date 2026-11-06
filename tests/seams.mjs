@@ -9,6 +9,8 @@
 //   world actions        free loops: frame at t == frame at t + T, every speed style, direction, surges and still
 //   transformation       transform: first == idle, last == live; live loops on itself; revert: first == live, last == idle
 //                        (both forms: levitating, and on its legs on a floor with gravity)
+//   in a new form        every other tab drawn in the levitating or grounded human form: from rest now means from the
+//                        new form's loop (first and last frames == "live"'s), loops loop on themselves
 // Run: npm test      (exit code 1 on any failure)
 import { createFrame, clearFrame, painterFor, composite } from "../pixelfx/src/core/index.js";
 import * as idle from "../pixelfx/src/fx/creature/ice-blob-idle.js";
@@ -160,6 +162,55 @@ for (const [name, more] of elecCases) {
       const o = { ...live, mode: "transform", tfStyle: st, loops }, r = { ...live, mode: "revert", rvStyle: st, loops }, T = o.duration * loops, N = Ni * loops;
       report(`transform ${st}${tag}`.slice(0, 34), diff(render(transform, o, 0), id0), diff(render(transform, o, (N - 1) * T / N), lL));
       report(`revert ${st}${tag}`.slice(0, 34), diff(render(transform, r, 0), l0), diff(render(transform, r, (N - 1) * T / N), idL));
+    }
+  }
+}
+
+// the other tabs in the transformation's new forms (levitating, and on its legs on its floor): "rest" is now the new
+// form's loop, so every animation from rest starts on its first frame and ends on its last; loops loop on themselves.
+// With other loop lengths too, so the figure's own clock has to be nudged to land on its loop (figClock)
+{
+  const room = [-160, -115, 160, 85];
+  const formCases = [[{ form: "human" }, " human"], [{ form: "grounded" }, " ground"], [{ form: "human", huLegs: "lotus", liveLoops: 1 }, " lotus L1"], [{ form: "grounded", grArms: "hips", liveLoops: 3 }, " ground L3"]];
+  for (const [F, tag] of formCases) {
+    const live = { ...transform.meta.options, ...F, room, mode: "live" }, P = transform.total(live), M = Math.round(P / D) * Ni;
+    const r0 = render(transform, live, 0), rL = render(transform, live, (M - 1) * P / M);
+    const chain = (name, mod, o) => { const T = o.duration * o.loops, N = Ni * o.loops; report(`${name}${tag}`.slice(0, 34), diff(render(mod, o, 0), r0), diff(render(mod, o, (N - 1) * T / N), rL)); };
+    const selfLoop = (name, mod, o, T) => report(`${name}${tag}`.slice(0, 34), diff(render(mod, o, 0), render(mod, o, T)), diff(render(mod, o, T / 3 - 1 / 30), render(mod, o, T + T / 3 - 1 / 30)));
+    const lp = F.liveLoops ? 3 : 2;
+    for (const name of actions.ACTIONS) if (actions.fitsForm({ ...F }, name)) chain(`action ${name}`, actions, { ...actions.meta.options, ...F, room, action: name, loops: name === "portal" || name === "walk" ? 4 : lp });
+    chain("clock", clock, { ...clock.meta.options, ...F, room, loops: 3 });
+    for (const name of elec.ELEC) chain(`elec ${name}`, elec, { ...elec.meta.options, ...F, room, elec: name, loops: lp + 1 });
+    for (const name of loops.LOOPS) if (loops.fitsForm({ ...F }, name)) { const o = { ...loops.meta.options, ...F, room, loop: name, loops: lp }; selfLoop(`loop ${name}`, loops, o, o.duration * o.loops); }
+    // objects: rest without -> appear -> rest with it -> remove -> rest without
+    {
+      const ob = objects.meta.options, list = [...ob.objects, { shape: "gem", x: 40, y: -50, size: 11, spinY: 1, spinX: 0, tilt: 0.35, float: 4, floatTurns: 1, hue: 200, glow: 1, layer: "front", ph: 0.2 }], ti = list.length - 1;
+      const without = { ...ob, ...F, room, objects: list.slice(0, ti), mode: "live", loops: 1 }, withIt = { ...without, objects: list };
+      const w0 = render(objects, without, 0), wL = render(objects, without, D - D / Ni), a0 = render(objects, withIt, 0), aL = render(objects, withIt, D - D / Ni);
+      report(`objects live self-loop${tag}`.slice(0, 34), diff(w0, render(objects, without, D)), diff(render(objects, without, D / 3), render(objects, without, D + D / 3)));
+      report(`objects live = rest${tag}`.slice(0, 34), diff(render(objects, { ...without, objects: [] }, 0), r0), 0);
+      const ap = { ...withIt, mode: "appear", target: ti, loops: 2, appearStyle: "laser" }, rm = { ...withIt, mode: "remove", target: ti, loops: 2, removeStyle: "dissolve" }, T = D * 2, N = Ni * 2;
+      report(`objects appear${tag}`.slice(0, 34), diff(render(objects, ap, 0), w0), diff(render(objects, ap, (N - 1) * T / N), aL));
+      report(`objects remove${tag}`.slice(0, 34), diff(render(objects, rm, 0), a0), diff(render(objects, rm, (N - 1) * T / N), wL));
+    }
+    // the portal: rest -> open -> live -> close -> rest, and through it to the other world and back
+    {
+      const pl = { ...portal.meta.options, ...F, room, mode: "live" }, Pp = portal.total(pl), Mp = Math.round(Pp / D) * Ni, p0 = render(portal, pl, 0), pL = render(portal, pl, (Mp - 1) * Pp / Mp);
+      report(`portal live self-loop${tag}`.slice(0, 34), diff(p0, render(portal, pl, Pp)), diff(render(portal, pl, Pp / 3), render(portal, pl, Pp + Pp / 3)));
+      const T = D * 2, N = Ni * 2, op = { ...pl, mode: "open", loops: 2 }, cl = { ...pl, mode: "close", loops: 2 };
+      report(`portal open${tag}`.slice(0, 34), diff(render(portal, op, 0), r0), diff(render(portal, op, (N - 1) * T / N), pL));
+      report(`portal close${tag}`.slice(0, 34), diff(render(portal, cl, 0), p0), diff(render(portal, cl, (N - 1) * T / N), rL));
+      const by = { ...pl, mode: "beyond" }, b0 = render(portal, by, 0), bL = render(portal, by, (Mp - 1) * Pp / Mp), cr = { ...pl, mode: "cross", loops: 3 }, T3 = D * 3, N3 = Ni * 3;
+      report(`portal cross${tag}`.slice(0, 34), diff(render(portal, cr, 0), p0), diff(render(portal, cr, (N3 - 1) * T3 / N3), bL));
+      report(`portal beyond self-loop${tag}`.slice(0, 34), diff(b0, render(portal, by, Pp)), 0);
+      const bo = { ...pl, mode: "beyondOpen" }, o0 = render(portal, bo, 0), re = { ...pl, mode: "reopen", loops: 2 }, rt = { ...pl, mode: "return", loops: 3 };
+      report(`portal reopen${tag}`.slice(0, 34), diff(render(portal, re, 0), b0), diff(render(portal, re, (N - 1) * T / N), render(portal, bo, (Mp - 1) * Pp / Mp)));
+      report(`portal return${tag}`.slice(0, 34), diff(render(portal, rt, 0), o0), diff(render(portal, rt, (N3 - 1) * T3 / N3), rL));
+    }
+    // world actions: free loops
+    for (const name of explore.EXPLORE) if (explore.fitsForm({ ...F }, name)) for (const more of name === "move" ? [{ exStyle: "comet" }, { exStyle: "ghosts" }] : [{}]) {
+      const o = { ...explore.meta.options, ...F, room, explore: name, ...more, loops: lp }, T = o.duration * o.loops;
+      selfLoop(`explore ${name}${more.exStyle ? " " + more.exStyle : ""}`, explore, o, T);
     }
   }
 }

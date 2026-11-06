@@ -6,7 +6,8 @@
 // Objects move only by whole turns of the blob's loop, and the blob's part goes back to rest at both ends, so
 // "live without it" -> "appear" -> "live with it" -> "remove" -> "live without it" chain frame for frame.
 import { fit, clamp, lerp, seg, bump, ease, noise2, rng, TAU, WHITE } from "../../core/index.js";
-import { meta as idleMeta, blobBack, blobFront, ambient, state } from "./ice-blob-idle.js";
+import { meta as idleMeta, state } from "./ice-blob-idle.js";
+import { bodyBack, bodyFront, bodyAmbient } from "./ice-blob-transform.js";
 import { hsl, fromHsl } from "./ice-blob-actions.js";
 
 export const SHAPES = ["cube", "sphere", "pyramid", "crystal", "column", "gem"];
@@ -30,7 +31,7 @@ export const meta = {
       { shape: "cube", x: -70, y: -30, size: 12, spinY: 1, spinX: 0, tilt: 0.45, float: 4, floatTurns: 1, hue: 0, glow: 1, layer: "back", ph: 0.1 },
       { shape: "sphere", x: 75, y: 20, size: 10, spinY: -1, spinX: 0, tilt: 0.3, float: 5, floatTurns: 2, hue: 0, glow: 1, layer: "front", ph: 0.6 },
     ],
-    mode: "live", target: 0, loops: 1, lead: 0.08, castLean: 1,
+    form: "blob", mode: "live", target: 0, loops: 1, lead: 0.08, castLean: 1,
     appearStyle: "halo", appearPower: 1, appearParticles: 28,
     removeStyle: "dissolve", removePower: 1, removeParticles: 28,
   },
@@ -200,8 +201,9 @@ function castMods(o, t, target, extra = () => ({})) {
   if (a <= 0 || a >= 1) return { quiet: 0 };
   const env = E(seg(a, 0, 0.2)) * (1 - E(seg(a, 0.7, 0.95)));
   const st = state(o, t, null), d = Math.hypot(target[0] - st.x, target[1] - st.y) || 1, dx = (target[0] - st.x) / d, dy = (target[1] - st.y) / d;
+  // (a figure holds out its hand to it while it works)
   return { dx: dx * 5 * env * o.castLean, dy: dy * 3 * env * o.castLean, lookX: dx * 1.6 * env, lookY: dy * 1.1 * env, rot: dx * 0.15 * env * o.castLean,
-    glow: 0.35 * bump(a, 0.1, 0.42), happy: a > 0.74 && a < 0.93 ? 1 : 0, quiet: 1, ...extra(a) };
+    glow: 0.35 * bump(a, 0.1, 0.42), happy: a > 0.74 && a < 0.93 ? 1 : 0, quiet: 1, reach: target, reachK: 0.95 * env, ...extra(a) };
 }
 
 const spark = (p, C, x, y, a = 1) => { p.px(x, y, WHITE); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) p.dot(x + dx, y + dy, C[6], a); p.glow(x, y, 4, C[5], 0.35 * a); };
@@ -351,9 +353,10 @@ function removing(o, ob, t, a, from) {
   }
 }
 
-function plan(o, t) {
+// (hand: a figure's hand the light comes from, given once it is drawn)
+function plan(o, t, hand = null) {
   const obs = o.objects || [], mode = o.mode, ti = Math.max(0, Math.min(obs.length - 1, Math.round(o.target))), a = mode === "live" || !obs.length ? 0 : prog(o, t);
-  const target = obs[ti], from = (() => { const st = state(o, t, null); return [st.x, st.y]; })();
+  const target = obs[ti], from = hand || (() => { const st = state(o, t, null); return [st.x, st.y]; })();
   let tr = null;
   if (target && mode === "appear") tr = a <= 0 ? { hide: true } : a >= 1 ? null : appearing(o, target, t, a, from);
   if (target && mode === "remove") tr = a >= 1 ? { hide: true } : a <= 0 ? null : removing(o, target, t, a, from);
@@ -380,15 +383,16 @@ function objectsOn(p, o, t, pl, layer) {
 
 export function drawBack(p, t, o) {
   const C = fit(o.palette, 8), pl = plan(o, t);
-  blobBack(p, t, o, pl.M, C);
-  ambient(p, t, o, false, C);
+  bodyBack(p, t, o, pl.M, C, total(o));
+  bodyAmbient(p, t, o, false, C);
   objectsOn(p, o, t, pl, "back");
 }
 
 export function draw(p, t, o) {
-  const C = fit(o.palette, 8), pl = plan(o, t);
-  blobFront(p, t, o, pl.M, C);
-  ambient(p, t, o, true, C);
+  const C = fit(o.palette, 8), pl0 = plan(o, t);
+  const st = bodyFront(p, t, o, pl0.M, C, total(o)), tg = pl0.tp;
+  const pl = st.hands && st.hands.length && tg ? plan(o, t, st.hands.reduce((b, h) => (Math.hypot(h[0] - tg.x, h[1] - tg.y) < Math.hypot(b[0] - tg.x, b[1] - tg.y) ? h : b))) : pl0;
+  bodyAmbient(p, t, o, true, C);
   objectsOn(p, o, t, pl, "front");
   if (pl.tr && pl.tr.fx) pl.tr.fx(p, C, paletteFor(o, pl.target.hue || 0));
 }
