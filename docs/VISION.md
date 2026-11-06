@@ -43,18 +43,25 @@ produit doit donc pouvoir se combiner : même scène, même place, mêmes raccor
 - Tout ce qui est nouveau (effets, objets, décors) reste **dans ce même style** : palette de 8 teintes,
   contours d’un pixel éclairés en haut à gauche, lueurs douces.
 
-## Ce qui existe (sept onglets)
+## Ce qui existe (neuf onglets)
 
 Naissance · Blob né (repos) · Actions (19, retour au repos) · Objets (scène vivante, apparition,
 disparition) · Boucles (18 activités sans fin : dormir, magie, jongler…) · Heure (affiche une heure choisie
 ou celle de l’export, puis revient au repos) · Électricité (8 animations où le blob part de son repos,
 découvre l’électricité et la manipule, puis revient exactement à son repos, comme les actions : étincelle, statique, boule de plasma, charge et décharge, deux pôles, éclair en
-chaîne, orage, atome ; couleurs de l’électricité réglables à part : cœur, arc, lueur, avec des préréglages).
+chaîne, orage, atome ; couleurs de l’électricité réglables à part : cœur, arc, lueur, avec des préréglages) ·
+Portail (le blob ouvre un portail vers un autre monde, qu’on ne voit qu’à travers lui ; création depuis le repos,
+portail ouvert en boucle, fermeture qui revient au repos ; place et taille choisies sur la scène) · Mondes (les
+décors de l’autre côté des portails, créés, réglés et gardés : pour l’instant l’espace, étoiles en trois
+profondeurs, nébuleuse en pixel art, étoiles filantes, voyage et caméra).
 
 ## Directions déjà évoquées pour la suite
 
 - Toujours plus d’actions et d’activités, chacune paramétrable, avec plus de portée dans la scène.
 - La scène continuera d’évoluer : d’autres événements y auront lieu.
+- Le blob entrera dans le monde du portail et s’y déplacera : le décor suivra ses mouvements (la caméra des
+  mondes et leurs couches en profondeur sont prévues pour ça). D’autres types de mondes viendront, chacun avec
+  ses réglages, dans l’onglet Mondes.
 
 ## Toujours demander : depuis le repos ou boucle libre ?
 

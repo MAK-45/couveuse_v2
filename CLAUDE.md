@@ -67,6 +67,8 @@ After any change to an effect or to `app/`, run `npm run build && npm test`.
   - `pixelfx/src/fx/creature/ice-blob-loops.js` — tab **Boucles** (18 endless activities)
   - `pixelfx/src/fx/creature/ice-blob-clock.js` — tab **Heure** (shows the time)
   - `pixelfx/src/fx/creature/ice-blob-electric.js` — tab **Électricité** (8 electric animations, rest → electricity → rest like actions; own colours `elCore`/`elColor`/`elGlow`)
+  - `pixelfx/src/fx/creature/ice-blob-portal.js` — tab **Portail** (the blob opens a portal onto a world: `open` from rest, `live` portal open, `close` back to rest; 3 open + 3 close styles, 5 shapes)
+  - `pixelfx/src/fx/creature/ice-worlds.js` — tab **Mondes** (backdrops seen only through portals; `renderWorld()` draws a window of a world in depth layers with a camera; type `space` for now; every world key starts with `w`)
   - `ice-spirit-birth.js` is the first, abandoned birth version; ignore it.
 - `app/main.js` the whole UI (state, controls, render pipeline, GIF encoder, export). `app/index.template.html` HTML + CSS.
   `app/entry.js` lists what the page imports from pixelfx (global `PFX`). `app/build.mjs` inlines it all.
@@ -85,7 +87,10 @@ Read the relevant doc before a non-trivial change; don't load every file.
 3. The **lead-out** of an action is never shorter than a light drop's life (1.7 s): `prog()` does this. Drops born
    while an action is active are hidden with `quiet: 1`.
 4. Particles use `cycle(t, period, …)` with the loop's period; one-shot effects end before progress 1.
-5. GIFs get **one palette per frame** computed from that frame only: identical frames encode identically, so
+5. A world loops over a whole number of the blob's loops (`wLoops`): layers scroll by whole tiles, the nebula's warp turns
+   round a circle of time. In the portal's `open` its clock is set back by the animation's length so it hits 0 on the last
+   frame, where `live` starts. The world is pinned to the scene (`o.room`), not to the blob.
+6. GIFs get **one palette per frame** computed from that frame only: identical frames encode identically, so
    chained GIFs join exactly. Don't go back to a global palette.
 
 If `npm test` reports a FAIL, fix the effect — never loosen the test.
@@ -97,7 +102,7 @@ If `npm test` reports a FAIL, fix the effect — never loosen the test.
   strings through `fit(...)`. Strings fail silently.
 - `p.dot` dithers with its alpha; for crisp pixel art prefer `p.px` with full colours, use `p.blend` for true translucency.
 - Bodies are drawn pixel by pixel in body space (`toBody`/`toScreen`); keep loops bounded to the body's extent.
-- UI: `setV(k, v)` routes a key to the right store (`S.shared`, `S.blob`, `S.actions`, `S.objects`, `S.loops`, `S.clock`, `S.elec`)
+- UI: `setV(k, v)` routes a key to the right store (`S.shared`, `S.blob`, `S.actions`, `S.objects`, `S.loops`, `S.clock`, `S.elec`, `S.portal`, the selected world of `S.worlds`)
   per tab; add new keys to the tab's `*_KEYS` set or they land in `S.blob`.
 - UI: controls may be missing on some tabs — wire them with `on(id, event, fn)`, never `$(id).onclick =` directly.
 - UI: distances the user sets in **% of the scene** are converted to effect pixels in `effOpts()`.

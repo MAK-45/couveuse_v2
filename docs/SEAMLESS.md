@@ -4,7 +4,8 @@ The promise to the user: any GIF loops forever with no visible jump, and GIFs pl
 
     rest (Blob né) → action → rest → clock → rest → electricity → rest …
     objects: live without X → appear X → live with X → remove X → live without X
-    loops (Boucles): each one loops on itself (no chaining promise)
+    portal: rest → open → live (as often as you like) → close → rest
+    loops (Boucles) and worlds (Mondes): each one loops on itself (no chaining promise)
 
 `npm test` checks all of it pixel for pixel (`tests/seams.mjs`).
 
@@ -22,6 +23,9 @@ The promise to the user: any GIF loops forever with no visible jump, and GIFs pl
   born while an action is active are hidden (`quiet: 1`), and the lead-out is at least 1.7 s (a drop's life),
   so every drop alive on the last frame was shed by the resting blob, as on the idle's frames.
 - **One-shot particles** of an action live strictly inside `(0, 1)` of its progress.
+- **Worlds.** A world's period is `wLoops` idle loops. Its layers move by whole tiles a loop (offsets rounded to
+  whole pixels), twinkles and the nebula's warp turn whole turns, shooting stars use `cycle` on that period. The
+  portal's `live` lasts that period; in `open` the world's clock is `t − T`, so it is at 0 on the frame after the last.
 - **Encoding.** GIF frames carry a palette computed from that frame alone, so two identical frames in two
   different GIFs produce identical pixels.
 
