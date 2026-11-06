@@ -90,6 +90,11 @@ roue ou une toupie, tomber et rebondir, voler d’un portail à l’autre, faire
 nager, slalomer ou collecter des étoiles en volant). Le repos devient la « Forme en boucle » : les GIF s’enchaînent toujours
 (blob né → transformation → animations de la forme… → retour au blob).
 
+**Règle pour la suite : chaque nouvelle animation est faite pour chaque transformation** (blob né, forme humaine en
+lévitation, forme humaine au sol, et toute forme ajoutée plus tard), adaptée à chacune ; si elle n’a vraiment pas de sens
+dans une forme, elle y est désactivée et l’interface dit pourquoi. Et chaque nouvelle forme joue toutes les animations
+existantes.
+
 ## Directions déjà évoquées pour la suite
 
 - Toujours plus d’actions et d’activités, chacune paramétrable, avec plus de portée dans la scène.

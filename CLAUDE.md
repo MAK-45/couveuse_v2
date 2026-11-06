@@ -15,10 +15,13 @@ which kind they want, and wait for the answer — never pick for them:
 Ask in French, e.g. « Tu veux une boucle parfaite qui part du blob né et y revient (pour enchaîner les GIF), ou une
 animation en boucle libre qui n’a pas besoin de partir du blob né ? »
 
-Every animation must also work in the transformation's **new forms** (levitating human, human on its legs): draw the
-creature with `bodyBack`/`bodyFront`/`bodyAmbient`, give the figure arm poses that fit, keep it on its floor on its legs,
-and when it really can't be done in a form (flying on its legs...) list it in the module's `FORM_FIT` with the reason
-in French. See « The new forms in every tab » below.
+**Every new animation must be made for every transformation**, not only for the blob: today the levitating human
+form and the human form on its legs, and every form added later to the Transformation tab. Draw the creature with
+`bodyBack`/`bodyFront`/`bodyAmbient`, give the figure arm poses that fit, keep it on its floor on its legs, render and
+look at it in each form, add it to the seam tests in each form, and when it really can't be done in a form (flying on
+its legs...) list it in the module's `FORM_FIT` with the reason in French. The other way round too: **a new form added
+to the Transformation tab must play every existing animation** (or say in `FORM_FIT` why it can't).
+See « The new forms in every tab » below.
 
 ## Use the pixelfx skill for every effect
 
