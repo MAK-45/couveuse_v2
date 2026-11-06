@@ -2,9 +2,10 @@
 // (tab Portail) or alone, to be made and tuned (tab Mondes). The first one is deep space: far stars in three
 // layers, bright stars with spikes, a nebula that slowly churns, shooting stars and drifting star dust.
 //
-// A world is drawn in layers, each at its own depth, and every layer is shifted by a camera: today the camera
-// drifts on its own (a slow voyage), and later it will follow the blob when it travels inside the world, so the
-// near stars slide by faster than the far ones (parallax).
+// A world has two states. Still (wState "still"): it lives in place, stars twinkle, the nebula churns, shooting
+// stars cross it, but nothing travels: the blob is just there. Moving ("moving"): it also travels by, at a speed
+// you set (wDrift), as when the blob flies through it. It is drawn in layers, each at its own depth, shifted by
+// that voyage and by a camera, so the near stars slide by faster than the far ones (parallax).
 //
 // It loops on its own period, a whole number of the blob's loops (wLoops x duration): layers scroll by whole
 // tiles of the world, the nebula's warp turns round a circle of time, twinkles and shooting stars run whole
@@ -24,7 +25,7 @@ export const SPACE = {
   wFar: 160, wMid: 55, wNear: 14, wBright: 4, wSpikes: 1, wTwinkle: 2, wStarGlow: 1,
   // motion: shooting stars, star dust, the voyage and the camera
   wShoot: 2, wShootLen: 1, wDust: 24,
-  wDrift: 1, wDir: "left", wParallax: 1, wCamX: 0, wCamY: 0,
+  wState: "still", wDrift: 2, wDir: "left", wParallax: 1, wCamX: 0, wCamY: 0,
 };
 export const DEFAULTS = { space: SPACE };
 const DIRS = { none: [0, 0], left: [-1, 0], right: [1, 0], up: [0, -1], down: [0, 1], upleft: [-1, -1], upright: [1, -1], downleft: [-1, 1], downright: [1, 1] };
@@ -104,7 +105,7 @@ export function renderWorld(w0, wt, P, T, X0, Y0, bw, bh, cam = [0, 0]) {
   col.fill(sky);
   // a layer's shift on screen: whole tiles of voyage a loop (more for the nearer layers), plus the camera
   const shift = (depth) => {
-    const tiles = whole(w.wDrift * depth), d = depth * par;
+    const tiles = w.wState === "moving" ? whole(w.wDrift * depth) : 0, d = depth * par;
     return [Math.round(u * tiles * T) * dir[0] - Math.round(cam[0] * d), Math.round(u * tiles * T) * dir[1] - Math.round(cam[1] * d)];
   };
   const addLight = (x, y, c, k) => {
@@ -222,10 +223,10 @@ export function renderWorld(w0, wt, P, T, X0, Y0, bw, bh, cam = [0, 0]) {
 
 // ---- the world on its own, filling the scene (tab Mondes)
 const roomOf = (o) => (Array.isArray(o.room) ? o.room : [-meta.origin[0], -meta.origin[1], meta.size[0] - meta.origin[0], meta.size[1] - meta.origin[1]]);
-export function drawBack(p, t, o) {
-  const w = worldOf(o.world || o), room = roomOf(o), T = worldTile(room), P = worldPeriod(o.duration, w);
-  const X0 = 0, Y0 = 0, bw = Math.ceil(room[2] - room[0]), bh = Math.ceil(room[3] - room[1]);
-  const { col, lit } = renderWorld(w, t, P, T, X0, Y0, bw, bh, [w.wCamX || 0, w.wCamY || 0]);
+/** Paint a world over the whole scene (room, local pixels), its view shifted by view (scene cells). */
+export function paintWorld(p, w, wt, P, room, view = [0, 0]) {
+  const bw = Math.ceil(room[2] - room[0]), bh = Math.ceil(room[3] - room[1]);
+  const { col, lit } = renderWorld(w, wt, P, worldTile(room), Math.round(view[0]), Math.round(view[1]), bw, bh, [w.wCamX || 0, w.wCamY || 0]);
   for (let y = 0; y < bh; y++)
     for (let x = 0; x < bw; x++) {
       const i = y * bw + x, lx = room[0] + x + 0.5, ly = room[1] + y + 0.5;
@@ -233,5 +234,9 @@ export function drawBack(p, t, o) {
       const j = i * 3;
       if (lit[j] + lit[j + 1] + lit[j + 2] > 1) p.light(lx, ly, (255 << 24) | (Math.min(255, lit[j + 2]) << 16) | (Math.min(255, lit[j + 1]) << 8) | Math.min(255, lit[j]), 1);
     }
+}
+export function drawBack(p, t, o) {
+  const w = worldOf(o.world || o);
+  paintWorld(p, w, t, worldPeriod(o.duration, w), roomOf(o));
 }
 export function draw() {}

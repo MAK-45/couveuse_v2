@@ -67,8 +67,8 @@ After any change to an effect or to `app/`, run `npm run build && npm test`.
   - `pixelfx/src/fx/creature/ice-blob-loops.js` — tab **Boucles** (18 endless activities)
   - `pixelfx/src/fx/creature/ice-blob-clock.js` — tab **Heure** (shows the time)
   - `pixelfx/src/fx/creature/ice-blob-electric.js` — tab **Électricité** (8 electric animations, rest → electricity → rest like actions; own colours `elCore`/`elColor`/`elGlow`)
-  - `pixelfx/src/fx/creature/ice-blob-portal.js` — tab **Portail** (the blob opens a portal onto a world: `open` from rest, `live` portal open, `close` back to rest; 3 open + 3 close styles, 5 shapes)
-  - `pixelfx/src/fx/creature/ice-worlds.js` — tab **Mondes** (backdrops seen only through portals; `renderWorld()` draws a window of a world in depth layers with a camera; type `space` for now; every world key starts with `w`)
+  - `pixelfx/src/fx/creature/ice-blob-portal.js` — tab **Portail** (the blob opens a portal onto a world: `open` from rest, `live` portal open, `close` back to rest; `cross` from `live` through the portal, with its mirror image, out of a mirrored portal into `beyond` = its rest in the other world; 3 open + 3 close styles, 5 shapes)
+  - `pixelfx/src/fx/creature/ice-worlds.js` — tab **Mondes** (backdrops seen only through portals; `renderWorld()` draws a window of a world in depth layers with a camera; type `space` for now; two states, `wState` "still" (lives in place) or "moving" (travels at `wDrift`); every world key starts with `w`)
   - `ice-spirit-birth.js` is the first, abandoned birth version; ignore it.
 - `app/main.js` the whole UI (state, controls, render pipeline, GIF encoder, export). `app/index.template.html` HTML + CSS.
   `app/entry.js` lists what the page imports from pixelfx (global `PFX`). `app/build.mjs` inlines it all.
@@ -89,7 +89,8 @@ Read the relevant doc before a non-trivial change; don't load every file.
 4. Particles use `cycle(t, period, …)` with the loop's period; one-shot effects end before progress 1.
 5. A world loops over a whole number of the blob's loops (`wLoops`): layers scroll by whole tiles, the nebula's warp turns
    round a circle of time. In the portal's `open` its clock is set back by the animation's length so it hits 0 on the last
-   frame, where `live` starts. The world is pinned to the scene (`o.room`), not to the blob.
+   frame, where `live` starts. In `cross` it runs a little faster or slower mid-way (smallest shift) so it is back at 0 at the end,
+   where `beyond` starts. A still world never translates; only a moving one scrolls. The world is pinned to the scene (`o.room`).
 6. GIFs get **one palette per frame** computed from that frame only: identical frames encode identically, so
    chained GIFs join exactly. Don't go back to a global palette.
 

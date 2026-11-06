@@ -51,9 +51,13 @@ ou celle de l’export, puis revient au repos) · Électricité (8 animations o�
 découvre l’électricité et la manipule, puis revient exactement à son repos, comme les actions : étincelle, statique, boule de plasma, charge et décharge, deux pôles, éclair en
 chaîne, orage, atome ; couleurs de l’électricité réglables à part : cœur, arc, lueur, avec des préréglages) ·
 Portail (le blob ouvre un portail vers un autre monde, qu’on ne voit qu’à travers lui ; création depuis le repos,
-portail ouvert en boucle, fermeture qui revient au repos ; place et taille choisies sur la scène) · Mondes (les
+portail ouvert en boucle, fermeture qui revient au repos ; traversée : le blob plonge dans le portail, son reflet en
+miroir vient à sa rencontre, et il ressort par un portail en miroir dans l’autre monde, où il reprend sa boucle de
+repos ; place et taille choisies sur la scène) · Mondes (les
 décors de l’autre côté des portails, créés, réglés et gardés : pour l’instant l’espace, étoiles en trois
-profondeurs, nébuleuse en pixel art, étoiles filantes, voyage et caméra).
+profondeurs, nébuleuse en pixel art, étoiles filantes, caméra). Chaque monde a deux états : **immobile** (il vit
+sur place quand le blob y est sans bouger) et **en mouvement** (il défile à la vitesse réglée, pour quand le blob
+voyage).
 
 ## Directions déjà évoquées pour la suite
 
