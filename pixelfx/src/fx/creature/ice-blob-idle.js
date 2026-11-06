@@ -296,3 +296,6 @@ export function draw(p, t, o) {
   blobFront(p, t, o, null, C);
   motes(p, C, t, o, true);
 }
+
+// pieces of the blob reused by other forms (the transformation draws its new body with them)
+export { eyes as drawEyes, sparks as drawSparks, drips as drawDrips, blinkAt };

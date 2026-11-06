@@ -7,6 +7,7 @@ The promise to the user: any GIF loops forever with no visible jump, and GIFs pl
     portal: rest → open → live (as often as you like) → close → rest
             or … → live → cross → beyond (the blob at rest in the other world, as often as you like)
             → reopen → beyondOpen (as often as you like) → return → rest (or live, if the portal stays open)
+    transformation: rest → transform → live (the new form, as often as you like) → revert → rest
     loops (Boucles) and worlds (Mondes): each one loops on itself (no chaining promise)
 
 `npm test` checks all of it pixel for pixel (`tests/seams.mjs`).
@@ -32,6 +33,10 @@ The promise to the user: any GIF loops forever with no visible jump, and GIFs pl
   starts at 0 and ends on 0 exactly. A still world (`wState: "still"`) does not scroll at all. A planet surface also wraps on the tile: every
   hash and dither reads the layer's x wrapped on T, its clouds' wind is a whole number of tiles a loop, its gusts and
   ripples whole turns, its birds `cycle` on the period.
+- **Transformation.** The change is a function of c (0 the blob, 1 the new form), `chore()`: every part of it is
+  exactly neutral at both ends, and at c = 0 the idle's own code draws the blob. The new form's motion is periodic over
+  `liveLoops · D` (its own clock h); in `transform` h = t − T, so the last frame is the live loop's last frame, and in
+  `revert` h = t. Its drops of light only show if they fell from the whole, resting form (lead-out ≥ 1.7 s again).
 - **Encoding.** GIF frames carry a palette computed from that frame alone, so two identical frames in two
   different GIFs produce identical pixels.
 

@@ -10,3 +10,4 @@ export * as elec from "../pixelfx/src/fx/creature/ice-blob-electric.js";
 export * as portal from "../pixelfx/src/fx/creature/ice-blob-portal.js";
 export * as explore from "../pixelfx/src/fx/creature/ice-blob-explore.js";
 export * as worlds from "../pixelfx/src/fx/creature/ice-worlds.js";
+export * as transform from "../pixelfx/src/fx/creature/ice-blob-transform.js";
