@@ -58,7 +58,9 @@ au portail ouvert) ; place et taille choisies sur la scène) · Action monde (le
 Mondes, en boucle libre. Première action, le mouvement : il reste sur place et le monde défile derrière lui ; une
 seule vitesse règle à la fois le défilement du décor et la déformation du blob (goutte étirée, penchée, qui regarde
 devant elle), avec des accélérations réglables et cinq effets de vitesse : étoile filante (il se change en lumière),
-étirement, rémanences, onde de choc, flammes de glace) · Mondes (les
+étirement, rémanences, onde de choc, flammes de glace ; puis regarder autour (émerveillé, la caméra glisse et des
+étoiles s’allument qu’il fixe des yeux), nager (par poussées, queue qui balaie, sillage), vol en virages (slalom,
+penché dans les virages, traînée courbe) et collecter des étoiles (il fonce dessus et les avale)) · Mondes (les
 décors de l’autre côté des portails, créés, réglés et gardés : pour l’instant l’espace, étoiles en trois
 profondeurs, nébuleuse en pixel art, étoiles filantes, caméra). Chaque monde a deux états : **immobile** (il vit
 sur place quand le blob y est sans bouger) et **en mouvement** (il défile à la vitesse réglée, pour quand le blob

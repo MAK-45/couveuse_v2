@@ -119,10 +119,15 @@ for (const [name, more] of elecCases) {
   const room = [-160, -115, 160, 85];
   const cases = [...explore.STYLES.map((st) => [{ exStyle: st }, st]), [{ exStyle: "comet", exSpeed: 9, exDir: "upleft", exSurges: 3, exSurge: 0.8, loops: 3 }, "comet fast upleft"],
     [{ exStyle: "ghosts", exSpeed: 1.25, exDir: "down", exSurges: 0, exHue: 40 }, "ghosts slow down"], [{ exStyle: "flame", exSpeed: 0 }, "flame still"],
-    [{ exStyle: "shock", exDrift: 0.35, exDir: "downright", world: { wNebMorph: 2, wShoot: 4 } }, "shock drift world"]];
+    [{ exStyle: "shock", exDrift: 0.35, exDir: "downright", world: { wNebMorph: 2, wShoot: 4 } }, "shock drift world"],
+    // the other actions, with defaults and with other settings
+    ...["look", "swim", "turns", "collect"].map((e) => [{ explore: e }, ""]),
+    [{ explore: "look", lkPanTurns: 3, lkSpots: 7, lkPan: 120, loops: 3 }, "busy"], [{ explore: "swim", swStrokes: 7, swKick: 0.6, exDir: "up", swBubbles: 3 }, "up"],
+    [{ explore: "swim", exSpeed: 0 }, "still"], [{ explore: "turns", trTurns: 5, trFollow: 1, exDir: "downleft", exSpeed: 7 }, "downleft"],
+    [{ explore: "turns", trFollow: 0, exSpeed: 0.5 }, "slow"], [{ explore: "collect", clCount: 9, clSpread: 90, exDir: "left", loops: 3 }, "many left"]];
   for (const [more, tag] of cases) {
     const o = { ...explore.meta.options, room, ...more }, T = o.duration * o.loops;
-    report(`explore move ${tag}`.slice(0, 34), diff(render(explore, o, 0), render(explore, o, T)), diff(render(explore, o, T / 3 - 1 / 30), render(explore, o, T + T / 3 - 1 / 30)));
+    report(`explore ${o.explore} ${tag}`.slice(0, 34), diff(render(explore, o, 0), render(explore, o, T)), diff(render(explore, o, T / 3 - 1 / 30), render(explore, o, T + T / 3 - 1 / 30)));
   }
 }
 

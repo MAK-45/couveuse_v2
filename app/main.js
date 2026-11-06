@@ -735,7 +735,23 @@ function portalRect() {
 }
 // ---- the world-action tab: the blob explores the world it is in. Free endless loops (no need to come back to rest)
 ANIMS.explore = { name: "Action monde", fx: PFX.explore, file: "action-monde", id: "creature/ice-blob-explore", mode: "scene", groups: null };
-const EXPLORE_LIST = [["move", "Mouvement", "il file à travers le monde"]];
+const EXPLORE_LIST = [["move", "Mouvement", "il file à travers le monde"], ["look", "Regarder autour", "émerveillé, il découvre le monde"],
+  ["swim", "Nager", "il ondule par poussées, comme un poisson"], ["turns", "Vol en virages", "il slalome, penché dans les virages"],
+  ["collect", "Collecter des étoiles", "il fonce sur les étoiles et les avale"]];
+// each action's own settings
+const EXPLORE_PARAMS = {
+  move: [],
+  look: [["lkPan", "Glissement de la caméra", 0, 140, 1, " px"], ["lkPanTurns", "Tours de caméra par boucle", 0, 4, 1, ""],
+    ["lkSpots", "Étoiles qu’il remarque par boucle", 0, 10, 1, ""], ["lkSpotSize", "Taille de ces étoiles", 3, 20, 0.5, " px"],
+    ["lkWonder", "Émerveillement (yeux, petit saut)", 0, 2.5, 0.05, ""], ["lkLean", "Se penche vers elles", 0, 2.5, 0.05, ""]],
+  swim: [["swStrokes", "Poussées par boucle", 1, 12, 1, ""], ["swKick", "Force des poussées", 0, 0.6, 0.01, ""], ["swSway", "Balayage de la queue", 0, 2.5, 0.05, ""],
+    ["swWave", "Ondulation du corps", 0, 3, 0.05, ""], ["swFins", "Nageoires", 0, 2, 0.05, ""], ["swWake", "Sillage de lumière", 0, 2, 0.05, ""],
+    ["swBubbles", "Anneaux à chaque poussée", 0, 3, 1, ""]],
+  turns: [["trTurns", "Virages par boucle", 1, 8, 1, ""], ["trAmp", "Largeur des virages", 0, 120, 1, " px"], ["trDepth", "S’approche et s’éloigne", 0, 0.4, 0.01, ""],
+    ["trBank", "S’incline dans les virages", 0, 2.5, 0.05, ""], ["trTrail", "Traînée de lumière", 0, 2.5, 0.05, ""], ["trFollow", "Bouge à l’écran (sinon la caméra le suit)", 0, 1, 0.01, ""]],
+  collect: [["clCount", "Étoiles par boucle", 1, 10, 1, ""], ["clSpread", "Écart sur les côtés", 0, 100, 1, " px"], ["clSize", "Taille des étoiles", 3, 16, 0.5, " px"],
+    ["clHue", "Teinte des étoiles", 0, 360, 1, "°"], ["clGulp", "Il gonfle en les avalant", 0, 2.5, 0.05, ""], ["clBurst", "Éclat de lumière", 0, 2.5, 0.05, ""]],
+};
 const EXPLORE_STYLES = [["comet", "Étoile filante", "il se change en lumière"], ["stretch", "Étirement", "une goutte fendue par le vent"],
   ["ghosts", "Rémanences", "des images de lui restent derrière"], ["shock", "Onde de choc", "un arc de lumière devant lui"], ["flame", "Flammes de glace", "un feu froid qui s’échappe"]];
 const exploreDef = () => {
@@ -746,26 +762,31 @@ const EXPLORE_KEYS = new Set(Object.keys(exploreDef()));
 const EXPLORE_DIRS = [["right", "Vers la droite"], ["left", "Vers la gauche"], ["up", "Vers le haut"], ["down", "Vers le bas"],
   ["upright", "En haut à droite"], ["upleft", "En haut à gauche"], ["downright", "En bas à droite"], ["downleft", "En bas à gauche"]];
 function exploreGroups() {
-  const cur = EXPLORE_LIST.find((a) => a[0] === V.explore) || EXPLORE_LIST[0], st = V.exStyle;
-  return [
+  const cur = EXPLORE_LIST.find((a) => a[0] === V.explore) || EXPLORE_LIST[0], st = V.exStyle, act = cur[0], travels = act !== "look", move = act === "move";
+  const gs = [
     { title: "Action", hint: "ce qu’il fait dans le monde", key: "exact", open: true, pickerList: EXPLORE_LIST, pickerKey: "explore", rows: [
-      ["exWorld", "Monde exploré", { worlds: true }], ["loops_" + cur[0], "Durée de la boucle", 1, 8, 1, ""]] },
-    { title: "Vitesse", hint: "le décor et le blob ensemble", key: "exspeed", open: true, rows: [
-      ["exSpeed", "Vitesse", 0, 10, 0.25, ""], ["exDir", "Il file", { select: EXPLORE_DIRS }],
-      ["exSurge", "Accélérations", 0, 0.9, 0.01, ""], ["exSurges", "Accélérations par boucle", 0, 6, 1, ""],
-      ["exDrift", "Défilement du décor (× la vitesse)", 0, 3, 0.05, "×"], ["exDeform", "Déformation du blob (× la vitesse)", 0, 1.5, 0.05, "×"]] },
-    { title: "Effet de vitesse", hint: (EXPLORE_STYLES.find((x) => x[0] === st) || EXPLORE_STYLES[0])[1], key: "exstyle", open: true, pickerList: EXPLORE_STYLES, pickerKey: "exStyle", rows: [
-      ["exPower", "Intensité de la lumière", 0, 2.5, 0.05, ""], ["exLength", "Longueur", 0.2, 3, 0.05, "×"],
-      ...(st === "comet" ? [["exLight", "Se change en lumière", 0, 1.5, 0.05, ""]] : []),
-      ...(st === "ghosts" ? [["exEchoes", "Nombre d’images", 1, 8, 1, ""]] : []),
-      ["exHue", st === "ghosts" ? "Décalage de teinte d’une image à l’autre" : "Teinte de l’effet", 0, 360, 1, "°"],
-      ["exParticles", "Étincelles qui s’envolent", 0, 80, 1, ""], ["exLines", "Traits de vitesse", 0, 60, 1, ""]] },
-    { title: "Le corps à grande vitesse", hint: "comment il se déforme", key: "exbody", rows: [
-      ["exStretch", "S’étire", 0, 2, 0.05, ""], ["exTail", "Queue de la goutte", 0, 2, 0.05, ""], ["exLean", "Se penche en avant", 0, 2.5, 0.05, ""],
-      ["exRipple", "Ondulations", 0, 2.5, 0.05, ""], ["exLook", "Regarde devant lui", 0, 2, 0.05, ""], ["exBack", "Repoussé par la vitesse", 0, 2, 0.05, ""],
-      ["exGround", "Sa lumière au sol", 0, 1, 0.05, ""]] },
-    { ...PLACE, rows: PLACE.rows.filter((r) => r[0] !== "canvas"), hint: "la même que le blob né" },
+      ["exWorld", "Monde exploré", { worlds: true }], ["loops_" + act, "Durée de la boucle", 1, 8, 1, ""]] },
   ];
+  if (EXPLORE_PARAMS[act].length) gs.push({ title: cur[1], hint: "réglages", key: "exparams", open: true, rows: EXPLORE_PARAMS[act] });
+  if (travels) gs.push({ title: "Vitesse", hint: "le décor et le blob ensemble", key: "exspeed", open: true, rows: [
+    ["exSpeed", "Vitesse", 0, 10, 0.25, ""], ["exDir", "Il file", { select: EXPLORE_DIRS }],
+    ...(move ? [["exSurge", "Accélérations", 0, 0.9, 0.01, ""], ["exSurges", "Accélérations par boucle", 0, 6, 1, ""]] : []),
+    ["exDrift", "Défilement du décor (× la vitesse)", 0, 3, 0.05, "×"], ["exDeform", "Déformation du blob (× la vitesse)", 0, 1.5, 0.05, "×"]] });
+  if (move) gs.push({ title: "Effet de vitesse", hint: (EXPLORE_STYLES.find((x) => x[0] === st) || EXPLORE_STYLES[0])[1], key: "exstyle", open: true, pickerList: EXPLORE_STYLES, pickerKey: "exStyle", rows: [
+    ["exPower", "Intensité de la lumière", 0, 2.5, 0.05, ""], ["exLength", "Longueur", 0.2, 3, 0.05, "×"],
+    ...(st === "comet" ? [["exLight", "Se change en lumière", 0, 1.5, 0.05, ""]] : []),
+    ...(st === "ghosts" ? [["exEchoes", "Nombre d’images", 1, 8, 1, ""]] : []),
+    ["exHue", st === "ghosts" ? "Décalage de teinte d’une image à l’autre" : "Teinte de l’effet", 0, 360, 1, "°"],
+    ["exParticles", "Étincelles qui s’envolent", 0, 80, 1, ""], ["exLines", "Traits de vitesse", 0, 60, 1, ""]] });
+  if (travels && !move) gs.push({ title: "Lumière et traits", hint: "autour de lui", key: "exfx", rows: [
+    ["exPower", "Intensité de la lumière", 0, 2.5, 0.05, ""], ["exLength", "Longueur des traînées", 0.2, 3, 0.05, "×"], ["exHue", "Teinte des traînées", 0, 360, 1, "°"],
+    ["exParticles", "Étincelles qui s’envolent", 0, 80, 1, ""], ["exLines", "Traits de vitesse", 0, 60, 1, ""]] });
+  gs.push({ title: travels ? "Le corps à grande vitesse" : "Le corps", hint: travels ? "comment il se déforme" : "son regard", key: "exbody", rows: travels ? [
+    ["exStretch", "S’étire", 0, 2, 0.05, ""], ["exTail", "Queue de la goutte", 0, 2, 0.05, ""], ["exLean", "Se penche en avant", 0, 2.5, 0.05, ""],
+    ["exRipple", "Ondulations", 0, 2.5, 0.05, ""], ["exLook", "Regarde devant lui", 0, 2, 0.05, ""], ...(move ? [["exBack", "Repoussé par la vitesse", 0, 2, 0.05, ""]] : []),
+    ["exGround", "Sa lumière au sol", 0, 1, 0.05, ""]] : [["exLook", "Force du regard", 0, 2, 0.05, ""], ["exGround", "Sa lumière au sol", 0, 1, 0.05, ""]] });
+  gs.push({ ...PLACE, rows: PLACE.rows.filter((r) => r[0] !== "canvas"), hint: "la même que le blob né" });
+  return gs;
 }
 const RENDER = { title: "Rendu", hint: "fond, export", render: true, rows: [
   ["zoom", "Zoom de l’aperçu", 0, 6, 1, "×"],
@@ -1465,7 +1486,7 @@ const nextPaint = () => new Promise((r) => setTimeout(r, 0));
 const objName = () => { const so = selObj(); return V.mode === "live" || !so ? "objets-scene" : `objets-${V.mode === "appear" ? "apparition" : "disparition"}-${so.shape}-${so.id}`; };
 const clockName = () => { const o = OPTS; return "heure-" + String(o.clkH).padStart(2, "0") + String(o.clkM).padStart(2, "0"); };
 const portalName = () => { const w = worldById(V.pWorld); return `portail-${{ open: "creation", live: "ouvert", close: "fermeture", cross: "traversee", beyond: "autre-monde", reopen: "ouverture-retour", beyondOpen: "autre-monde-portail-ouvert", return: "retour" }[V.mode]}-${slug(w.name)}`; };
-const base = () => S.anim === "worlds" ? `monde-${slug(selWorld().name)}-${selWorld().wSeed}` : `creature-glace-${S.anim === "explore" ? `monde-${V.explore}-${V.exStyle}-${slug(worldById(V.exWorld).name)}` : S.anim === "portal" ? portalName() : S.anim === "clock" ? clockName() : S.anim === "loops" ? "boucle-" + V.loop : S.anim === "elec" ? "electricite-" + V.elec : S.anim === "actions" ? "action-" + V.action : S.anim === "objects" ? objName() : ANIMS[S.anim].file}-${V.seed}` + (V.exportWhat === "creature" ? "-seule" : "-scene");
+const base = () => S.anim === "worlds" ? `monde-${slug(selWorld().name)}-${selWorld().wSeed}` : `creature-glace-${S.anim === "explore" ? `monde-${V.explore}${V.explore === "move" ? "-" + V.exStyle : ""}-${slug(worldById(V.exWorld).name)}` : S.anim === "portal" ? portalName() : S.anim === "clock" ? clockName() : S.anim === "loops" ? "boucle-" + V.loop : S.anim === "elec" ? "electricite-" + V.elec : S.anim === "actions" ? "action-" + V.action : S.anim === "objects" ? objName() : ANIMS[S.anim].file}-${V.seed}` + (V.exportWhat === "creature" ? "-seule" : "-scene");
 function frameSize() { return V.exportWhat === "creature" && ANIMS[S.anim].mode === "box" ? [B * V.scale, B * V.scale] : [SW, SH]; }
 async function allFrames(label) {
   const out = [], alone = V.exportWhat === "creature", box = ANIMS[S.anim].mode === "box";
