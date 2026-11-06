@@ -43,7 +43,7 @@ produit doit donc pouvoir se combiner : même scène, même place, mêmes raccor
 - Tout ce qui est nouveau (effets, objets, décors) reste **dans ce même style** : palette de 8 teintes,
   contours d’un pixel éclairés en haut à gauche, lueurs douces.
 
-## Ce qui existe (dix onglets)
+## Ce qui existe (onze onglets)
 
 Naissance · Blob né (repos) · Actions (19, retour au repos) · Objets (scène vivante, apparition,
 disparition) · Boucles (18 activités sans fin : dormir, magie, jongler…) · Heure (affiche une heure choisie
@@ -64,7 +64,13 @@ penché dans les virages, traînée courbe) et collecter des étoiles (il fonce 
 décors de l’autre côté des portails, créés, réglés et gardés : pour l’instant l’espace, étoiles en trois
 profondeurs, nébuleuse en pixel art, étoiles filantes, caméra). Chaque monde a deux états : **immobile** (il vit
 sur place quand le blob y est sans bouger) et **en mouvement** (il défile à la vitesse réglée, pour quand le blob
-voyage).
+voyage). · Surface planète (des mondes vus depuis le sol d’une planète, dans le même pixel art : pour l’instant la
+plaine, avec un ciel en paliers, un soleil ou une lune, des nuages poussés par le vent, des montagnes enneigées, des
+collines, trois prairies en profondeur avec un lac, des étangs, des arbres ronds ou des sapins, des rochers moussus, des
+fleurs, de hautes herbes qui plient sous les rafales, du pollen ou des lucioles et des oiseaux ; tout est réglable, avec des
+ambiances Jour, Aube, Crépuscule, Nuit de glace, Printemps. Comme les mondes de l’espace : **immobile** ou **en
+mouvement** (le sol défile, l’herbe proche plus vite que les montagnes), en boucle parfaite ; le blob s’y promène dans
+Action monde et y passe par les portails).
 
 ## Directions déjà évoquées pour la suite
 
@@ -72,7 +78,8 @@ voyage).
 - La scène continuera d’évoluer : d’autres événements y auront lieu.
 - Le blob entrera dans le monde du portail et s’y déplacera : le décor suivra ses mouvements (la caméra des
   mondes et leurs couches en profondeur sont prévues pour ça). D’autres types de mondes viendront, chacun avec
-  ses réglages, dans l’onglet Mondes.
+  ses réglages, dans l’onglet Mondes ; et d’autres surfaces de planète (monde volcanique avec de la lave…) dans
+  l’onglet Surface planète.
 
 ## Toujours demander : depuis le repos ou boucle libre ?
 

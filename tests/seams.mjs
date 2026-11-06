@@ -112,6 +112,14 @@ for (const [name, more] of elecCases) {
     const o = { ...worlds.meta.options, room, ...more }, P = worlds.worldPeriod(o.duration, worlds.worldOf(o));
     report(`world space${Object.keys(more).length ? " drift" : ""}`, diff(render(worlds, o, 0), render(worlds, o, P)), diff(render(worlds, o, P / 7), render(worlds, o, P + P / 7)));
   }
+  // planet surfaces (tab Surface planète): still, moving with wind and camera, at night travelling fast
+  for (const [more, tag] of [[{}, "still"], [{ wState: "moving", wDrift: 3, wDir: "right", wLoops: 2, wCloudWind: -2, wCamX: 30, wCamY: -10, wGust: 3 }, "moving"],
+    [{ wSun: "moon", wStars: 80, wState: "moving", wDrift: 5, wAllMove: 1, wDir: "downleft", wMotes: 40, wBirds: 5 }, "night fast"]]) {
+    const w = { ...worlds.PLAIN, ...more }, o = { ...worlds.meta.options, room, world: w }, P = worlds.worldPeriod(o.duration, worlds.worldOf(w));
+    report(`world plain ${tag}`, diff(render(worlds, o, 0), render(worlds, o, P)), diff(render(worlds, o, P / 7), render(worlds, o, P + P / 7)));
+  }
+  // a portal onto a plain
+  { const o = { ...portal.meta.options, mode: "live", world: { ...worlds.PLAIN, wState: "moving", wDrift: 2 } }, P = portal.total(o); report("portal live plain", diff(render(portal, o, 0), render(portal, o, P)), 0); }
 }
 
 // world actions (tab Action monde): free endless loops, the world scrolling past at the blob's speed
@@ -124,7 +132,9 @@ for (const [name, more] of elecCases) {
     ...["look", "swim", "turns", "collect"].map((e) => [{ explore: e }, ""]),
     [{ explore: "look", lkPanTurns: 3, lkSpots: 7, lkPan: 120, loops: 3 }, "busy"], [{ explore: "swim", swStrokes: 7, swKick: 0.6, exDir: "up", swBubbles: 3 }, "up"],
     [{ explore: "swim", exSpeed: 0 }, "still"], [{ explore: "turns", trTurns: 5, trFollow: 1, exDir: "downleft", exSpeed: 7 }, "downleft"],
-    [{ explore: "turns", trFollow: 0, exSpeed: 0.5 }, "slow"], [{ explore: "collect", clCount: 9, clSpread: 90, exDir: "left", loops: 3 }, "many left"]];
+    [{ explore: "turns", trFollow: 0, exSpeed: 0.5 }, "slow"], [{ explore: "collect", clCount: 9, clSpread: 90, exDir: "left", loops: 3 }, "many left"],
+    // across a plain
+    ...["move", "look", "swim", "turns", "collect"].map((e) => [{ explore: e, world: { wType: "plain" } }, "plain"]), [{ exStyle: "flame", exSpeed: 6, exDir: "upright", exSurges: 2, loops: 3, world: { wType: "plain" } }, "plain fast"]];
   for (const [more, tag] of cases) {
     const o = { ...explore.meta.options, room, ...more }, T = o.duration * o.loops;
     report(`explore ${o.explore} ${tag}`.slice(0, 34), diff(render(explore, o, 0), render(explore, o, T)), diff(render(explore, o, T / 3 - 1 / 30), render(explore, o, T + T / 3 - 1 / 30)));

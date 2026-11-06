@@ -29,7 +29,9 @@ The promise to the user: any GIF loops forever with no visible jump, and GIFs pl
   whole pixels), twinkles and the nebula's warp turn whole turns, shooting stars use `cycle` on that period. The
   portal's `live` and `beyond` last that period; in `open` the world's clock is `t − T`, so it is at 0 on the frame after
   the last; in `cross`, `reopen` and `return` it is `t − shift · E(seg(t/T, 0.1, 0.9))`, the shift being `T mod P` (or that minus P), so it
-  starts at 0 and ends on 0 exactly. A still world (`wState: "still"`) does not scroll at all.
+  starts at 0 and ends on 0 exactly. A still world (`wState: "still"`) does not scroll at all. A planet surface also wraps on the tile: every
+  hash and dither reads the layer's x wrapped on T, its clouds' wind is a whole number of tiles a loop, its gusts and
+  ripples whole turns, its birds `cycle` on the period.
 - **Encoding.** GIF frames carry a palette computed from that frame alone, so two identical frames in two
   different GIFs produce identical pixels.
 

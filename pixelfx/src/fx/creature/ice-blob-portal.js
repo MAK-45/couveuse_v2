@@ -161,7 +161,7 @@ function drawPortal(p, o, C, g, wt, P, room) {
   if (x1 < x0 || y1 < y0) return;
   const bw = x1 - x0 + 1, bh = y1 - y0 + 1, X0 = Math.round(x0 - room[0]), Y0 = Math.round(y0 - room[1]);
   // the world behind the portal, for the box it covers
-  const wv = g.reveal > 0 && !voidIn ? renderWorld(W, wt, P, worldTile(room), X0 + Math.round(o.pViewX || 0), Y0 + Math.round(o.pViewY || 0), bw, bh, [W.wCamX || 0, W.wCamY || 0]) : null;
+  const wv = g.reveal > 0 && !voidIn ? renderWorld(W, wt, P, worldTile(room), X0 + Math.round(o.pViewX || 0), Y0 + Math.round(o.pViewY || 0), bw, bh, [W.wCamX || 0, W.wCamY || 0], [Math.ceil(room[2] - room[0]), Math.ceil(room[3] - room[1])]) : null;
   const hot = clamp(g.hot), black = hex("#000000");
   for (let y = y0; y <= y1; y++)
     for (let x = x0; x <= x1; x++) {
@@ -216,7 +216,7 @@ function drawPortal(p, o, C, g, wt, P, room) {
     p.glow(sx, sy, 3, C[5], 0.3 * al * o.pGlow);
   });
   // (a portal seen from the other world lets out our own light)
-  const nebA = voidIn ? C[5] : hex(W.wNebA), nebB = voidIn ? C[4] : hex(W.wNebB), star = voidIn ? C[6] : hex(W.wStarCol);
+  const surf = W.wType !== "space", nebA = voidIn ? C[5] : hex(surf ? W.wLeafLight : W.wNebA), nebB = voidIn ? C[4] : hex(surf ? W.wFlowerA : W.wNebB), star = voidIn ? C[6] : hex(surf ? W.wMoteCol : W.wStarCol);
   cycle(wt, P, whole(o.pLeak), o.seed + 83, (q) => q.range(1.8, 3.4), (age, life, q) => {
     const th = q.range(0, TAU), r0 = q.range(0.15, 0.85), k = age / life, out = ease.outQuad(k) * q.range(1.1, 2.2);
     const [ex, ey] = edgeAt(o.pShape, th), rr = r0 + out, X = ex * rx * rr + Math.sin(k * 5 + th * 3) * 1.5, Y = ey * ry * rr - k * 4;

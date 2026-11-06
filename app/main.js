@@ -547,14 +547,32 @@ function elecGroups() {
 }
 // ---- the worlds tab: the places portals open onto. Each world is saved here, with its own settings
 ANIMS.worlds = { name: "Mondes", fx: PFX.worlds, file: "monde", id: "creature/ice-worlds", mode: "scene", groups: null };
-const WORLD_TYPE_LIST = [["space", "Espace", "étoiles lointaines, nébuleuse"]];
+// the surface tab: worlds seen from the ground of a planet (plain…). Same list of worlds, its own kinds and selection
+ANIMS.surface = { name: "Surface planète", fx: PFX.worlds, file: "surface", id: "creature/ice-surface", mode: "scene", groups: null };
+const WORLD_TYPE_LIST = [["space", "Espace", "étoiles lointaines, nébuleuse"], ["plain", "Plaine", "herbe, arbres, rochers, eau"]];
 const worldTypeName = (t) => (WORLD_TYPE_LIST.find((x) => x[0] === t) || WORLD_TYPE_LIST[0])[1];
-const WORLD_KEYS = new Set(Object.keys(PFX.worlds.SPACE));
+const SURFACE_TYPES = new Set(PFX.worlds.SURFACE_TYPES);
+const isWorldTab = (a = S.anim) => a === "worlds" || a === "surface";
+// which tab makes a world of that type, and which kinds that tab offers
+const tabOfType = (t) => (SURFACE_TYPES.has(t) ? "surface" : "worlds");
+const tabTypes = (a = S.anim) => WORLD_TYPE_LIST.filter(([t]) => tabOfType(t) === a);
+const tabWorlds = (a = S.anim) => S.worlds.list.filter((w) => tabOfType(w.wType) === a);
+const selKey = (a = S.anim) => (a === "surface" ? "selSurf" : "sel");
+const WORLD_KEYS = new Set(Object.values(PFX.worlds.DEFAULTS).flatMap((d) => Object.keys(d)));
 const worldNew = (id, name, type = "space") => ({ id, name, ...PFX.worlds.DEFAULTS[type] });
-const worldsDef = () => ({ list: [worldNew(1, "Espace profond")], sel: 1, nextId: 2 });
-const selWorld = () => S.worlds.list.find((w) => w.id === S.worlds.sel) || S.worlds.list[0];
+const worldsDef = () => ({ list: [worldNew(1, "Espace profond"), worldNew(2, "Plaine verte", "plain")], sel: 1, selSurf: 2, nextId: 3 });
+const selWorld = () => { const a = S.anim === "surface" ? "surface" : "worlds", l = tabWorlds(a); return l.find((w) => w.id === S.worlds[selKey(a)]) || l[0] || S.worlds.list[0]; };
 const worldById = (id) => S.worlds.list.find((w) => w.id === +id) || S.worlds.list[0];
 const worldsView = () => ({ ...S.shared, ...S.blob, ...selWorld() });
+// colour moods for a plain: every colour, plus what goes with the hour (stars, moon, fireflies)
+const PLAIN_PRESETS = {
+  "Jour": { wSkyTop: "#1a4aa6", wSkyLow: "#9fe2f6", wSun: "sun", wSunCol: "#fff3c4", wSunY: 18, wStars: 0, wCloudCol: "#f4fbff", wMountCol: "#40619f", wSnowCol: "#eef9ff", wGrassDark: "#14472a", wGrassLight: "#8ad64e", wLeafDark: "#16432a", wLeafLight: "#6cc64e", wTrunk: "#6a4426", wRockCol: "#8e98aa", wWaterCol: "#3a9be0", wFlowerA: "#ffe066", wFlowerB: "#ff9ad0", wMoteCol: "#fff8c8", wMotes: 14, wBirds: 2 },
+  "Aube": { wSkyTop: "#3a3a8a", wSkyLow: "#ffc0a8", wSun: "sun", wSunCol: "#fff0d0", wSunY: 40, wStars: 0, wCloudCol: "#ffd8e0", wMountCol: "#5a4a8a", wSnowCol: "#ffe8f0", wGrassDark: "#1a3f34", wGrassLight: "#9ccf6a", wLeafDark: "#183a30", wLeafLight: "#7ab860", wTrunk: "#5a3a30", wRockCol: "#9a90a8", wWaterCol: "#6a8ad8", wFlowerA: "#ffe8a0", wFlowerB: "#ffa0c8", wMoteCol: "#fff0e0", wMotes: 14, wBirds: 3 },
+  "Crépuscule": { wSkyTop: "#1a0f3a", wSkyLow: "#ff8a4a", wSun: "sun", wSunCol: "#ffd070", wSunY: 44, wStars: 30, wCloudCol: "#ff9a7a", wMountCol: "#3a2450", wSnowCol: "#ffb0a0", wGrassDark: "#12221e", wGrassLight: "#6a8a3a", wLeafDark: "#101c18", wLeafLight: "#5a7a34", wTrunk: "#3a2420", wRockCol: "#6a5a6a", wWaterCol: "#c06a5a", wFlowerA: "#ffc060", wFlowerB: "#ff70a0", wMoteCol: "#ffe0a0", wMotes: 18, wBirds: 3 },
+  "Nuit de glace": { wSkyTop: "#02040e", wSkyLow: "#1a3a6a", wSun: "moon", wSunCol: "#e6f6ff", wSunY: 18, wStars: 160, wCloudCol: "#3a5682", wMountCol: "#1a2a50", wSnowCol: "#9fc8e8", wGrassDark: "#04140f", wGrassLight: "#2f7a5a", wLeafDark: "#03120c", wLeafLight: "#2a6a50", wTrunk: "#2a1e18", wRockCol: "#4a5670", wWaterCol: "#163a70", wFlowerA: "#9fe0ff", wFlowerB: "#c8a0ff", wMoteCol: "#b8ffe0", wMotes: 30, wBirds: 0 },
+  "Printemps": { wSkyTop: "#2a7ad8", wSkyLow: "#c8f4ff", wSun: "sun", wSunCol: "#ffffe0", wSunY: 16, wStars: 0, wCloudCol: "#ffffff", wMountCol: "#5a8ad0", wSnowCol: "#ffffff", wGrassDark: "#1f6a30", wGrassLight: "#b0ec5a", wLeafDark: "#2a5a30", wLeafLight: "#ffb0d8", wTrunk: "#6a4a36", wRockCol: "#a0a8b8", wWaterCol: "#4ab0f0", wFlowerA: "#ffffff", wFlowerB: "#ff80b0", wMoteCol: "#ffe0f0", wMotes: 24, wBirds: 3 },
+};
+const plainSwatch = (c) => [c.wSkyTop, c.wSkyLow, c.wMountCol, c.wGrassLight, c.wGrassDark, c.wWaterCol];
 // colour moods for a world: sky, nebula, its heart, the stars' tint
 const WORLD_PRESETS = {
   "Glace": ["#000000", "#1a3f9a", "#6a35c8", "#9fe0ff", "#9fe0ff"], "Aurore": ["#000000", "#0f6a5a", "#2a8fd0", "#b8fff0", "#a8ffe0"],
@@ -583,34 +601,63 @@ const WORLD_PARAMS = {
     { title: "Temps", hint: "la boucle du monde", key: "wtime", open: true, rows: [["wLoops", "Durée de la boucle du monde", 1, 12, 1, " × boucle du blob"]] },
   ],
 };
+const SUN_LIST = [["sun", "Un soleil"], ["moon", "Une lune"], ["none", "Rien"]];
+WORLD_PARAMS.plain = [
+  { title: "Couleurs", hint: "ciel, relief, herbe, eau", key: "wcol", open: true, worldPresets: true, rows: [
+    ["wSkyTop", "Ciel en haut", { color: true }], ["wSkyLow", "Ciel à l’horizon", { color: true }], ["wSunCol", "Soleil ou lune", { color: true }], ["wCloudCol", "Nuages", { color: true }],
+    ["wMountCol", "Montagnes", { color: true }], ["wSnowCol", "Neige", { color: true }], ["wGrassDark", "Herbe sombre", { color: true }], ["wGrassLight", "Herbe claire", { color: true }],
+    ["wLeafDark", "Feuillage sombre", { color: true }], ["wLeafLight", "Feuillage clair", { color: true }], ["wTrunk", "Troncs", { color: true }], ["wRockCol", "Rochers", { color: true }],
+    ["wWaterCol", "Eau", { color: true }], ["wFlowerA", "Fleurs, première couleur", { color: true }], ["wFlowerB", "Fleurs, seconde couleur", { color: true }], ["wMoteCol", "Pollen ou lucioles", { color: true }]] },
+  { title: "Ciel", hint: "soleil, nuages, oiseaux", key: "wsky", rows: [
+    ["wSkySteps", "Paliers du ciel", 2, 12, 1, ""], ["wSkyDither", "Tramage entre les paliers", 0, 1.5, 0.05, ""], ["wStars", "Étoiles (pour la nuit)", 0, 400, 1, ""],
+    ["wSun", "Dans le ciel", { select: SUN_LIST }], ["wSunX", "Soleil, position horizontale", 0, 100, 0.5, " %"], ["wSunY", "Soleil, hauteur", 0, 80, 0.5, " %"],
+    ["wSunSize", "Taille du soleil", 1, 15, 0.5, " % de la hauteur"], ["wSunGlow", "Lueur du soleil", 0, 2.5, 0.05, ""],
+    ["wClouds", "Nuages", 0, 30, 1, ""], ["wCloudSize", "Taille des nuages", 0.3, 3, 0.05, "×"], ["wCloudWind", "Vent dans les nuages (écrans par boucle)", -4, 4, 1, ""],
+    ["wCloudMorph", "Les nuages gonflent (fois par boucle)", 0, 4, 1, ""], ["wBirds", "Oiseaux par boucle", 0, 12, 1, ""]] },
+  { title: "Relief", hint: "horizon, montagnes, collines", key: "wrelief", rows: [
+    ["wHorizon", "Hauteur de l’horizon", 15, 90, 0.5, " %"], ["wMount", "Montagnes", 0, 2.5, 0.05, "×"], ["wSnow", "Neige sur les sommets", 0, 1, 0.01, ""],
+    ["wHills", "Collines", 0, 3, 0.05, "×"], ["wHaze", "Brume au loin", 0, 1, 0.01, ""]] },
+  { title: "Herbe", hint: "prairies, fleurs, vent", key: "wgrass", rows: [
+    ["wGrassTex", "Texture de l’herbe", 0, 3, 0.05, ""], ["wBlades", "Hautes herbes devant", 0, 2, 0.05, ""], ["wGrassH", "Hauteur des hautes herbes", 0, 25, 0.5, " % de la hauteur"],
+    ["wSway", "Force du vent", 0, 3, 0.05, ""], ["wGust", "Rafales par boucle", 0, 6, 1, ""], ["wFlowers", "Fleurs", 0, 300, 1, ""], ["wMotes", "Pollen ou lucioles", 0, 120, 1, ""]] },
+  { title: "Arbres et rochers", hint: "posés sur trois profondeurs", key: "wtrees", rows: [
+    ["wTrees", "Arbres", 0, 40, 1, ""], ["wPines", "Part de sapins", 0, 1, 0.01, ""], ["wTreeSize", "Taille des arbres (les plus proches)", 5, 60, 0.5, " % de la hauteur"],
+    ["wRocks", "Rochers", 0, 40, 1, ""], ["wRockSize", "Taille des rochers", 2, 25, 0.5, " % de la hauteur"], ["wMoss", "Mousse sur les rochers", 0, 1, 0.01, ""]] },
+  { title: "Eau", hint: "lac, étangs", key: "wwater", rows: [
+    ["wLake", "Lac à l’horizon", 0, 1, 0.01, ""], ["wPonds", "Étangs", 0, 8, 1, ""], ["wPondSize", "Taille des étangs", 3, 40, 0.5, " % de la hauteur"], ["wShimmer", "Reflets", 0, 3, 0.05, ""]] },
+  { title: "Mouvement", hint: "immobile ou en mouvement", key: "wmove", open: true, rows: [
+    ["wState", "État du monde", { select: WORLD_STATES }], ["wDrift", "Vitesse du défilement (en mouvement)", 1, 12, 1, ""], ["wDir", "Le sol défile", { select: DIR_LIST.filter((d) => d[0] === "left" || d[0] === "right") }],
+    ["wParallax", "Profondeur (parallaxe)", 0, 2, 0.05, ""], ["wCamX", "Caméra, horizontale", -400, 400, 1, " px"], ["wCamY", "Caméra, verticale", -200, 200, 1, " px"], ["wSeed", "Disposition (graine)", 0, 999, 1, ""]] },
+  { title: "Temps", hint: "la boucle du monde", key: "wtime", open: true, rows: [["wLoops", "Durée de la boucle du monde", 1, 12, 1, " × boucle du blob"]] },
+];
 function worldGroups() {
-  const w = selWorld();
+  const w = selWorld(), n = tabWorlds().length, word = S.anim === "surface" ? "surface" : "monde";
   return [
-    { title: "Mes mondes", hint: `${S.worlds.list.length} monde${S.worlds.list.length > 1 ? "s" : ""}`, key: "wlist", open: true, worldList: true, rows: [] },
-    { title: "Type de monde", hint: worldTypeName(w.wType), key: "wtype", pickerList: WORLD_TYPE_LIST, pickerKey: "wType", rows: [] },
+    { title: S.anim === "surface" ? "Mes surfaces" : "Mes mondes", hint: `${n} ${word}${n > 1 ? "s" : ""}`, key: "wlist", open: true, worldList: true, rows: [] },
+    { title: S.anim === "surface" ? "Type de surface" : "Type de monde", hint: worldTypeName(w.wType), key: "wtype", pickerList: tabTypes(), pickerKey: "wType", rows: [] },
     ...(WORLD_PARAMS[w.wType] || WORLD_PARAMS.space).map((g) => g.key !== "wmove" || w.wState === "moving" ? g : { ...g, rows: g.rows.filter((r) => r[0] !== "wDrift" && r[0] !== "wDir") }),
   ];
 }
 function worldListMarkup(rows) {
   const w = selWorld();
-  rows.insertAdjacentHTML("beforeend", `<div class="row"><label for="in-wname"><span>Nom du monde</span></label><div class="inline"><input type="text" id="in-wname" maxlength="40" value=""></div></div>`);
+  rows.insertAdjacentHTML("beforeend", `<div class="row"><label for="in-wname"><span>${S.anim === "surface" ? "Nom de la surface" : "Nom du monde"}</span></label><div class="inline"><input type="text" id="in-wname" maxlength="40" value=""></div></div>`);
   const nm = rows.querySelector("#in-wname");
   nm.value = w.name;
   nm.oninput = () => { w.name = nm.value.trim() || "Sans nom"; const b = rows.querySelector(`[data-wid="${w.id}"] strong`); if (b) b.textContent = w.name; persist(); };
   const ul = document.createElement("div");
   ul.className = "objlist";
-  for (const x of S.worlds.list) {
+  for (const x of tabWorlds()) {
     const r = document.createElement("div");
     r.className = "obj" + (x.id === w.id ? " on" : ""); r.dataset.wid = x.id;
     r.innerHTML = `<button type="button" class="objpick" aria-pressed="${x.id === w.id}"><strong></strong><span>${worldTypeName(x.wType)} · boucle de ${x.wLoops} × ${(+S.blob.duration).toFixed(1)} s</span></button><button type="button" class="objdel" aria-label="Supprimer ce monde">Supprimer</button>`;
     r.querySelector("strong").textContent = x.name;
-    r.querySelector(".objpick").onclick = () => { S.worlds.sel = x.id; refreshV(); buildControls(); changed(); };
+    r.querySelector(".objpick").onclick = () => { S.worlds[selKey()] = x.id; refreshV(); buildControls(); changed(); };
     r.querySelector(".objdel").onclick = () => removeWorld(x.id);
     ul.appendChild(r);
   }
   rows.appendChild(ul);
-  rows.insertAdjacentHTML("beforeend", `<div class="row"><div class="inline"><button type="button" id="wNew">Nouveau monde</button><button type="button" id="wDup">Dupliquer</button><button type="button" id="wSave">Enregistrer en fichier</button><button type="button" id="wOpen">Ouvrir un fichier</button><input type="file" id="wFile" accept=".json,application/json" hidden></div>
-    <p class="note">Tes mondes sont gardés dans ce navigateur et dans « Enregistrer les réglages ». Glisse dans l’aperçu pour déplacer la caméra : les étoiles proches défilent plus vite que les lointaines.</p></div>`);
+  rows.insertAdjacentHTML("beforeend", `<div class="row"><div class="inline"><button type="button" id="wNew">${S.anim === "surface" ? "Nouvelle surface" : "Nouveau monde"}</button><button type="button" id="wDup">Dupliquer</button><button type="button" id="wSave">Enregistrer en fichier</button><button type="button" id="wOpen">Ouvrir un fichier</button><input type="file" id="wFile" accept=".json,application/json" hidden></div>
+    <p class="note">${S.anim === "surface" ? "Tes surfaces sont gardées dans ce navigateur et dans « Enregistrer les réglages ». Glisse dans l’aperçu pour déplacer la caméra : l’herbe proche défile plus vite que les montagnes." : "Tes mondes sont gardés dans ce navigateur et dans « Enregistrer les réglages ». Glisse dans l’aperçu pour déplacer la caméra : les étoiles proches défilent plus vite que les lointaines."}</p></div>`);
   rows.querySelector("#wNew").onclick = () => addWorld();
   rows.querySelector("#wDup").onclick = () => addWorld({ ...selWorld(), name: selWorld().name + " (copie)" });
   rows.querySelector("#wSave").onclick = () => { const x = selWorld(); run([["Monde", async () => JSON.stringify({ couveuseWorld: 1, world: x }, null, 1), "json", "monde-" + slug(x.name)]], `Monde « ${x.name} » enregistré.`); };
@@ -619,16 +666,16 @@ function worldListMarkup(rows) {
 }
 const slug = (s) => s.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "monde";
 function addWorld(from) {
-  const id = S.worlds.nextId++, w = from ? { ...from, id } : worldNew(id, `Monde ${id}`);
+  const type = from ? from.wType : tabTypes()[0][0], id = S.worlds.nextId++, w = from ? { ...from, id } : worldNew(id, `${worldTypeName(type)} ${id}`, type);
   if (!from) w.wSeed = Math.floor(Math.random() * 999);
-  S.worlds.list.push(w); S.worlds.sel = id;
+  S.worlds.list.push(w); S.anim = tabOfType(w.wType); S.worlds[selKey()] = id;
   refreshV(); buildControls(); changed();
   say(`Monde « ${w.name} » créé.`);
 }
 function removeWorld(id) {
-  if (S.worlds.list.length <= 1) { say("Il faut garder au moins un monde.", true); return; }
+  if (tabWorlds().length <= 1) { say(S.anim === "surface" ? "Il faut garder au moins une surface." : "Il faut garder au moins un monde.", true); return; }
   const i = S.worlds.list.findIndex((w) => w.id === id), [w] = S.worlds.list.splice(i, 1);
-  if (S.worlds.sel === id) S.worlds.sel = S.worlds.list[Math.max(0, i - 1)].id;
+  if (S.worlds[selKey()] === id) S.worlds[selKey()] = tabWorlds()[0].id;
   if (S.portal.pWorld === id) S.portal.pWorld = S.worlds.list[0].id;
   if (S.explore.exWorld === id) S.explore.exWorld = S.worlds.list[0].id;
   refreshV(); buildControls(); changed();
@@ -811,7 +858,9 @@ function sanitize(v) {
   s.worlds.list = s.worlds.list.filter((w) => w && typeof w === "object").map((w, i) => ({ ...(PFX.worlds.DEFAULTS[w.wType] || PFX.worlds.SPACE), id: i + 1, name: "Monde", ...w }));
   if (!s.worlds.list.length) s.worlds.list = f.worlds.list;
   s.worlds.nextId = Math.max(s.worlds.nextId || 1, ...s.worlds.list.map((w) => w.id + 1));
-  if (!s.worlds.list.some((w) => w.id === s.worlds.sel)) s.worlds.sel = s.worlds.list[0].id;
+  // older saves have no surface yet: give them the default plain
+  if (!s.worlds.list.some((w) => SURFACE_TYPES.has(w.wType))) s.worlds.list.push(worldNew(s.worlds.nextId++, "Plaine verte", "plain"));
+  for (const a of ["worlds", "surface"]) { const own = s.worlds.list.filter((w) => tabOfType(w.wType) === a); if (own.length && !own.some((w) => w.id === s.worlds[selKey(a)])) s.worlds[selKey(a)] = own[0].id; }
   s.portal = { ...f.portal, ...((v && v.portal) || {}) };
   if (!PORTAL_MODES.some((m) => m[0] === s.portal.mode)) s.portal.mode = f.portal.mode;
   if (!s.worlds.list.some((w) => w.id === s.portal.pWorld)) s.portal.pWorld = s.worlds.list[0].id;
@@ -851,11 +900,14 @@ function load() {
 let S = load();
 // V: what the current animation sees, the shared settings and its own together
 let V = {};
-const refreshV = () => (V = S.anim === "worlds" ? worldsView() : S.anim === "explore" ? { ...S.shared, ...S.blob, ...S.explore } : S.anim === "portal" ? { ...S.shared, ...S.blob, ...S.portal } : S.anim === "elec" ? { ...S.shared, ...S.blob, ...S.elec } : S.anim === "clock" ? { ...S.shared, ...S.blob, ...S.clock } : S.anim === "loops" ? { ...S.shared, ...S.blob, ...S.loops } : S.anim === "objects" ? objectsView() : S.anim === "actions" ? { ...S.shared, ...S.blob, ...S.actions } : { ...S.shared, ...S[S.anim] });
+const refreshV = () => (V = isWorldTab() ? worldsView() : S.anim === "explore" ? { ...S.shared, ...S.blob, ...S.explore } : S.anim === "portal" ? { ...S.shared, ...S.blob, ...S.portal } : S.anim === "elec" ? { ...S.shared, ...S.blob, ...S.elec } : S.anim === "clock" ? { ...S.shared, ...S.blob, ...S.clock } : S.anim === "loops" ? { ...S.shared, ...S.blob, ...S.loops } : S.anim === "objects" ? objectsView() : S.anim === "actions" ? { ...S.shared, ...S.blob, ...S.actions } : { ...S.shared, ...S[S.anim] });
 refreshV();
 // the actions tab borrows the blob's look, timing and place: only the action is its own
 function setV(k, v) {
-  if (S.anim === "worlds" && !SHARED_KEYS.has(k)) { (WORLD_KEYS.has(k) ? selWorld() : S.blob)[k] = v; V[k] = v; return; }
+  if (isWorldTab() && !SHARED_KEYS.has(k)) {
+    if (k === "wType" && PFX.worlds.DEFAULTS[v]) { const w = selWorld(); Object.assign(w, { ...PFX.worlds.DEFAULTS[v], id: w.id, name: w.name, wSeed: w.wSeed, wLoops: w.wLoops }); refreshV(); return; }
+    (WORLD_KEYS.has(k) ? selWorld() : S.blob)[k] = v; V[k] = v; return;
+  }
   if (S.anim === "explore" && !SHARED_KEYS.has(k)) { (EXPLORE_KEYS.has(k) || k.startsWith("loops_") ? S.explore : S.blob)[k] = v; V[k] = v; return; }
   if (S.anim === "portal" && !SHARED_KEYS.has(k)) { (PORTAL_KEYS.has(k) || k.startsWith("loops_") ? S.portal : S.blob)[k] = v; V[k] = v; return; }
   if (S.anim === "clock" && !SHARED_KEYS.has(k)) { (CLOCK_KEYS.has(k) ? S.clock : S.blob)[k] = v; V[k] = v; return; }
@@ -913,9 +965,9 @@ function rowFor(rows, def) {
     } else if (spec.worlds) {
       r.innerHTML = `<label for="in-${k}"><span>${label}</span></label><div class="inline"><select id="in-${k}">${S.worlds.list.map((w) => `<option value="${w.id}"></option>`).join("")}</select><button type="button" id="editWorld">Modifier ce monde</button></div>`;
       const sel = r.querySelector("select");
-      [...sel.options].forEach((op, i) => (op.textContent = S.worlds.list[i].name));
+      [...sel.options].forEach((op, i) => (op.textContent = `${S.worlds.list[i].name} (${worldTypeName(S.worlds.list[i].wType).toLowerCase()})`));
       sel.onchange = () => { setV(k, +sel.value); buildControls(); changed(); };
-      r.querySelector("#editWorld").onclick = () => { S.worlds.sel = +V[k]; S.anim = "worlds"; refreshV(); buildControls(); changed(); say(`Mondes : « ${selWorld().name} » à modifier.`); };
+      r.querySelector("#editWorld").onclick = () => { const w = worldById(V[k]); S.anim = tabOfType(w.wType); S.worlds[selKey()] = w.id; refreshV(); buildControls(); changed(); say(`${ANIMS[S.anim].name} : « ${selWorld().name} » à modifier.`); };
       inputs[k] = { kind: "select", inp: sel };
     } else if (spec.select) {
       r.innerHTML = `<label for="in-${k}"><span>${label}</span></label><div class="inline"><select id="in-${k}">${spec.select.map(([v, t]) => `<option value="${v}">${t}</option>`).join("")}</select></div>`;
@@ -959,10 +1011,11 @@ function buildControls() {
   if (S.anim === "loops") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence et la place de l’onglet Blob né. Chaque boucle part de là où il se trouve et tourne sans fin, sans raccord visible.</p>`);
   if (S.anim === "elec") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence et la place de l’onglet Blob né. Il part de son repos, découvre l’électricité et joue avec, puis revient exactement à son repos : la première et la dernière image sont celles de la boucle du blob né. Mets les GIF bout à bout, ils s’enchaînent. Les couleurs de l’électricité se règlent à part, dans « L’électricité ».</p>`);
   if (S.anim === "clock") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence et la place de l’onglet Blob né. Il part de sa position de repos, affiche l’heure, puis revient exactement à son repos : la première et la dernière image sont celles de la boucle du blob né.</p>`);
-  if (S.anim === "portal") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence et la place de l’onglet Blob né. Il ouvre un portail vers un autre monde, qu’on ne voit qu’à travers lui. Glisse le portail dans l’aperçu pour le placer, et sa poignée carrée pour changer sa taille. Les mondes se créent et se règlent dans l’onglet Mondes.</p>`);
-  if (S.anim === "explore") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence et la place de l’onglet Blob né, et explore un des mondes de l’onglet Mondes. En vrai il reste sur place : c’est le monde qui défile derrière lui, les étoiles proches plus vite que les lointaines. Une seule vitesse règle tout : plus il va vite, plus le décor défile et plus il se déforme. Boucle libre, sans raccord visible, qui n’a pas besoin de revenir au blob né.</p>`);
+  if (S.anim === "portal") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence et la place de l’onglet Blob né. Il ouvre un portail vers un autre monde, qu’on ne voit qu’à travers lui. Glisse le portail dans l’aperçu pour le placer, et sa poignée carrée pour changer sa taille. Les mondes se créent et se règlent dans les onglets Mondes et Surface planète.</p>`);
+  if (S.anim === "explore") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence et la place de l’onglet Blob né, et explore un des mondes des onglets Mondes et Surface planète. En vrai il reste sur place : c’est le monde qui défile derrière lui, les étoiles proches plus vite que les lointaines. Une seule vitesse règle tout : plus il va vite, plus le décor défile et plus il se déforme. Boucle libre, sans raccord visible, qui n’a pas besoin de revenir au blob né.</p>`);
+  if (S.anim === "surface") controls.insertAdjacentHTML("beforeend", `<p class="note intro">La surface d’une planète, vue du sol : pour l’instant une plaine, avec son ciel, ses montagnes, ses prairies, ses arbres, ses rochers et son eau. Elle est faite de couches à différentes profondeurs : immobile, elle vit sur place (vent dans l’herbe, nuages, reflets) ; en mouvement, l’herbe proche défile plus vite que les montagnes, en boucle parfaite. Le blob s’y promène dans l’onglet Action monde, ou y passe par un portail.</p>`);
   if (S.anim === "worlds") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Les mondes qu’on voit à travers les portails. Crée-les, règle-les et garde-les ici ; l’aperçu montre le monde entier, en boucle sans fin. Il est fait de couches à différentes profondeurs : quand la caméra bouge, les étoiles proches défilent plus vite que les lointaines.</p>`);
-  const groups = S.anim === "worlds" ? worldGroups() : S.anim === "explore" ? exploreGroups() : S.anim === "portal" ? portalGroups() : S.anim === "elec" ? elecGroups() : S.anim === "clock" ? clockGroups() : S.anim === "loops" ? loopGroups() : S.anim === "objects" ? objectGroups() : S.anim === "actions" ? actionGroups() : ANIMS[S.anim].groups;
+  const groups = isWorldTab() ? worldGroups() : S.anim === "explore" ? exploreGroups() : S.anim === "portal" ? portalGroups() : S.anim === "elec" ? elecGroups() : S.anim === "clock" ? clockGroups() : S.anim === "loops" ? loopGroups() : S.anim === "objects" ? objectGroups() : S.anim === "actions" ? actionGroups() : ANIMS[S.anim].groups;
   if (S.anim === "objects") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence et la place de l’onglet Blob né. Rien ne pèse dans la scène : les objets flottent et tournent au rythme de sa boucle, et chaque animation se raccorde aux autres.</p>`);
   if (S.anim === "actions") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence, la durée et la place réglées dans l’onglet Blob né. Chaque action commence et finit sur la même image que la boucle du blob né : mets les GIF bout à bout, ils s’enchaînent.</p>`);
   groups.forEach((g, gi) => {
@@ -974,11 +1027,12 @@ function buildControls() {
     if (g.worldPresets) {
       const pr = document.createElement("div");
       pr.className = "presets";
-      for (const [name, cols] of Object.entries(WORLD_PRESETS)) {
+      const plain = V.wType === "plain";
+      for (const [name, cols] of Object.entries(plain ? PLAIN_PRESETS : WORLD_PRESETS)) {
         const b = document.createElement("button");
         b.className = "preset"; b.type = "button";
-        b.innerHTML = `<i style="background:linear-gradient(90deg,${cols.slice(1).join(",")})"></i>${name}`;
-        b.onclick = () => { ["wSky", "wNebA", "wNebB", "wNebCore", "wStarTint"].forEach((k, i) => setV(k, cols[i])); syncUI(); changed(); };
+        b.innerHTML = `<i style="background:linear-gradient(90deg,${(plain ? plainSwatch(cols) : cols.slice(1)).join(",")})"></i>${name}`;
+        b.onclick = () => { if (plain) { for (const [k, v] of Object.entries(cols)) setV(k, v); buildControls(); } else ["wSky", "wNebA", "wNebB", "wNebCore", "wStarTint"].forEach((k, i) => setV(k, cols[i])); syncUI(); changed(); };
         pr.appendChild(b);
       }
       rows.appendChild(pr);
@@ -1086,7 +1140,7 @@ function wire() {
   on("loadScene", "onclick", () => $("sceneFile").click());
   on("sceneFile", "onchange", openSettings);
 }
-$("reset").onclick = () => { const f = fresh(); if (S.anim === "worlds") { const w = selWorld(); Object.assign(w, PFX.worlds.DEFAULTS[w.wType] || PFX.worlds.SPACE); } else if (S.anim === "portal") S.portal = { ...f.portal, pWorld: S.portal.pWorld }; else if (S.anim === "objects") { const keep = { list: S.objects.list, sel: S.objects.sel, nextId: S.objects.nextId }; S.objects = { ...f.objects, ...keep }; } else S[S.anim] = f[S.anim]; refreshV(); buildControls(); changed(); say(`${ANIMS[S.anim].name} : réglages d’origine.`); };
+$("reset").onclick = () => { const f = fresh(); if (isWorldTab()) { const w = selWorld(); Object.assign(w, PFX.worlds.DEFAULTS[w.wType] || PFX.worlds.SPACE); } else if (S.anim === "portal") S.portal = { ...f.portal, pWorld: S.portal.pWorld }; else if (S.anim === "objects") { const keep = { list: S.objects.list, sel: S.objects.sel, nextId: S.objects.nextId }; S.objects = { ...f.objects, ...keep }; } else S[S.anim] = f[S.anim]; refreshV(); buildControls(); changed(); say(`${ANIMS[S.anim].name} : réglages d’origine.`); };
 
 function syncPalette() { const sw = $("swatches"); if (sw) [...sw.children].forEach((c, i) => (c.value = PFX.toHex(PFX.hex(V.palette[i])))); accent(); }
 function syncUI() {
@@ -1147,7 +1201,7 @@ function edgeFade(f, EF = 8) {
 let N = 120, B = 176, SW = 480, SH = 270, E = ANIMS[S.anim].fx;
 const view = $("view"), ctx = view.getContext("2d");
 let img = null;
-const loopsOf = () => (S.anim === "worlds" ? Math.max(1, Math.round(V.wLoops || 1)) : S.anim === "explore" ? Math.max(1, Math.round(V["loops_" + V.explore] || 2)) : S.anim === "portal" ? Math.max(1, Math.round(LOOPING_MODES.has(V.mode) ? worldById(V.pWorld).wLoops || 1 : V["loops_" + V.mode] || 2)) : S.anim === "elec" ? Math.max(1, Math.round(V["loops_" + V.elec] || 3)) : S.anim === "clock" ? Math.max(1, Math.round(V.loops || 3)) : S.anim === "loops" ? Math.max(1, Math.round(V["loops_" + V.loop] || 2)) : S.anim === "actions" ? Math.max(1, Math.round(V["loops_" + V.action] || 2)) : S.anim === "objects" ? Math.max(1, Math.round(V["loops_" + V.mode] || 1)) : 1);
+const loopsOf = () => (isWorldTab() ? Math.max(1, Math.round(V.wLoops || 1)) : S.anim === "explore" ? Math.max(1, Math.round(V["loops_" + V.explore] || 2)) : S.anim === "portal" ? Math.max(1, Math.round(LOOPING_MODES.has(V.mode) ? worldById(V.pWorld).wLoops || 1 : V["loops_" + V.mode] || 2)) : S.anim === "elec" ? Math.max(1, Math.round(V["loops_" + V.elec] || 3)) : S.anim === "clock" ? Math.max(1, Math.round(V.loops || 3)) : S.anim === "loops" ? Math.max(1, Math.round(V["loops_" + V.loop] || 2)) : S.anim === "actions" ? Math.max(1, Math.round(V["loops_" + V.action] || 2)) : S.anim === "objects" ? Math.max(1, Math.round(V["loops_" + V.mode] || 1)) : 1);
 const loopLen = () => V.duration * loopsOf();
 // an action is a whole number of the blob's loops, frame for frame
 const nFrames = () => Math.max(2, Math.round(V.duration * V.fps)) * loopsOf();
@@ -1161,12 +1215,12 @@ function effOpts(src = V) {
     if (V.clkSource === "now") { const d = new Date(); o.clkH = d.getHours(); o.clkM = d.getMinutes(); o.clkS = d.getSeconds(); }
   }
   if (S.anim === "elec" && src === V) o.loops = loopsOf();
-  if ((S.anim === "portal" || S.anim === "worlds" || S.anim === "explore") && src === V) {
+  if ((S.anim === "portal" || isWorldTab() || S.anim === "explore") && src === V) {
     // the scene's bounds in the effect's own pixels: the world is pinned to the scene, not to the blob
     const g = grid();
     o.room = [-g.ox, -g.oy, g.fw - g.ox, g.fh - g.oy];
   }
-  if (S.anim === "worlds" && src === V) { const w = selWorld(); o.world = { ...w }; o.loops = loopsOf(); }
+  if (isWorldTab() && src === V) { const w = selWorld(); o.world = { ...w }; o.loops = loopsOf(); }
   if (S.anim === "explore" && src === V) { o.world = { ...worldById(V.exWorld) }; o.loops = loopsOf(); }
   if (S.anim === "portal" && src === V) {
     const pl = placement(), k = V.scale, r = portalRect();
@@ -1346,7 +1400,7 @@ function drawGuides() {
     ctx.moveTo(tg[0] + 0.5, tg[1] - 9); ctx.lineTo(tg[0] + 0.5, tg[1] - 3); ctx.moveTo(tg[0] + 0.5, tg[1] + 4); ctx.lineTo(tg[0] + 0.5, tg[1] + 10); ctx.stroke();
     ctx.setLineDash([4, 3]); ctx.globalAlpha = 0.7;
   }
-  ctx.setLineDash([]); ctx.globalAlpha = S.anim === "worlds" ? 0 : 0.5;
+  ctx.setLineDash([]); ctx.globalAlpha = isWorldTab() ? 0 : 0.5;
   ctx.beginPath();
   ctx.moveTo(pl.cx - 4, pl.cy + 0.5); ctx.lineTo(pl.cx + 5, pl.cy + 0.5);
   ctx.moveTo(pl.cx + 0.5, pl.cy - 4); ctx.lineTo(pl.cx + 0.5, pl.cy + 5);
@@ -1382,7 +1436,7 @@ let drag = null;
 view.addEventListener("pointerdown", (ev) => {
   let tgHit = null;
   const [x, y] = toScene(ev), pl = placement(), tgs = targets(), hit = Math.max(10, 14 / (view.getBoundingClientRect().width / SW));
-  if (S.anim === "worlds") {
+  if (isWorldTab()) {
     drag = { cam: true, x0: x, y0: y, c0: [V.wCamX || 0, V.wCamY || 0] };
     view.setPointerCapture(ev.pointerId);
     return;
@@ -1440,7 +1494,7 @@ function moveTo(ev) {
 // arrows nudge it a pixel when the preview has focus
 view.tabIndex = 0;
 view.addEventListener("keydown", (ev) => {
-  if (S.anim === "worlds") return;
+  if (isWorldTab()) return;
   const d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[ev.key];
   if (!d) return;
   ev.preventDefault();
@@ -1486,7 +1540,7 @@ const nextPaint = () => new Promise((r) => setTimeout(r, 0));
 const objName = () => { const so = selObj(); return V.mode === "live" || !so ? "objets-scene" : `objets-${V.mode === "appear" ? "apparition" : "disparition"}-${so.shape}-${so.id}`; };
 const clockName = () => { const o = OPTS; return "heure-" + String(o.clkH).padStart(2, "0") + String(o.clkM).padStart(2, "0"); };
 const portalName = () => { const w = worldById(V.pWorld); return `portail-${{ open: "creation", live: "ouvert", close: "fermeture", cross: "traversee", beyond: "autre-monde", reopen: "ouverture-retour", beyondOpen: "autre-monde-portail-ouvert", return: "retour" }[V.mode]}-${slug(w.name)}`; };
-const base = () => S.anim === "worlds" ? `monde-${slug(selWorld().name)}-${selWorld().wSeed}` : `creature-glace-${S.anim === "explore" ? `monde-${V.explore}${V.explore === "move" ? "-" + V.exStyle : ""}-${slug(worldById(V.exWorld).name)}` : S.anim === "portal" ? portalName() : S.anim === "clock" ? clockName() : S.anim === "loops" ? "boucle-" + V.loop : S.anim === "elec" ? "electricite-" + V.elec : S.anim === "actions" ? "action-" + V.action : S.anim === "objects" ? objName() : ANIMS[S.anim].file}-${V.seed}` + (V.exportWhat === "creature" ? "-seule" : "-scene");
+const base = () => isWorldTab() ? `${S.anim === "surface" ? "surface" : "monde"}-${slug(selWorld().name)}-${selWorld().wSeed}` : `creature-glace-${S.anim === "explore" ? `monde-${V.explore}${V.explore === "move" ? "-" + V.exStyle : ""}-${slug(worldById(V.exWorld).name)}` : S.anim === "portal" ? portalName() : S.anim === "clock" ? clockName() : S.anim === "loops" ? "boucle-" + V.loop : S.anim === "elec" ? "electricite-" + V.elec : S.anim === "actions" ? "action-" + V.action : S.anim === "objects" ? objName() : ANIMS[S.anim].file}-${V.seed}` + (V.exportWhat === "creature" ? "-seule" : "-scene");
 function frameSize() { return V.exportWhat === "creature" && ANIMS[S.anim].mode === "box" ? [B * V.scale, B * V.scale] : [SW, SH]; }
 async function allFrames(label) {
   const out = [], alone = V.exportWhat === "creature", box = ANIMS[S.anim].mode === "box";
@@ -1541,12 +1595,12 @@ function makeJson() {
     pixelfx: { id: ANIMS[S.anim].id, name: ANIMS[S.anim].fx.meta.name, animation: S.anim, content: alone ? "creature" : "scene",
       fps: +(N / (loopLen() / V.speed)).toFixed(3), loop: true, frames: N, frameSize: [fw, fh],
       ...(S.anim === "loops" ? { activity: V.loop, restLoops: loopsOf(), seamless: true } : {}),
-      ...(S.anim === "worlds" ? { world: selWorld(), seamless: true, worldLoops: loopsOf() } : {}),
+      ...(isWorldTab() ? { world: selWorld(), seamless: true, worldLoops: loopsOf() } : {}),
       ...(S.anim === "explore" ? { worldAction: V.explore, speed: { value: V.exSpeed, heading: V.exDir, style: V.exStyle, surges: V.exSurges }, world: worldById(V.exWorld), restLoops: loopsOf(), seamless: true, freeLoop: true } : {}),
       ...(S.anim === "portal" ? { portal: { animation: V.mode, ...portalInfo() }, world: worldById(V.pWorld) } : {}),
       ...(S.anim === "elec" ? { activity: V.elec, electricity: { core: V.elCore, arc: V.elColor, glow: V.elGlow } } : {}),
       ...(S.anim === "clock" ? { time: { h: OPTS.clkH, m: OPTS.clkM, s: OPTS.clkS, format: OPTS.clkFormat, center: [Math.round(placement().cx + OPTS.clkX * V.scale), Math.round(placement().cy + OPTS.clkY * V.scale)] } } : {}),
-      ...(S.anim === "birth" || S.anim === "loops" || S.anim === "worlds" || S.anim === "explore" ? {} : S.anim === "portal" ? { chain: { restFrames: Math.round(V.duration * V.fps), firstFrameIs: { open: "rest", live: "portal open", close: "portal open", cross: "portal open", beyond: "rest in the other world", reopen: "rest in the other world", beyondOpen: "other world, way home open", return: "other world, way home open" }[V.mode], lastFrameIs: { open: "portal open", live: "portal open", close: "rest", cross: +V.crossKeep ? "other world, way home open" : "rest in the other world", beyond: "rest in the other world", reopen: "other world, way home open", beyondOpen: "other world, way home open", return: +V.returnKeep ? "portal open" : "rest" }[V.mode], order: ["rest", "open", "live…", "close", "rest"], orBeyond: ["live…", "cross", "beyond…", "reopen", "beyondOpen…", "return", "rest (or live…)"] } } : { chain: { restFrames: N / loopsOf(), firstAndLastFrameAreRest: true, ...(S.anim === "actions" ? { action: V.action, restLoops: loopsOf() } : S.anim === "elec" ? { electricity: V.elec, restLoops: loopsOf() } : {}) } }),
+      ...(S.anim === "birth" || S.anim === "loops" || isWorldTab() || S.anim === "explore" ? {} : S.anim === "portal" ? { chain: { restFrames: Math.round(V.duration * V.fps), firstFrameIs: { open: "rest", live: "portal open", close: "portal open", cross: "portal open", beyond: "rest in the other world", reopen: "rest in the other world", beyondOpen: "other world, way home open", return: "other world, way home open" }[V.mode], lastFrameIs: { open: "portal open", live: "portal open", close: "rest", cross: +V.crossKeep ? "other world, way home open" : "rest in the other world", beyond: "rest in the other world", reopen: "other world, way home open", beyondOpen: "other world, way home open", return: +V.returnKeep ? "portal open" : "rest" }[V.mode], order: ["rest", "open", "live…", "close", "rest"], orBeyond: ["live…", "cross", "beyond…", "reopen", "beyondOpen…", "return", "rest (or live…)"] } } : { chain: { restFrames: N / loopsOf(), firstAndLastFrameAreRest: true, ...(S.anim === "actions" ? { action: V.action, restLoops: loopsOf() } : S.anim === "elec" ? { electricity: V.elec, restLoops: loopsOf() } : {}) } }),
       pivot: alone && ANIMS[S.anim].mode === "box" ? [Math.floor(pl.D / 2), Math.floor(pl.D / 2)] : [pl.cx, pl.cy],
       // where this layer goes in the scene, for the animations that come next
       placeAt: alone && ANIMS[S.anim].mode === "box" ? [pl.x, pl.y] : [0, 0],
