@@ -12,10 +12,12 @@
 // cycles. The world is anchored to the scene (o.room), not to the blob, so it stays put when the blob moves.
 import { clamp, mix, hex, red, green, blue, rng, cycle, hash, TAU, WHITE } from "../../core/index.js";
 import { renderSurface, SURFACE_DEFAULTS, SURFACE_TYPES, PLAIN } from "./ice-surface.js";
+import { renderValley, SURFACE2_DEFAULTS, SURFACE2_TYPES, VALLEY } from "./ice-surface-v2.js";
 
-// space worlds (tab Mondes) and planet surfaces (tab Surface planète, drawn by ice-surface.js)
-export const WORLD_TYPES = ["space", ...SURFACE_TYPES];
-export { SURFACE_TYPES, PLAIN };
+// space worlds (tab Mondes), planet surfaces (tab Surface planète, drawn by ice-surface.js) and the second version's
+// generated ones (tab Surface planète v2, drawn by ice-surface-v2.js)
+export const WORLD_TYPES = ["space", ...SURFACE_TYPES, ...SURFACE2_TYPES];
+export { SURFACE_TYPES, PLAIN, SURFACE2_TYPES, VALLEY };
 
 // every setting of a world starts with w, so it never clashes with the blob's own when they sit side by side
 export const SPACE = {
@@ -30,7 +32,7 @@ export const SPACE = {
   wShoot: 2, wShootLen: 1, wDust: 24,
   wState: "still", wDrift: 2, wDir: "left", wParallax: 1, wCamX: 0, wCamY: 0,
 };
-export const DEFAULTS = { space: SPACE, ...SURFACE_DEFAULTS };
+export const DEFAULTS = { space: SPACE, ...SURFACE_DEFAULTS, ...SURFACE2_DEFAULTS };
 const DIRS = { none: [0, 0], left: [-1, 0], right: [1, 0], up: [0, -1], down: [0, 1], upleft: [-1, -1], upright: [1, -1], downleft: [-1, 1], downright: [1, 1] };
 
 export const meta = {
@@ -105,6 +107,7 @@ function along(stops, f) {
  */
 export function renderWorld(w0, wt, P, T, X0, Y0, bw, bh, cam = [0, 0], dims) {
   if (w0 && SURFACE_DEFAULTS[w0.wType]) return renderSurface(worldOf(w0), wt, P, T, X0, Y0, bw, bh, cam, dims);
+  if (w0 && SURFACE2_DEFAULTS[w0.wType]) return renderValley(worldOf(w0), wt, P, T, X0, Y0, bw, bh, cam, dims);
   const w = worldOf(w0), n = bw * bh, col = new Uint32Array(n), lit = new Float32Array(n * 3);
   const u = (((wt / P) % 1) + 1) % 1, sky = hex(w.wSky), dir = DIRS[w.wDir] || DIRS.none, par = Math.max(0, w.wParallax);
   col.fill(sky);
