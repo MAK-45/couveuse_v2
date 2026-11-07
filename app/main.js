@@ -269,12 +269,14 @@ const OBJ_ROWS = [
   ["ob_float", "Flottement", 0, 20, 0.5, " px"], ["ob_floatTurns", "Rythme du flottement", 0, 4, 1, ""],
   ["ob_hue", "Teinte", 0, 360, 1, "°"], ["ob_glow", "Lueur", 0, 2.5, 0.05, ""],
 ];
+const OBJ_APPEAR = [["halo", "Halo de lumière"], ["laser", "Laser qui le dessine"], ["crystal", "Cristaux qui s’assemblent"], ["portal", "Portail"], ["orb", "Orbe lancée par le blob"]];
+const OBJ_REMOVE = [["dissolve", "Dissolution"], ["laser", "Laser qui l’efface"], ["implode", "Implosion"], ["shatter", "Éclats"], ["swallow", "Avalé par le blob"]];
 const APPEAR_ROWS = [
-  ["appearStyle", "Manière", { select: [["halo", "Halo de lumière"], ["laser", "Laser qui le dessine"], ["crystal", "Cristaux qui s’assemblent"], ["portal", "Portail"], ["orb", "Orbe lancée par le blob"]] }],
+  ["appearStyle", "Manière", { select: OBJ_APPEAR }],
   ["appearPower", "Intensité de la lumière", 0, 2.5, 0.05, ""], ["appearParticles", "Particules", 0, 80, 1, ""],
 ];
 const REMOVE_ROWS = [
-  ["removeStyle", "Manière", { select: [["dissolve", "Dissolution"], ["laser", "Laser qui l’efface"], ["implode", "Implosion"], ["shatter", "Éclats"], ["swallow", "Avalé par le blob"]] }],
+  ["removeStyle", "Manière", { select: OBJ_REMOVE }],
   ["removePower", "Intensité de la lumière", 0, 2.5, 0.05, ""], ["removeParticles", "Particules", 0, 80, 1, ""],
 ];
 const selObj = () => (S.objects.list.find((ob) => ob.id === S.objects.sel) || S.objects.list[0] || null);
@@ -1010,11 +1012,15 @@ const RENDER = { title: "Rendu", hint: "fond, export", render: true, rows: [
   ["gifScale", "Agrandissement du GIF", 1, 6, 1, "×"],
 ]};
 const SHARED_KEYS = new Set(Object.keys(SHARED_DEF));
+ANIMS.life = { name: "Vivre", fx: PFX.life, file: "vie", id: "creature/ice-life", mode: "scene", groups: null };
+const lifeDef = () => ({ world: 1, linked: "1", shape: "cube", obSize: 12, obHue: 0, obLayer: "back", appearStyle: "halo", removeStyle: "dissolve",
+  autonomous: false, calm: 2, spotX: 27, spotY: 36, hub: { form: "blob", place: "home", portal: null }, things: [] });
+const LIFE_KEYS = new Set(Object.keys(lifeDef()));
 
 // ---- state: { anim, shared, birth, blob }, kept in this browser
 const KEY = "couveuse-v3";
 function animDef(a) { const o = ANIMS[a].fx.meta.options; return { ...o, ...PER_DEF, palette: [...o.palette] }; }
-function fresh() { return { anim: "blob", shared: { ...SHARED_DEF }, birth: animDef("birth"), blob: animDef("blob"), actions: actionDef(), objects: objectsDef(), loops: loopsDef(), clock: clockDef(), elec: elecDef(), portal: portalDef(), explore: exploreDef(), transform: transformDef(), worlds: worldsDef() }; }
+function fresh() { return { anim: "life", life: lifeDef(), shared: { ...SHARED_DEF }, birth: animDef("birth"), blob: animDef("blob"), actions: actionDef(), objects: objectsDef(), loops: loopsDef(), clock: clockDef(), elec: elecDef(), portal: portalDef(), explore: exploreDef(), transform: transformDef(), worlds: worldsDef() }; }
 function clampInt(v, lo, hi) { v = Math.round(+v); return Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : lo; }
 function sanitize(v) {
   const f = fresh(), s = { anim: ANIMS[v && v.anim] ? v.anim : f.anim, shared: { ...f.shared, ...(v && v.shared) } };
@@ -1046,6 +1052,13 @@ function sanitize(v) {
   if (!PFX.transform.ARMS.includes(s.transform.huArms)) s.transform.huArms = f.transform.huArms;
   if (!PFX.transform.GR_ARMS.includes(s.transform.grArms)) s.transform.grArms = f.transform.grArms;
   if (!PFX.transform.GR_LOOKS.includes(s.transform.grLook)) s.transform.grLook = f.transform.grLook;
+  s.life = { ...f.life, ...((v && v.life) || {}) };
+  if (!s.worlds.list.some((w) => w.id === +s.life.world)) s.life.world = s.worlds.list[0].id;
+  const lh = s.life.hub || {};
+  s.life.hub = { form: BODY_FORMS.some((x) => x[0] === lh.form) ? lh.form : "blob", place: lh.place === "home" || s.worlds.list.some((w) => w.id === lh.place) ? lh.place : "home", portal: null };
+  if (lh.portal === "home" && s.life.hub.place !== "home") s.life.hub.portal = "home";
+  else if (s.life.hub.place === "home" && s.worlds.list.some((w) => w.id === lh.portal)) s.life.hub.portal = lh.portal;
+  s.life.things = (Array.isArray(s.life.things) ? s.life.things : []).filter((th) => th && th.ob && (th.place === "home" || s.worlds.list.some((w) => w.id === th.place)));
   s.objects = { ...f.objects, ...((v && v.objects) || {}) };
   if (!Array.isArray(s.objects.list)) s.objects.list = f.objects.list;
   s.objects.list = s.objects.list.filter((ob) => ob && typeof ob === "object").map((ob) => ({ ...OBJECT_DEF(), ...ob }));
@@ -1080,10 +1093,11 @@ function load() {
 let S = load();
 // V: what the current animation sees, the shared settings and its own together
 let V = {};
-const refreshV = () => (V = isWorldTab() ? worldsView() : S.anim === "transform" ? { ...S.shared, ...S.blob, ...S.transform } : S.anim === "explore" ? { ...S.shared, ...S.blob, ...S.explore } : S.anim === "portal" ? { ...S.shared, ...S.blob, ...S.portal } : S.anim === "elec" ? { ...S.shared, ...S.blob, ...S.elec } : S.anim === "clock" ? { ...S.shared, ...S.blob, ...S.clock } : S.anim === "loops" ? { ...S.shared, ...S.blob, ...S.loops } : S.anim === "objects" ? objectsView() : S.anim === "actions" ? { ...S.shared, ...S.blob, ...S.actions } : { ...S.shared, ...S[S.anim] });
+const refreshV = () => (V = S.anim === "life" ? { ...S.shared, ...S.blob, ...S.life } : isWorldTab() ? worldsView() : S.anim === "transform" ? { ...S.shared, ...S.blob, ...S.transform } : S.anim === "explore" ? { ...S.shared, ...S.blob, ...S.explore } : S.anim === "portal" ? { ...S.shared, ...S.blob, ...S.portal } : S.anim === "elec" ? { ...S.shared, ...S.blob, ...S.elec } : S.anim === "clock" ? { ...S.shared, ...S.blob, ...S.clock } : S.anim === "loops" ? { ...S.shared, ...S.blob, ...S.loops } : S.anim === "objects" ? objectsView() : S.anim === "actions" ? { ...S.shared, ...S.blob, ...S.actions } : { ...S.shared, ...S[S.anim] });
 refreshV();
 // the actions tab borrows the blob's look, timing and place: only the action is its own
 function setV(k, v) {
+  if (S.anim === "life" && !SHARED_KEYS.has(k)) { (LIFE_KEYS.has(k) ? S.life : S.blob)[k] = v; V[k] = v; return; }
   if (isWorldTab() && !SHARED_KEYS.has(k)) {
     if (k === "wType" && PFX.worlds.DEFAULTS[v]) { const w = selWorld(); Object.assign(w, { ...PFX.worlds.DEFAULTS[v], id: w.id, name: w.name, wSeed: w.wSeed, wLoops: w.wLoops }); refreshV(); return; }
     (WORLD_KEYS.has(k) ? selWorld() : S.blob)[k] = v; V[k] = v; return;
@@ -1153,7 +1167,7 @@ function rowFor(rows, def) {
     } else if (spec.select) {
       r.innerHTML = `<label for="in-${k}"><span>${label}</span></label><div class="inline"><select id="in-${k}">${spec.select.map(([v, t]) => `<option value="${v}">${t}</option>`).join("")}</select></div>`;
       const sel = r.querySelector("select");
-      sel.onchange = () => { setV(k, sel.value); if (k === "part" || k === "clkSource" || k === "clkPos" || k === "wState" || k === "pWorldState" || k === "tfStyle" || k === "rvStyle" || k === "grArms") buildControls(); changed(); };
+      sel.onchange = () => { setV(k, sel.value); if (k === "world" || k === "part" || k === "clkSource" || k === "clkPos" || k === "wState" || k === "pWorldState" || k === "tfStyle" || k === "rvStyle" || k === "grArms") buildControls(); changed(); };
       inputs[k] = { kind: "select", inp: sel };
     } else {
       r.innerHTML = `<label for="in-${k}"><span>${label}</span><output id="out-${k}"></output></label><div class="inline"><input type="color" id="in-${k}"></div>`;
@@ -1189,6 +1203,7 @@ function buildControls() {
       <div class="row"><label for="in-bg"><span>Fond de la scène</span></label><div class="inline"><select id="in-bg"><option value="black">Noir complet</option><option value="none">Transparent</option><option value="color">Couleur</option></select><input type="color" id="in-bgc" aria-label="Couleur du fond"></div><p class="note" id="bgnote"></p></div>`;
     controls.appendChild(d);
   }
+  if (S.anim === "life") { lifeControls(); renderGroup(); wire(); syncUI(); return; }
   if (S.anim === "loops") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence et la place de l’onglet Blob né. Chaque boucle tourne sans fin, sans raccord visible, et a une <b>entrée</b> qui part du repos du blob né et une <b>sortie</b> qui y revient (choisis le morceau) : repos → entrée → boucle autant de fois qu’on veut → sortie → repos. Quand la forme humaine doit changer de posture (s’asseoir, croiser les jambes), elle fond en lumière et reprend forme dans la nouvelle.</p>`);
   if (S.anim === "elec") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence et la place de l’onglet Blob né. Il part de son repos, découvre l’électricité et joue avec, puis revient exactement à son repos : la première et la dernière image sont celles de la boucle du blob né. Mets les GIF bout à bout, ils s’enchaînent. Les couleurs de l’électricité se règlent à part, dans « L’électricité ».</p>`);
   if (S.anim === "clock") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence et la place de l’onglet Blob né. Il part de sa position de repos, affiche l’heure, puis revient exactement à son repos : la première et la dernière image sont celles de la boucle du blob né.</p>`);
@@ -1300,6 +1315,12 @@ function buildControls() {
     }
     controls.appendChild(d);
   });
+  renderGroup();
+  wire();
+  syncUI();
+}
+// the render and export settings, last in every tab
+function renderGroup() {
   {
     const [d, rows] = group(RENDER, "render", false);
     for (const def of RENDER.rows) rowFor(rows, def);
@@ -1307,8 +1328,6 @@ function buildControls() {
       <div class="row"><label><span>Réglages</span></label><div class="inline"><button type="button" id="saveScene">Enregistrer les réglages</button><button type="button" id="loadScene">Ouvrir des réglages</button><input type="file" id="sceneFile" accept=".json,application/json" hidden></div><p class="note">Un seul fichier garde la scène et toutes les animations.</p></div>`);
     controls.appendChild(d);
   }
-  wire();
-  syncUI();
 }
 
 // scene format: a ratio keeps the height in step with the width
@@ -1337,7 +1356,9 @@ function wire() {
   on("loadScene", "onclick", () => $("sceneFile").click());
   on("sceneFile", "onchange", openSettings);
 }
-$("reset").onclick = () => { const f = fresh(); if (isWorldTab()) { const w = selWorld(); Object.assign(w, PFX.worlds.DEFAULTS[w.wType] || PFX.worlds.SPACE); } else if (S.anim === "portal") S.portal = { ...f.portal, pWorld: S.portal.pWorld }; else if (S.anim === "objects") { const keep = { list: S.objects.list, sel: S.objects.sel, nextId: S.objects.nextId }; S.objects = { ...f.objects, ...keep }; } else S[S.anim] = f[S.anim]; refreshV(); buildControls(); changed(); say(`${ANIMS[S.anim].name} : réglages d’origine.`); };
+$("reset").onclick = () => {
+  if (S.anim === "life") { S.life = { ...lifeDef(), world: S.life.world }; LIFE = null; lifeSig = ""; refreshV(); buildControls(); changed(); say("Vivre : il repart du repos, chez lui, en blob né, sans objet."); return; }
+  const f = fresh(); if (isWorldTab()) { const w = selWorld(); Object.assign(w, PFX.worlds.DEFAULTS[w.wType] || PFX.worlds.SPACE); } else if (S.anim === "portal") S.portal = { ...f.portal, pWorld: S.portal.pWorld }; else if (S.anim === "objects") { const keep = { list: S.objects.list, sel: S.objects.sel, nextId: S.objects.nextId }; S.objects = { ...f.objects, ...keep }; } else S[S.anim] = f[S.anim]; refreshV(); buildControls(); changed(); say(`${ANIMS[S.anim].name} : réglages d’origine.`); };
 
 function syncPalette() { const sw = $("swatches"); if (sw) [...sw.children].forEach((c, i) => (c.value = PFX.toHex(PFX.hex(V.palette[i])))); accent(); }
 function syncUI() {
@@ -1570,6 +1591,11 @@ function rebuild() {
   if (V.zoom > 0) { view.classList.remove("fit"); view.style.width = SW * V.zoom + "px"; }
   else { view.classList.add("fit"); view.style.width = ""; }
   $("wrap").classList.toggle("checker", V.bg === "none");
+  $("scrub").hidden = S.anim === "life";
+  if (S.anim === "life") {
+    const sig = [SW, SH, V.posX, V.posY, V.scale, V.duration, V.light, JSON.stringify(V.palette)].join();
+    if (!LIFE || sig !== lifeSig) { lifeSig = sig; lifeStart(); }
+  } else { LIFE = null; lifeSig = ""; }
 }
 let pending = false;
 function changed() { pending = true; persist(); accent(); }
@@ -1580,6 +1606,13 @@ function moved() { if (S.anim !== "birth" && S.anim !== "blob") OPTS = effOpts()
 function drawGuides() {
   if (!V.guides) return;
   const pl = placement();
+  if (S.anim === "life") {
+    // where the next thing will appear
+    const x = Math.round((V.spotX / 100) * SW) + 0.5, y = Math.round((V.spotY / 100) * SH) + 0.5;
+    ctx.save(); ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue("--glow").trim() || "#9fe0ff"; ctx.globalAlpha = 0.8;
+    ctx.beginPath(); ctx.moveTo(x - 4, y); ctx.lineTo(x + 4, y); ctx.moveTo(x, y - 4); ctx.lineTo(x, y + 4); ctx.stroke(); ctx.restore();
+    return;
+  }
   ctx.save();
   ctx.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue("--glow").trim() || "#9fe0ff";
   ctx.globalAlpha = 0.7; ctx.lineWidth = 1; ctx.setLineDash([4, 3]);
@@ -1672,6 +1705,12 @@ function toScene(ev) {
 }
 let drag = null;
 view.addEventListener("pointerdown", (ev) => {
+  if (S.anim === "life") {
+    const [x, y] = toScene(ev);
+    setV("spotX", +Math.max(0, Math.min(100, (x / SW) * 100)).toFixed(2)); setV("spotY", +Math.max(0, Math.min(100, (y / SH) * 100)).toFixed(2));
+    shown = -1; persist();
+    return;
+  }
   let tgHit = null;
   const [x, y] = toScene(ev), pl = placement(), tgs = targets(), hit = Math.max(10, 14 / (view.getBoundingClientRect().width / SW));
   if (isWorldTab()) {
@@ -1743,9 +1782,179 @@ view.addEventListener("keydown", (ev) => {
   moved();
 });
 
+// ---- the life tab (Vivre): the creature lives on, as it will in its own page. It plays every tab's animations with
+// that tab's settings, each one from its rest back to a rest, on the beats of that rest (ice-life.js), taking by itself
+// the steps it needs (closing a portal, changing form, going home...); its scene keeps what it makes, each thing in the
+// world it was made in, or following it. What it is asked waits its turn: nothing ever jumps.
+const FORM_NAMES = { blob: "le blob né", human: "la forme humaine en lévitation", grounded: "la forme humaine au sol" };
+const SHAPE_NAMES = Object.fromEntries(SHAPE_OPTS);
+const LIFE_KIND = { enter: " (il s’y met)", exit: " (il s’arrête)", loop: " (en boucle)" };
+let LIFE = null, lifeBase = 0, lifeAt = 0, lifePaused = false, lifeLast = 0, lifeSig = "", lifeDice = 1, lifeOpts = null;
+// a tab's options for its effect, as that tab builds them, for the creature in a given form (the life engine asks)
+function optsAs(tab, pick, hub) {
+  const keep = { anim: S.anim, V, SW, SH, B, form: S.shared.bodyForm };
+  try {
+    S.anim = tab; S.shared.bodyForm = hub.form;
+    refreshV(); Object.assign(V, pick);
+    if (tab === "clock") V.clkSource = "now";
+    SW = V.sceneW; SH = V.sceneH; B = V.canvas;
+    return effOpts();
+  } finally { S.anim = keep.anim; V = keep.V; SW = keep.SW; SH = keep.SH; B = keep.B; S.shared.bodyForm = keep.form; }
+}
+const lifeNow = () => (lifePaused ? lifeAt : lifeAt + ((performance.now() - lifeBase) / 1000) * (+V.speed || 1));
+function lifeStart() {
+  LIFE = PFX.life.createLife({ D: Math.max(0.5, +S.blob.duration || 4), optsFor: optsAs, hub: S.life.hub, things: S.life.things, t0: 0 });
+  lifeOpts = { light: V.light ?? 1, life: LIFE };
+  lifeBase = performance.now(); lifeAt = 0; lifePaused = false; shown = -1; lifeLast = 0;
+  $("play").textContent = "Pause";
+}
+function lifeSave() { const s = PFX.life.snapshot(LIFE); S.life.hub = s.hub; S.life.things = s.things; persist(); }
+function lifeAsk(req) {
+  if (!LIFE) lifeStart();
+  const r = PFX.life.want(LIFE, req, lifeNow());
+  if (!r.ok) say(r.why, true);
+  else { lifeSave(); say(`Demandé : ${req.label || "c’est noté"}. Il le fera à son tour, sans saut.`); }
+  lifeStatus();
+}
+const placeName = (h) => (h.place === "home" ? "chez lui" : `dans « ${(worldById(h.place) || { name: "un autre monde" }).name} »`);
+function lifeStatus() {
+  const el = $("lifeNow");
+  if (!el || !LIFE) return;
+  const t = lifeNow(), st = PFX.life.status(LIFE, t), h = st.hub;
+  const portal = h.portal === null ? "" : h.portal === "home" ? ", le chemin du retour ouvert" : `, un portail ouvert vers « ${(worldById(h.portal) || { name: "un monde" }).name} »`;
+  const doing = st.kind === "rest" ? "Il se repose." : `${st.label}${LIFE_KIND[st.kind] || ""}${st.loop ? " — jusqu’à ce que tu demandes autre chose" : ""}.`;
+  const q = st.queue.filter((x, i) => !(x.kind === "loop" && st.queue[i - 1] && st.queue[i - 1].kind === "enter"));
+  el.innerHTML = `<p><b>${doing}</b></p><p class="note">${FORM_NAMES[h.form]}, ${placeName(h)}${portal}.</p>`
+    + (q.length ? `<p class="note">À suivre : ${q.map((x) => x.label + (x.kind === "enter" ? " (en boucle)" : x.kind === "exit" ? " (il s’arrête)" : "")).join(" → ")}</p>` : "");
+  const stop = $("lifeStop");
+  if (stop) stop.disabled = !(st.loop || (st.queue.length && st.queue[st.queue.length - 1].kind === "loop"));
+  // what it can do after what it was asked, and why not
+  document.querySelectorAll("[data-life]").forEach((b) => { const r = PFX.life.can(LIFE, JSON.parse(b.dataset.life)); b.disabled = !r.ok; b.title = r.ok ? "" : r.why; });
+  const n = $("lifeThings");
+  if (n) {
+    const end = st.end, here = PFX.life.snapshot(LIFE).things.filter((th) => !th.linked || th.place === end.place);
+    const key = here.map((th) => th.id).join();
+    if (n.dataset.key !== key) {
+      n.dataset.key = key;
+      n.innerHTML = here.length ? "" : `<p class="note">Rien ici pour l’instant.</p>`;
+      for (const th of here) {
+        const b = document.createElement("button");
+        b.type = "button"; b.className = "act";
+        b.innerHTML = `<strong>${SHAPE_NAMES[th.ob.shape] || th.ob.shape} n° ${th.id}</strong><span>${th.linked ? "reste dans ce monde" : "le suit partout"} · le faire disparaître</span>`;
+        b.dataset.life = JSON.stringify({ id: "remove", thing: th.id });
+        b.onclick = () => lifeAsk({ id: "remove", thing: th.id, label: `fait disparaître ${(SHAPE_NAMES[th.ob.shape] || "l’objet").toLowerCase()} n° ${th.id}`, pick: { removeStyle: S.life.removeStyle } });
+        n.appendChild(b);
+      }
+    }
+  }
+  $("fcount").textContent = `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
+}
+// when nothing is asked, it may find something to do by itself (after a few beats of rest)
+function lifeAuto(t) {
+  if (!S.life.autonomous || !LIFE) return;
+  const st = PFX.life.status(LIFE, t);
+  if (st.kind !== "rest" || st.queue.length || t - st.hub.since < Math.max(1, +S.life.calm || 2) * PFX.life.restLen(LIFE, st.hub)) return;
+  const pool = PFX.life.CATALOG.filter((c) => c.family !== "clock" && PFX.life.can(LIFE, { id: c.id }).ok);
+  if (!pool.length) return;
+  const r = PFX.rng(4242, lifeDice++), c = pool[Math.floor(r.range(0, pool.length)) % pool.length];
+  PFX.life.want(LIFE, { id: c.id, label: lifeName(c), reps: c.kind === "loop" ? 1 + Math.floor(r.range(0, 3)) : undefined }, t);
+  lifeStatus();
+}
+const LIFE_LISTS = () => ({ actions: ACTION_LIST, loops: LOOP_LIST, elec: ELEC_LIST });
+function lifeName(c) { const row = (LIFE_LISTS()[c.family] || []).find((a) => a[0] === c.name); return row ? row[1] : c.family === "clock" ? "affiche l’heure" : c.name; }
+function lifeTick(now) {
+  if (!LIFE) lifeStart();
+  const t = lifeNow(), fps = +V.fps || 30, i = Math.floor(t * fps + 1e-6);
+  if (i !== shown) {
+    img.data.set(renderScene("life", lifeOpts, i / fps, bgValue()));
+    ctx.putImageData(img, 0, 0);
+    drawGuides();
+    shown = i;
+  }
+  if (now - lifeLast > 250) { lifeLast = now; lifeAuto(t); lifeStatus(); PFX.life.trim(LIFE, t); }
+}
+// a button that asks for something (greyed, with the reason, when it can't be done after what is already asked)
+function lifeButton(grid, req, name, desc, onclick) {
+  const b = document.createElement("button");
+  b.type = "button"; b.className = "act"; b.dataset.life = JSON.stringify({ ...req, label: undefined });
+  b.innerHTML = `<strong>${name}</strong><span>${desc}</span>`;
+  b.onclick = onclick || (() => lifeAsk({ ...req, label: name }));
+  grid.appendChild(b);
+  return b;
+}
+function lifeGrid(rows, label) { const g = document.createElement("div"); g.className = "actions"; g.setAttribute("aria-label", label); rows.appendChild(g); return g; }
+function lifeControls() {
+  controls.insertAdjacentHTML("beforeend", `<p class="note intro">Ici la créature <b>vit</b>, sans fin et sans jamais sauter d’image. Demande-lui quelque chose : elle le fait à son tour, en partant de son repos et en y revenant, et prend d’elle-même les étapes nécessaires (fermer un portail, changer de forme, rentrer chez elle…). Les boucles durent jusqu’à ce que tu demandes autre chose. Chaque animation garde les réglages de son onglet. Ce qu’elle fait apparaître reste dans le décor.</p>`);
+  {
+    const [d, rows] = group({ title: "Maintenant", hint: "ce qu’il fait, ce qui suit" }, "life-now", true);
+    rows.insertAdjacentHTML("beforeend", `<div class="lifenow" id="lifeNow" aria-live="polite"></div><div class="inline"><button type="button" id="lifeStop">Arrêter la boucle</button><button type="button" id="lifeClear">Vider la file</button></div>`);
+    controls.appendChild(d);
+  }
+  const fam = (title, hint, key, list, family, open) => {
+    const [d, rows] = group({ title, hint }, "life-" + key, open), grid = lifeGrid(rows, title);
+    for (const [id, name, desc] of list) lifeButton(grid, { id: family === "clock" ? "clock" : `${family}:${id}` }, name, desc);
+    controls.appendChild(d);
+  };
+  fam("Actions", "une fois, du repos au repos", "actions", ACTION_LIST, "actions", true);
+  fam("En boucle", "il s’y met, continue, s’arrête", "loops", LOOP_LIST, "loops", true);
+  fam("Électricité", "une fois, du repos au repos", "elec", ELEC_LIST, "elec", false);
+  fam("Heure", "il affiche l’heure qu’il est", "clock", [["clock", "Afficher l’heure", "l’heure qu’il est, puis repos"]], "clock", false);
+  {
+    const [d, rows] = group({ title: "Forme", hint: "il se transforme" }, "life-form", false), grid = lifeGrid(rows, "Forme");
+    for (const [id, name, desc] of BODY_FORMS) lifeButton(grid, { id: "form", form: id }, name, desc, () => lifeAsk({ id: "form", form: id, label: `devient ${FORM_NAMES[id]}` }));
+    rows.insertAdjacentHTML("beforeend", `<p class="note">Les formes humaines ont les réglages de l’onglet Transformation (styles de transformation et de retour compris).</p>`);
+    controls.appendChild(d);
+  }
+  {
+    const [d, rows] = group({ title: "Mondes", hint: "portail, voyage, retour" }, "life-worlds", false);
+    rowFor(rows, ["world", "Monde", { select: S.worlds.list.map((w) => [String(w.id), `${w.name} (${worldTypeName(w.wType).toLowerCase()})`]) }]);
+    const grid = lifeGrid(rows, "Mondes"), W = () => +S.life.world;
+    lifeButton(grid, { id: "portal", open: true, world: W() }, "Ouvrir un portail", "vers ce monde", () => lifeAsk({ id: "portal", open: true, world: W(), label: "ouvre un portail" }));
+    lifeButton(grid, { id: "portal", open: false }, "Fermer le portail", "et revenir au repos", () => lifeAsk({ id: "portal", open: false, label: "ferme le portail" }));
+    lifeButton(grid, { id: "go", place: W() }, "Aller dans ce monde", "il traverse le portail", () => lifeAsk({ id: "go", place: W(), label: "part dans ce monde" }));
+    lifeButton(grid, { id: "go", place: "home" }, "Rentrer chez lui", "par le chemin du retour", () => lifeAsk({ id: "go", place: "home", label: "rentre chez lui" }));
+    rows.insertAdjacentHTML("beforeend", `<p class="note">Les portails ont les réglages de l’onglet Portail (forme, place, styles), les mondes ceux des onglets Mondes et Surface planète.</p>`);
+    controls.appendChild(d);
+  }
+  {
+    const [d, rows] = group({ title: "Objets", hint: "ils restent dans le décor" }, "life-objects", false);
+    for (const def of [["shape", "Objet", { select: SHAPE_OPTS }], ["obSize", "Taille", 4, 30, 0.5, " px"], ["obHue", "Teinte", 0, 360, 1, "°"],
+      ["obLayer", "Plan", { select: [["back", "Derrière lui"], ["front", "Devant lui"]] }],
+      ["linked", "Où il reste", { select: [["1", "Lié à ce monde : il y reste quand il part"], ["0", "Le suit d’un monde à l’autre"]] }],
+      ["appearStyle", "Il apparaît en", { select: OBJ_APPEAR || [["halo", "Halo"]] }], ["removeStyle", "Il disparaît en", { select: OBJ_REMOVE || [["dissolve", "Se dissout"]] }]]) rowFor(rows, def);
+    rows.insertAdjacentHTML("beforeend", `<p class="note">Clique dans la scène pour choisir où le prochain objet apparaît (la croix).</p>`);
+    const grid = lifeGrid(rows, "Faire apparaître");
+    lifeButton(grid, { id: "appear" }, "Faire apparaître", "à la croix", () => {
+      const pl = placement(), k = V.scale, id = (LIFE ? LIFE.nextId : 1);
+      const ob = { shape: S.life.shape, x: ((S.life.spotX / 100) * SW - pl.cx) / k, y: ((S.life.spotY / 100) * SH - pl.cy) / k, size: +S.life.obSize, spinY: 1, spinX: 0, tilt: 0.4,
+        float: 4, floatTurns: 1, hue: +S.life.obHue, glow: 1, layer: S.life.obLayer, ph: (id * 0.37) % 1 };
+      lifeAsk({ id: "appear", ob, linked: String(S.life.linked) !== "0", label: `fait apparaître ${(SHAPE_NAMES[ob.shape] || "un objet").toLowerCase()}`, pick: { appearStyle: S.life.appearStyle } });
+    });
+    rows.insertAdjacentHTML("beforeend", `<p class="note">Là où il est maintenant :</p><div class="actions" id="lifeThings"></div>`);
+    controls.appendChild(d);
+  }
+  {
+    const [d, rows] = group({ title: "Vie autonome", hint: "il s’occupe tout seul" }, "life-auto", false);
+    rows.insertAdjacentHTML("beforeend", `<div class="row"><label class="check"><input type="checkbox" id="lifeAutoOn"> Quand on ne lui demande rien, il choisit lui-même quoi faire</label></div>`);
+    rowFor(rows, ["calm", "Repos entre deux choses", 1, 8, 1, " battements"]);
+    controls.appendChild(d);
+  }
+  { const [d, rows] = group({ ...PLACE, rows: PLACE.rows.filter((r) => r[0] !== "canvas"), hint: "la même que le blob né" }, "life-place", false); for (const def of PLACE.rows.filter((r) => r[0] !== "canvas")) rowFor(rows, def); controls.appendChild(d); }
+  on("lifeStop", "onclick", () => lifeAsk({ id: "stop", label: "s’arrête" }));
+  on("lifeClear", "onclick", () => { if (LIFE) { PFX.life.clearQueue(LIFE, lifeNow()); lifeSave(); lifeStatus(); say("File vidée : il finit ce qu’il fait."); } });
+  on("lifeAutoOn", "onchange", (e) => { S.life.autonomous = e.target.checked; persist(); });
+  if ($("lifeAutoOn")) $("lifeAutoOn").checked = !!S.life.autonomous;
+  lifeStatus();
+}
+
 // ---- playback
 let playing = true, t0 = performance.now(), shown = -1, scrubIdx = 0;
 $("play").onclick = () => {
+  if (S.anim === "life") {
+    if (lifePaused) { lifeBase = performance.now(); lifePaused = false; } else { lifeAt = lifeNow(); lifePaused = true; }
+    $("play").textContent = lifePaused ? "Lecture" : "Pause"; $("play").setAttribute("aria-label", $("play").textContent);
+    return;
+  }
   playing = !playing;
   $("play").textContent = playing ? "Pause" : "Lecture";
   $("play").setAttribute("aria-label", playing ? "Pause" : "Lecture");
@@ -1754,6 +1963,7 @@ $("play").onclick = () => {
 $("scrub").oninput = (e) => { scrubIdx = +e.target.value; if (playing) $("play").click(); };
 function tick(now) {
   if (pending) { pending = false; rebuild(); shown = -1; }
+  if (S.anim === "life") { lifeTick(now); requestAnimationFrame(tick); return; }
   let i = scrubIdx;
   if (playing) {
     const loop = (loopLen() / V.speed) * 1000;
@@ -1980,6 +2190,7 @@ const ERR = {
 const errText = (e) => (e && e.code === "sheet_big" ? e.message : ERR[e && e.code] || "Le téléchargement n’est pas disponible dans cette vue.");
 const btns = () => ["exAll", "exGif", "exPng", "exJson", "saveScene"].map($).filter(Boolean);
 async function run(jobs, done) {
+  if (S.anim === "life") { say("Dans Vivre, la créature vit en direct. Pour un GIF, une planche ou un JSON, ouvre l’onglet de l’animation."); return; }
   btns().forEach((b) => (b.disabled = true));
   if (pending) { pending = false; rebuild(); }
   try {

@@ -147,6 +147,9 @@ canvas#view:active { cursor: grabbing; }
 .actions.modes { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .tabs { flex-wrap: wrap; }
 .note { font-size: 12.5px; color: var(--muted); margin: 0; }
+.tab.live { font-weight: 700; }
+.lifenow { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; display: grid; gap: 4px; min-height: 3.2em; }
+.lifenow p { margin: 0; }
 @media (prefers-reduced-motion: reduce) { button { transition: none; } }
 </style>
 </head>
@@ -159,6 +162,7 @@ canvas#view:active { cursor: grabbing; }
         <p class="sub">Une créature de lumière : sa naissance, sa vie, ses actions, et ce qu’elle crée dans sa scène</p>
       </div>
       <div class="tabs" role="tablist" aria-label="Animation">
+        <button class="tab live" role="tab" data-anim="life">Vivre</button>
         <button class="tab" role="tab" data-anim="birth">Naissance</button>
         <button class="tab" role="tab" data-anim="blob">Blob né</button>
         <button class="tab" role="tab" data-anim="actions">Actions</button>

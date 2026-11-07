@@ -194,13 +194,13 @@ function plan(L, req, h) {
       if (h.portal !== null) steps.push({ kind: "close" });
       steps.push({ kind: "open", world: req.world });
       break;
-    case "appear": why = shut(); if (!why) steps.push({ kind: "appear", ob: req.ob, linked: req.linked !== false, label: req.label }); break;
+    case "appear": why = shut(); if (!why) steps.push({ kind: "appear", ob: req.ob, linked: req.linked !== false, label: req.label, pick: req.pick }); break;
     case "remove": {
       why = shut();
       const th = L.things.find((x) => x.id === req.thing && x.dying === Infinity);
       if (!why && !th) why = "Cet objet n’est plus là.";
       else if (!why && th.linked && th.place !== h.place) why = "Cet objet est resté dans un autre monde.";
-      if (!why) steps.push({ kind: "remove", thing: th.id, label: req.label });
+      if (!why) steps.push({ kind: "remove", thing: th.id, label: req.label, pick: req.pick });
       break;
     }
     case "stop": break;
@@ -231,7 +231,7 @@ function segment(L, step, h, at) {
     s.len = transform.total(s.o); h1 = { ...h, form: k === "transform" ? step.form : "blob" };
     if (k === "transform") s.label = step.form === "grounded" ? "prend forme humaine, sur ses jambes" : "prend forme humaine, en lévitation";
   } else if (k === "appear" || k === "remove") {
-    s.o = optsOf(L, "objects", { mode: k }, h); s.mod = objects;
+    s.o = optsOf(L, "objects", { ...step.pick, mode: k }, h); s.mod = objects;
     const th = k === "appear" ? { id: L.nextId++, ob: step.ob, place: h.place, linked: step.linked, born: Infinity, dying: Infinity } : L.things.find((x) => x.id === step.thing);
     if (k === "appear") L.things.push(th);
     s.thing = th.id;
@@ -261,7 +261,8 @@ function segment(L, step, h, at) {
  * Ask the creature for something; it does it after what it was already asked (a loop going on ends after its turn,
  * through its exit), starting on the next beat of its rest, taking the steps it needs first (closing a portal,
  * changing form, going home...). req: { id: a CATALOG id | "form" (form) | "go" (place) | "portal" (open, world) |
- * "appear" (ob, linked) | "remove" (thing) | "stop", label, reps (a loop's turns before it stops by itself) }.
+ * "appear" (ob, linked) | "remove" (thing) | "stop", label, reps (a loop's turns before it stops by itself), pick (more of the
+ * objects tab's settings for appear / remove: appearStyle, removeStyle...) }.
  * Returns { ok } or { ok: false, why } (in French).
  */
 export function want(L, req, now) {
