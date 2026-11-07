@@ -432,6 +432,39 @@ function stander(o, st, h, P, g, X) {
   for (const q of [...L, ...Hl]) { x0 = Math.min(x0, q.x0); x1 = Math.max(x1, q.x1); y0 = Math.min(y0, q.y0); y1 = Math.max(y1, q.y1); }
   return { L, Hl, U, head: hd, hands, tips, heart, chest, hips, box: [x0, y0, x1, y1] };
 }
+// a figure facing us seen as it turns away: everything but its head (and hair) drawn closer to its middle, by q
+function narrow(fg, q) {
+  const hd = fg.head;
+  for (const p of fg.L) {
+    if (p.t === 1 && p.cx === hd.x && p.cy === hd.y) continue;
+    if (p.t === 0) {
+      const ax = p.ax * q, bx = p.bx * q, mm = Math.max(p.ra, p.rb);
+      Object.assign(p, { ax, bx, dx: bx - ax, l2: (bx - ax) ** 2 + p.dy ** 2, x0: Math.min(ax, bx) - mm, x1: Math.max(ax, bx) + mm });
+    } else { const cx = p.cx * q; Object.assign(p, { cx, x0: cx - p.rx, x1: cx + p.rx }); }
+  }
+  fg.hands = fg.hands.map(([x, y]) => [x * q, y]); fg.tips = fg.tips.map(([x, y]) => [x * q, y]); fg.heart = [fg.heart[0] * q, fg.heart[1]];
+  return fg;
+}
+// a whole figure carried into another space: tf maps its points, k scales its radii
+function moveFig(fg, tf, k) {
+  for (const Ls of [fg.L, fg.Al, fg.Fl, fg.Hl]) if (Ls) for (const q of Ls) {
+    if (q.t === 0) {
+      const [ax, ay] = tf(q.ax, q.ay), [bx, by] = tf(q.bx, q.by), ra = q.ra * k, rb = q.rb * k, mm = Math.max(ra, rb);
+      Object.assign(q, { ax, ay, bx, by, ra, rb, k: q.k * k, dx: bx - ax, dy: by - ay, l2: (bx - ax) ** 2 + (by - ay) ** 2, x0: Math.min(ax, bx) - mm, x1: Math.max(ax, bx) + mm, y0: Math.min(ay, by) - mm, y1: Math.max(ay, by) + mm });
+    } else {
+      const [cx, cy] = tf(q.cx, q.cy), rx = q.rx * k, ry = q.ry * k;
+      Object.assign(q, { cx, cy, rx, ry, r: Math.min(rx, ry), k: q.k * k, x0: cx - rx, x1: cx + rx, y0: cy - ry, y1: cy + ry });
+    }
+  }
+  const [hx, hy] = tf(fg.head.x, fg.head.y);
+  fg.head = { ...fg.head, x: hx, y: hy, rx: fg.head.rx * k, ry: fg.head.ry * k };
+  fg.hands = fg.hands.map(([x, y]) => tf(x, y)); fg.tips = fg.tips.map(([x, y]) => tf(x, y)); fg.heart = tf(...fg.heart);
+  fg.chest = tf(0, fg.chest)[1]; fg.hips = tf(0, fg.hips)[1];
+  const a = tf(fg.box[0], fg.box[1]), b = tf(fg.box[2], fg.box[3]);
+  fg.box = [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[0], b[0]), Math.max(a[1], b[1])];
+  fg.U *= k;
+  return fg;
+}
 // turning parts of a figure round a point (a lean over the hips)
 const turner = (a, px, py) => { const c = Math.cos(a), s = Math.sin(a); return (x, y) => [px + (x - px) * c - (y - py) * s, py + (x - px) * s + (y - py) * c]; };
 function turnParts(L, i0, i1, tn) {
@@ -839,8 +872,12 @@ function build(o, t, ext = null) {
   // another tab may change its pose for a while: its legs (lotus...) and arms (down...), or, on the floor, sit down
   // cross-legged on it (seat)
   const fo = ext && (m.legs || m.arms) ? { ...o, huLegs: m.legs || o.huLegs, huArms: m.arms || o.huArms } : o, seat = !!(ext && G && m.seat > 0.5);
-  // walking or running (m.gait, on its legs): it turns side on and works out its own pose, on the spot (the world goes by)
-  const gait = ext && G && !seat && m.gait ? m.gait : null;
+  // walking or running (m.gait, on its legs): it turns side on and works out its own pose, on the spot (the world goes by).
+  // m.turn (0 facing us .. 1 side on) while it turns to set off or after it has stopped: the figure facing us and the one
+  // side on are both posed and their fields blend, so it turns as one body, never melting nor jumping (at 0 it is the
+  // figure facing us exactly, at 1 the one side on)
+  const gaitM = ext && G && !seat && m.gait ? m.gait : null, tw = gaitM ? (m.turn == null ? 1 : clamp(m.turn)) : 0;
+  const gait = tw >= 1 ? gaitM : null, turning = tw > 0 && tw < 1;
   if (seat) {
     const g = m.grow;
     fsx = g; fsy = g; tilt = clamp(m.rot, -0.5, 0.5); ox = m.dx + m.ax; oy = G.FY - (BOTTOM.lotus + 0.06) * G.Lw.U * g;
@@ -873,8 +910,28 @@ function build(o, t, ext = null) {
     }
     if (X) X.Q = Q;
   }
-  const fig = gait ? strider(o, st, ph.h, P, gait, G.FY) : G && !seat ? stander(o, st, ph.h, P, ch.g, X) : human(seat ? { ...fo, huLegs: "lotus" } : fo, st, ph.h, P, ch.g, Q), U = fig.U;
-  const cs = Math.cos(tilt), sn = Math.sin(tilt);
+  let fig = gait ? strider(o, st, ph.h, P, gait, G.FY) : G && !seat ? stander(o, st, ph.h, P, ch.g, X) : human(seat ? { ...fo, huLegs: "lotus" } : fo, st, ph.h, P, ch.g, Q);
+  // turning: the figure side on too, brought into the space of the one facing us (both stand upright on the floor; its frame
+  // is at (ax, 0)), and what the drawing needs of the figure (head, hands, feet, heart) taken between the two
+  let figB = null, turnWx = null;
+  if (turning) {
+    // (seen turning away, its shoulders, hips, arms and feet come closer together, as a body's width does, not its head:
+    // by half way they are where the figure side on has them, so the two bodies blend into one)
+    narrow(fig, 1 - 0.62 * E(clamp(tw / 0.55)));
+    figB = strider(o, st, ph.h, P, gaitM, G.FY);
+    const kx = 1 / fsx, ky = 1 / fsy;
+    moveFig(figB, (x, y) => [(x + m.ax - ox) * kx, (y - oy) * ky], Math.min(kx, ky));
+    const mx = (a, b) => [lerp(a[0], b[0], tw), lerp(a[1], b[1], tw)];
+    turnWx = lerp(ox - X.sx, m.ax, tw);
+    fig = { ...fig, Al: figB.Al, Fl: figB.Fl, side: figB.side, turnK: tw, B: figB,
+      head: { x: lerp(fig.head.x, figB.head.x, tw), y: lerp(fig.head.y, figB.head.y, tw), rx: lerp(fig.head.rx, figB.head.rx, tw), ry: lerp(fig.head.ry, figB.head.ry, tw) },
+      hands: fig.hands.map((h, i) => mx(h, figB.hands[i] || h)), tips: fig.tips.map((q, i) => mx(q, figB.tips[i] || q)), heart: mx(fig.heart, figB.heart),
+      chest: lerp(fig.chest, figB.chest, tw), hips: lerp(fig.hips, figB.hips, tw),
+      box: [Math.min(fig.box[0], figB.box[0]), Math.min(fig.box[1], figB.box[1]), Math.max(fig.box[2], figB.box[2]), Math.max(fig.box[3], figB.box[3])] };
+    // (past half way it stands on the floor as the figure side on does: its prints, the floor's glints)
+    if (tw >= 0.5) X = { gm: 1, grav: 1, lift: 0, hairUp: 0, hairGrav: 1, kick: 0, crouch: 0, gl: 1, flat: 1, sx: 0, pel: 0, feet: null, fy: G.FY, gait: gaitM };
+  }
+  const U = fig.U, cs = Math.cos(tilt), sn = Math.sin(tilt);
   const toScreen = (fx, fy) => { const x = fx * fsx, y = fy * fsy; return [ox + x * cs - y * sn, oy + x * sn + y * cs]; };
   // the blob's side (while some of it is left): where the blob is; on the floor it pours itself from the figure's
   // middle, its bottom never under the floor
@@ -886,7 +943,7 @@ function build(o, t, ext = null) {
     bs = { ...st, x: mx, y: Math.min(my, G.FY - S * st.sy * 0.98), tilt: m.rot };
   }
   const cb = Math.cos(-bs.tilt), sb = Math.sin(-bs.tilt);
-  Object.assign(F, { fig, U, fsx, fsy, tilt, toScreen, ox, oy, X, bs });
+  Object.assign(F, { fig, U, fsx, fsy, tilt, toScreen, ox, oy, X, bs, turn: turning ? tw : null, turnWx });
   // where the field lives: the blob's reach while some of it is left, the figure's box, and the halo around them
   const hm = lerp(S * 0.55, U * 0.3, k) * Math.max(0.01, o.shell), far = hm + 2;
   let X0 = Infinity, X1 = -Infinity, Y0 = Infinity, Y1 = -Infinity;
@@ -900,8 +957,9 @@ function build(o, t, ext = null) {
   const Gs = new Float32Array(N), Gw = new Float32Array(N), Qx = new Float32Array(N), Qy = new Float32Array(N), Gk = new Float32Array(N), Gl = spiral ? new Uint8Array(N) : null, Hs = fig.Hl.length ? new Float32Array(N).fill(99) : null;
   // side on (walking, running): the near arm in front of the body (As) and the far limbs behind it (Fs), each with its thickness
   const As = fig.Al ? new Float32Array(N).fill(99) : null, Aw = As ? new Float32Array(N).fill(1) : null, Fs = fig.Fl ? new Float32Array(N).fill(99) : null, Fw = Fs ? new Float32Array(N).fill(1) : null;
-  // (as it melts into light, those limbs thin out and are gone into the body long before the body itself is light)
-  const lim = (1 - k) * U * 0.6, hlim = (1 - k) * U * 0.9;
+  // (as it melts into light, those limbs thin out and are gone into the body long before the body itself is light; as it
+  // turns side on they grow out of it)
+  const lim = (1 - k) * U * 0.6 + (figB ? (1 - tw) * U * 0.6 : 0), hlim = (1 - k) * U * 0.9, tb = E(seg(tw, 0.3, 0.75));
   const band = U * 0.45, yF = spiral ? lerp(bottomOf(o) * U + U * 0.5, fig.box[1] - U * 0.3, ch.front) : 0, fsc = Math.min(fsx, fsy);
   for (let j = 0; j < H; j++)
     for (let i = 0; i < W; i++) {
@@ -922,7 +980,15 @@ function build(o, t, ext = null) {
         continue;
       }
       // (its hair thins away as it melts into light, and grows back as it takes shape)
-      if (kk > 0) { field(fig.L, rx, ry, far / fsc); s = SD * fsc; w = SW * fsc; if (Hs && kk > 0.5) { field(fig.Hl, rx, ry, far / fsc); Hs[n] = SD * fsc + hlim; } }
+      if (kk > 0) {
+        field(fig.L, rx, ry, far / fsc); s = SD * fsc; w = SW * fsc;
+        if (figB) { field(figB.L, rx, ry, far / fsc); s = lerp(s, SD * fsc, tb); w = lerp(w, SW * fsc, tb); }
+        if (Hs && kk > 0.5) {
+          field(fig.Hl, rx, ry, far / fsc); let hs = SD * fsc;
+          if (figB) { field(figB.Hl, rx, ry, far / fsc); hs = lerp(hs, SD * fsc, tb); }
+          Hs[n] = hs + hlim;
+        }
+      }
       if (As) { field(fig.Al, rx, ry, far / fsc); As[n] = SD * fsc + lim; Aw[n] = Math.max(0.5, SW * fsc); }
       if (Fs) { field(fig.Fl, rx, ry, far / fsc); Fs[n] = SD * fsc + lim; Fw[n] = Math.max(0.5, SW * fsc); }
       if (kk < 1) {
@@ -1081,10 +1147,13 @@ function eyesOf(p, C, o, F) {
   if (G) Object.assign(se, { vx: st.vx * (1 - G.gm), vy: st.vy * (1 - G.gm), m: { ...se.m, shut: Math.max(se.m.shut, G.shut), lookY: st.m.lookY + 0.9 * G.look, eyeScale: st.m.eyeScale * (1 + 0.22 * G.wide) } });
   if (F.fig.side) {
     // side on, its face is turned three-quarters toward the way it goes: both eyes slid forward and closer, looking ahead
-    const sd = F.fig.side;
-    Object.assign(oe, { eyeSpacing: oe.eyeSpacing * 0.86 });
-    Object.assign(se, { x: se.x + sd * hr * 0.24, vx: 0, vy: 0, m: { ...se.m, lookX: sd * 0.85 + st.m.lookX * 0.3, lookY: 0.1 } });
-    drawEyes(p, C, oe, se, () => hr * 1.02);
+    // (turning, tk of the way)
+    const sd = F.fig.side, tk = F.fig.turnK ?? 1;
+    Object.assign(oe, { eyeSpacing: oe.eyeSpacing * toward(1, 0.86, tk) });
+    Object.assign(se, { x: se.x + sd * hr * 0.24 * tk, vx: tk >= 1 ? 0 : se.vx * (1 - tk), vy: tk >= 1 ? 0 : se.vy * (1 - tk),
+      m: { ...se.m, lookX: toward(se.m.lookX, sd * 0.85 + st.m.lookX * 0.3, tk), lookY: toward(se.m.lookY, 0.1, tk) } });
+    const er = toward(lerp(1, 1.05, ke), 1.02, tk);
+    drawEyes(p, C, oe, se, () => hr * er);
     return;
   }
   drawEyes(p, C, oe, se, () => hr * lerp(1, 1.05, ke));
@@ -1161,7 +1230,7 @@ function floorFx(p, C, o, F, part = 0) {
   if (FY > room[3]) return;
   const reach = G.fl * (Math.max(-room[0], room[2]) + 6), grow = G.fl < 1, Lt = o.grLight, ice = o.grLook !== "line", y1 = Math.ceil(room[3]);
   // (lit round the figure: where it stands, or where another tab's steps or moves took it)
-  const wx = F.X && F.X.step ? F.ox - F.X.sx : F.X && F.X.gait ? F.ox : 0, lumAt = (px) => { const d = Math.abs(px - wx), edge = clamp(Math.min(px - room[0], room[2] - px) / (W * 0.14)); return Lt * (0.28 + 0.72 * Math.exp(-d / (U * 2.4))) * (0.3 + 0.7 * edge); };
+  const wx = F.turnWx != null ? F.turnWx : F.X && F.X.step ? F.ox - F.X.sx : F.X && F.X.gait ? F.ox : 0, lumAt = (px) => { const d = Math.abs(px - wx), edge = clamp(Math.min(px - room[0], room[2] - px) / (W * 0.14)); return Lt * (0.28 + 0.72 * Math.exp(-d / (U * 2.4))) * (0.3 + 0.7 * edge); };
   if (o.grNoFloor) {
     // on a planet's ground (another tab's world): no floor of ice to lay, only its light on the ground round its feet
     if (part) return;
@@ -1216,7 +1285,7 @@ function floorFx(p, C, o, F, part = 0) {
   // glints running on the ice (carried back with the floor while it walks or runs over it on the spot: a whole number of
   // tiles a loop; still when it walks along it). They dim as the figure melts into light, so they don't jump when it turns
   const n = whole(o.grGlints) * whole(o.liveLoops, 1), Wk = F.X && F.X.gait, Tt = Math.max(16, Math.ceil(Math.max(room[2] - room[0], room[3] - room[1])));
-  const slide = Wk ? (Wk.dir < 0 ? -1 : 1) * gaitDist(G.Lw, Wk) - (F.ext ? F.st.m.ax : 0) : 0, lit = F.ext ? 1 - (F.st.m.morph || 0) : 1;
+  const slide = Wk ? (Wk.dir < 0 ? -1 : 1) * gaitDist(G.Lw, Wk) - (F.ext ? F.st.m.ax : 0) : 0, lit = (F.ext ? 1 - (F.st.m.morph || 0) : 1) * (F.turn != null ? Math.abs(1 - 2 * F.turn) : 1);
   if (n) cycle(F.ph.h, F.P, n, o.seed + 313, (g) => g.range(0.45, 0.9), (age, life, r) => {
     const k = age / life, r0 = r.range(0, 1), x = Wk ? Math.floor(room[0] + (((r0 * Tt - slide) % Tt) + Tt) % Tt) + 0.5 : Math.floor(lerp(room[0] + 3, room[2] - 3, r0)) + 0.5, a = Math.sin(Math.PI * k) * G.fl * lit;
     if (Wk && (x < room[0] + 3 || x > room[2] - 3)) return;
@@ -1235,7 +1304,7 @@ function gaitFx(p, C, o, F) {
   const N = Math.max(1, Math.round(Wk.N || 1)), pr = Math.max(0, Wk.prints ?? 1), sp = Math.max(0, Wk.sparks ?? 1), life = K.run ? 1.7 : 2.6;
   const fb = FOOT.fb * U, hb = FOOT.hb * U, tb = FOOT.tb * U, room = roomOf(o), Lt = o.grLight;
   // (ox: where another tab carries it along the floor; lit: the prints dim as it melts into light, to turn)
-  const ox = F.ext ? F.st.m.ax : 0, lit = F.ext ? 1 - (F.st.m.morph || 0) : 1, X = (v) => ox + sd * v;
+  const ox = F.ext ? F.st.m.ax : 0, lit = (F.ext ? 1 - (F.st.m.morph || 0) : 1) * (F.turn != null ? clamp(2 * F.turn - 1) : 1), X = (v) => ox + sd * v;
   for (const [side, off] of [[1, 0], [-1, 0.5]]) {
     for (let k = 0; k <= Math.ceil(life) + 1; k++) {
       const j = Math.floor(c - off) - k, a = c - off - j;
