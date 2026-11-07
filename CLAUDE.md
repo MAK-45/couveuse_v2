@@ -72,7 +72,8 @@ After any change to an effect or to `app/`, run `npm run build && npm test`.
   - `pixelfx/src/fx/creature/ice-blob-idle.js` — tab **Blob né**; the blob itself (exports `blobBack`, `blobFront`, `state`, `ambient`, `NONE`)
   - `pixelfx/src/fx/creature/ice-blob-actions.js` — tab **Actions** (19 actions; exports `hsl`, `fromHsl`, `walkRoute`, `portalSpots`)
   - `pixelfx/src/fx/creature/ice-scene-objects.js` — tab **Objets** (solids, appear/remove; exports `drawObject`)
-  - `pixelfx/src/fx/creature/ice-blob-loops.js` — tab **Boucles** (18 endless activities)
+  - `pixelfx/src/fx/creature/ice-blob-loops.js` — tab **Boucles** (20 endless activities; `walk`/`run` = `gaitLoop()`: the figure on
+    its legs walks or runs on the spot, its floor of ice going by under its feet like a treadmill, same `m.gait` and `ga` keys as Action monde)
   - `pixelfx/src/fx/creature/ice-blob-clock.js` — tab **Heure** (shows the time)
   - `pixelfx/src/fx/creature/ice-blob-electric.js` — tab **Électricité** (8 electric animations, rest → electricity → rest like actions; own colours `elCore`/`elColor`/`elGlow`)
   - `pixelfx/src/fx/creature/ice-blob-portal.js` — tab **Portail** (the blob opens a portal onto a world: `open` from rest, `live` portal open, `close` back to rest; `cross` from `live` through the portal, with its mirror image, out of a mirrored portal into `beyond` = its rest in the other world; then `reopen` (a portal home, our void inside) → `beyondOpen` (loop) → `return` back through to the Blob né's rest, or to `live` with `returnKeep`; 3 open + 3 close styles, 5 shapes)

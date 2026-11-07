@@ -162,6 +162,11 @@ for (const [name, more] of elecCases) {
     const o = { ...explore.meta.options, ...G, ...more }, T = o.duration * o.loops;
     report(`gait ${tag}`, diff(render(explore, o, 0), render(explore, o, T)), diff(render(explore, o, T / 3 - 1 / 30), render(explore, o, T + T / 3 - 1 / 30)));
   }
+  // on the spot in the Boucles tab (its floor of ice going by under its feet), both ways, other speeds
+  for (const [more, tag] of [[{ loop: "walk" }, "loop walk"], [{ loop: "run", gaDir: "left", loops: 3 }, "loop run left"], [{ loop: "run", gaRun: 24, gaStride: 0.75, gaSparks: 2.5 }, "loop sprint"], [{ loop: "walk", gaWalk: 2, gaStride: 1.4, loops: 1 }, "loop walk slow"]]) {
+    const o = { ...loops.meta.options, ...G, ...more }, T = o.duration * o.loops;
+    report(`gait ${tag}`, diff(render(loops, o, 0), render(loops, o, T)), diff(render(loops, o, T / 3 - 1 / 30), render(loops, o, T + T / 3 - 1 / 30)));
+  }
   // through a portal onto a planet's surface: there it stands on the ground (no floor of ice), and the crossing chains
   const pl = { ...portal.meta.options, ...G, world: { ...worlds.PLAIN }, mode: "live" }, Pp = portal.total(pl), Mp = Math.round(Pp / D) * Ni;
   const by = { ...pl, mode: "beyond" }, cr = { ...pl, mode: "cross", loops: 3 }, T3 = D * 3, N3 = Ni * 3;

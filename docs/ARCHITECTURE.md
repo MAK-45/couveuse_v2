@@ -56,7 +56,7 @@ always come from `S.transform` (merged in `effOpts()`).
 | File | Tab | Shape of an entry |
 |---|---|---|
 | ice-blob-actions.js | Actions | `A.name = (o) => ({ mods(t), back?(p,C,t,st), front?(p,C,t,st), copies?(t), palette?(t) })` |
-| ice-blob-loops.js | Boucles | `L.name = (o) => ({ mods(t), back?, front? })`, phase via `phase(o, t)` |
+| ice-blob-loops.js | Boucles | `L.name = (o) => ({ mods(t), back?, front? })`, phase via `phase(o, t)`; `walk`/`run` (`gaitLoop`) pass `m.gait` from `gaitPlan()` with the scene's tile, on the spot |
 | ice-scene-objects.js | Objets | `objects[]` list; `mode` live / appear / remove; `appearing()` / `removing()` per style |
 | ice-blob-electric.js | Électricité | `L.name = (o) => ({ mods(t), charge(t), back?(p,C,V,t,st), front? })`; `V` = electricity colours, `charge` tints the blob; bolts via `zap()` reseeded `flick()` times a loop. Runs as an action: time is `prog()`, `presence()` fades it in/out and `settle()` brings every modifier back to neutral |
 | ice-blob-portal.js | Portail | `mode` open / live / close / cross / beyond / reopen / beyondOpen / return (`wayOf()` gives the way in and out, so the crossing runs both ways); `crossing()` + `crossMods()` + `reflect()` (the mirror image, drawn into a scratch frame and copied flipped inside the portal) for the way through; `opening()`/`closing()` give the portal's shape over progress, `drawPortal()` draws the world inside (via `renderWorld`), the inner lip, the rim and its flames, `castFx()` the ray and flashes. `total(o)`: live = the world's period |

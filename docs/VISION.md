@@ -96,7 +96,9 @@ phase de vol en course), en boucle libre ; le sol défile sous ses pieds exactem
 jamais), la vitesse est en km/h (arrondie pour que la boucle soit parfaite), et ses pas laissent des empreintes de lumière. Sur une
 **surface de planète**, elle marche sur le sol de la planète : pas de sol de glace, et ce qui est plus près de nous que ses pieds
 (arbres, rochers, hautes herbes) passe devant elle ; dans l’espace, elle garde son sol de glace, qui défile avec ses pas. Le blob né
-et la forme en lévitation ne marchent pas (pas de jambes, ou pas de sol sous les pieds) : grisé, avec la raison.
+et la forme en lévitation ne marchent pas (pas de jambes, ou pas de sol sous les pieds) : grisé, avec la raison. Dans l’onglet
+Boucles, la marche et la course se font **sur place** : son sol de glace (reflets, empreintes) défile sous ses pieds comme un
+tapis roulant.
 
 **Règle pour la suite : chaque nouvelle animation est faite pour chaque transformation** (blob né, forme humaine en
 lévitation, forme humaine au sol, et toute forme ajoutée plus tard), adaptée à chacune ; si elle n’a vraiment pas de sens

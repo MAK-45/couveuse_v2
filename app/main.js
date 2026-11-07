@@ -370,9 +370,21 @@ const LOOP_LIST = [
   ["rain", "Petit nuage", "il pleut sur lui"], ["stars", "Étoiles filantes", "regarde le ciel, s’émerveille"],
   ["hiccup", "Hoquet", "sursauts surprises"], ["top", "Toupie", "tourne sur lui-même"],
   ["swing", "Balançoire", "suspendu à un fil de lumière"], ["firefly", "Luciole", "joue avec une petite lumière"],
-];
+  ["walk", "Marche", "sur place, le sol défile sous ses pas"], ["run", "Course", "sur place, foulées et temps de vol"]];
 const SHAPE_OPTS = [["sphere", "Sphère"], ["cube", "Cube"], ["pyramid", "Pyramide"], ["crystal", "Cristal"], ["column", "Colonne"], ["gem", "Gemme"]];
+// walking and running (the human form on its legs), here and in Action monde
+const GAIT_DIRS = [["right", "Vers la droite"], ["left", "Vers la gauche"]];
+const GAIT_ROWS = {
+  walk: [["gaWalk", "Vitesse de marche", 1.5, 7.5, 0.1, " km/h"], ["gaDir", "Il marche", { select: GAIT_DIRS }], ["gaStride", "Longueur des pas", 0.7, 1.4, 0.01, "×"],
+    ["gaArms", "Balancement des bras", 0, 2.5, 0.05, ""], ["gaLean", "Se penche en avant", 0, 3, 0.05, ""], ["gaHair", "Les cheveux suivent ses pas", 0, 2.5, 0.05, ""],
+    ["gaPrints", "Empreintes de lumière sur le sol", 0, 2, 0.05, ""]],
+  run: [["gaRun", "Vitesse de course", 6, 30, 0.5, " km/h"], ["gaDir", "Il court", { select: GAIT_DIRS }], ["gaStride", "Longueur des foulées", 0.7, 1.4, 0.01, "×"],
+    ["gaBounce", "Les genoux amortissent (rebond)", 0, 2, 0.05, ""], ["gaHeel", "Les talons remontent", 0, 2, 0.05, ""], ["gaKnee", "Les genoux montent", 0, 2.5, 0.05, ""],
+    ["gaArms", "Balancement des bras", 0, 2.5, 0.05, ""], ["gaLean", "Se penche en avant", 0, 3, 0.05, ""], ["gaHair", "Les cheveux suivent ses foulées", 0, 2.5, 0.05, ""],
+    ["gaPrints", "Empreintes de lumière sur le sol", 0, 2, 0.05, ""], ["gaSparks", "Éclats de lumière à chaque foulée", 0, 2.5, 0.05, ""]],
+};
 const LOOP_PARAMS = {
+  walk: GAIT_ROWS.walk, run: GAIT_ROWS.run,
   sleep: [["sleepBreaths", "Respirations par boucle", 1, 8, 1, ""], ["sleepDepth", "Profondeur du souffle", 0, 3, 0.05, ""], ["sleepSink", "Affaissement", 0, 30, 0.5, " px"],
     ["sleepBubbles", "Bulles de sommeil", 0, 10, 1, ""], ["sleepDim", "Lumière qui baisse", 0, 1, 0.01, ""], ["sleepTwitch", "Petit sursaut dans son sommeil", 0, 2, 0.05, ""]],
   magic: [["magicEyes", "Yeux", { select: [["closed", "Fermés, concentré"], ["open", "Ouverts"], ["happy", "Plissés"]] }], ["magicCircle", "Taille du cercle", 10, 90, 1, " px"],
@@ -429,7 +441,7 @@ function loopGroups() {
   const cur = LOOP_LIST.find((a) => a[0] === V.loop) || LOOP_LIST[0];
   return [
     { title: "Boucle", hint: "ce qu’il fait", pickerList: LOOP_LIST, pickerKey: "loop", rows: [["loops_" + cur[0], "Durée de la boucle", 1, 8, 1, ""]] },
-    { title: cur[1], hint: "réglages", key: "loopparams", rows: LOOP_PARAMS[cur[0]] },
+    { title: cur[1], hint: "réglages", key: "loopparams", gaitNote: cur[0] === "walk" || cur[0] === "run", rows: LOOP_PARAMS[cur[0]] },
     { ...PLACE, rows: PLACE.rows.filter((r) => r[0] !== "canvas"), hint: "la même que le blob né" },
   ];
 }
@@ -788,8 +800,6 @@ const EXPLORE_LIST = [["move", "Mouvement", "il file à travers le monde"], ["lo
   ["swim", "Nager", "il ondule par poussées, comme un poisson"], ["turns", "Vol en virages", "il slalome, penché dans les virages"],
   ["collect", "Collecter des étoiles", "il fonce sur les étoiles et les avale"],
   ["walk", "Marcher", "sur ses jambes, le sol suit ses pas"], ["run", "Courir", "foulées, bras pliés, en vol entre deux pas"]];
-// walking and running: only to the left or the right (the ground goes by under its feet)
-const GAIT_DIRS = [["right", "Vers la droite"], ["left", "Vers la gauche"]];
 // each action's own settings
 const EXPLORE_PARAMS = {
   move: [],
@@ -803,13 +813,7 @@ const EXPLORE_PARAMS = {
     ["trBank", "S’incline dans les virages", 0, 2.5, 0.05, ""], ["trTrail", "Traînée de lumière", 0, 2.5, 0.05, ""], ["trFollow", "Bouge à l’écran (sinon la caméra le suit)", 0, 1, 0.01, ""]],
   collect: [["clCount", "Étoiles par boucle", 1, 10, 1, ""], ["clSpread", "Écart sur les côtés", 0, 100, 1, " px"], ["clSize", "Taille des étoiles", 3, 16, 0.5, " px"],
     ["clHue", "Teinte des étoiles", 0, 360, 1, "°"], ["clGulp", "Il gonfle en les avalant", 0, 2.5, 0.05, ""], ["clBurst", "Éclat de lumière", 0, 2.5, 0.05, ""]],
-  walk: [["gaWalk", "Vitesse de marche", 1.5, 7.5, 0.1, " km/h"], ["gaDir", "Il marche", { select: GAIT_DIRS }], ["gaStride", "Longueur des pas", 0.7, 1.4, 0.01, "×"],
-    ["gaArms", "Balancement des bras", 0, 2.5, 0.05, ""], ["gaLean", "Se penche en avant", 0, 3, 0.05, ""], ["gaHair", "Les cheveux suivent ses pas", 0, 2.5, 0.05, ""],
-    ["gaPrints", "Empreintes de lumière sur le sol", 0, 2, 0.05, ""]],
-  run: [["gaRun", "Vitesse de course", 6, 30, 0.5, " km/h"], ["gaDir", "Il court", { select: GAIT_DIRS }], ["gaStride", "Longueur des foulées", 0.7, 1.4, 0.01, "×"],
-    ["gaBounce", "Les genoux amortissent (rebond)", 0, 2, 0.05, ""], ["gaHeel", "Les talons remontent", 0, 2, 0.05, ""], ["gaKnee", "Les genoux montent", 0, 2.5, 0.05, ""],
-    ["gaArms", "Balancement des bras", 0, 2.5, 0.05, ""], ["gaLean", "Se penche en avant", 0, 3, 0.05, ""], ["gaHair", "Les cheveux suivent ses foulées", 0, 2.5, 0.05, ""],
-    ["gaPrints", "Empreintes de lumière sur le sol", 0, 2, 0.05, ""], ["gaSparks", "Éclats de lumière à chaque foulée", 0, 2.5, 0.05, ""]],
+  walk: GAIT_ROWS.walk, run: GAIT_ROWS.run,
 };
 const EXPLORE_STYLES = [["comet", "Étoile filante", "il se change en lumière"], ["stretch", "Étirement", "une goutte fendue par le vent"],
   ["ghosts", "Rémanences", "des images de lui restent derrière"], ["shock", "Onde de choc", "un arc de lumière devant lui"], ["flame", "Flammes de glace", "un feu froid qui s’échappe"]];
@@ -1545,10 +1549,10 @@ function getScene(i) { return sceneCache[i] || (sceneCache[i] = renderScene(S.an
 function gaitNote() {
   const el = $("gaitnote");
   if (!el) return;
-  const g = S.anim === "explore" ? PFX.explore.gaitOf(OPTS) : null, run = V.explore === "run", fr = (x, d = 1) => x.toFixed(d).replace(".", ",");
+  const lp = S.anim === "loops", act = lp ? V.loop : V.explore, g = lp ? PFX.loops.gaitOf(OPTS) : S.anim === "explore" ? PFX.explore.gaitOf(OPTS) : null, run = act === "run", fr = (x, d = 1) => x.toFixed(d).replace(".", ",");
   if (!g) { el.textContent = ""; return; }
-  const L = Math.max(1, Math.round(+V["loops_" + V.explore] || 2)), P = L * V.duration;
-  el.innerHTML = `Vitesse réelle : <b>${fr(g.kmh)} km/h</b>, ${2 * g.N} ${run ? "foulées" : "pas"} par boucle de ${fr(P)} s (cadence : ${fr(g.rate * 120, 0)} ${run ? "foulées" : "pas"} par minute). Le sol sous ses pieds défile exactement à la vitesse de ses pas, d’un nombre entier d’écrans par boucle : la vitesse et la cadence sont arrondies pour que la boucle soit parfaite. Une boucle plus longue s’approche mieux de la vitesse demandée et donne plus de profondeur au décor (les couches lointaines défilent moins vite).`;
+  const L = Math.max(1, Math.round(+V["loops_" + act] || 2)), P = L * V.duration;
+  el.innerHTML = `Vitesse réelle : <b>${fr(g.kmh)} km/h</b>, ${2 * g.N} ${run ? "foulées" : "pas"} par boucle de ${fr(P)} s (cadence : ${fr(g.rate * 120, 0)} ${run ? "foulées" : "pas"} par minute). ${lp ? "Il reste sur place : son sol de glace (reflets, empreintes) défile sous ses pieds exactement à la vitesse de ses pas, comme un tapis roulant." : "Le sol sous ses pieds défile exactement à la vitesse de ses pas."} La vitesse et la cadence sont arrondies pour que la boucle soit parfaite (un nombre entier de foulées et d’écrans par boucle)${lp ? "" : " ; une boucle plus longue s’approche mieux de la vitesse demandée et donne plus de profondeur au décor"}.`;
 }
 function rebuild() {
   E = ANIMS[S.anim].fx; SW = V.sceneW; SH = V.sceneH; B = V.canvas; OPTS = effOpts(); N = nFrames();

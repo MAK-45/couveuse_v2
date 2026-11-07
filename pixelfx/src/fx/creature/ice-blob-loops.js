@@ -7,13 +7,21 @@
 // cross-legged to sleep or meditate) and the two that need flying can't be done (FORM_FIT).
 import { fit, clamp, lerp, seg, bump, ease, noise2, rng, cycle, TAU, WHITE, hex } from "../../core/index.js";
 import { meta as idleMeta } from "./ice-blob-idle.js";
-import { bodyBack, bodyFront, bodyAmbient, formCentre } from "./ice-blob-transform.js";
+import { bodyBack, bodyFront, bodyAmbient, formCentre, gaitPlan } from "./ice-blob-transform.js";
 import { drawObject } from "./ice-scene-objects.js";
 import { hsl, fromHsl } from "./ice-blob-actions.js";
 
-export const LOOPS = ["sleep", "magic", "conjure", "juggle", "meditate", "dance", "bounce", "orbit", "sing", "bubbles", "read", "draw", "rain", "stars", "hiccup", "top", "swing", "firefly"];
+export const LOOPS = ["sleep", "magic", "conjure", "juggle", "meditate", "dance", "bounce", "orbit", "sing", "bubbles", "read", "draw", "rain", "stars", "hiccup", "top", "swing", "firefly", "walk", "run"];
 /** What a new form can't do, and why (the page shows it; the effect then just rests). */
 export const FORM_FIT = {
+  blob: {
+    walk: "Il marche sur ses jambes : le blob né n’en a pas. Choisis la forme humaine au sol.",
+    run: "Il court sur ses jambes : le blob né n’en a pas. Choisis la forme humaine au sol.",
+  },
+  human: {
+    walk: "En lévitation, ses pieds ne touchent pas le sol : il ne peut pas marcher. Choisis la forme humaine au sol.",
+    run: "En lévitation, ses pieds ne touchent pas le sol : il ne peut pas courir. Choisis la forme humaine au sol.",
+  },
   grounded: {
     orbit: "Il fait le tour de la scène en volant : au sol, il ne peut pas voler.",
     top: "Il tournoie sur lui-même comme une toupie, à plat : debout sur ses jambes, la gravité l’en empêche.",
@@ -52,6 +60,8 @@ export const meta = {
     topTurns: 4, topWobble: 0.25, topStretch: 0.3, topTrail: 1, topDrift: 6,
     swingAngle: 35, swingCount: 2, swingLength: 60, swingRope: 1,
     flyCount: 1, flyTurns: 2, flyRadius: 34, flyHue: 60, flyGlow: 1, flyFollow: 1,
+    // walk and run on the spot (on its legs): as in Action monde, its floor of ice going by under its feet
+    gaWalk: 5, gaRun: 12, gaDir: "right", gaStride: 1, gaArms: 1, gaLean: 1, gaBounce: 1, gaHeel: 1, gaKnee: 1, gaHair: 1, gaPrints: 1, gaSparks: 1,
   },
 };
 
@@ -600,6 +610,27 @@ L.firefly = (o) => {
     front(p, C, t, st) { this.fly(p, C, t, st, true); },
   };
 };
+
+// ---- walking and running on the spot (the human form on its legs): side on, it walks or runs where it is and its floor
+// of ice goes by under its feet like a treadmill (glints and prints carried back at the speed of its steps). Whole strides
+// a loop, and the floor goes by whole tiles a loop (gaitPlan): the speed asked, rounded so the loop is seamless
+const gaitLoop = (kind) => (o) => {
+  const P = total(o), r = Array.isArray(o.room) ? o.room : [-meta.origin[0], -meta.origin[1], meta.size[0] - meta.origin[0], meta.size[1] - meta.origin[1]];
+  const T = Math.max(16, Math.ceil(Math.max(r[2] - r[0], r[3] - r[1]))), dir = o.gaDir === "left" ? -1 : 1;
+  const plan = gaitPlan(o, kind, P, T, kind === "run" ? o.gaRun : o.gaWalk, o.gaStride);
+  return {
+    plan,
+    mods(t) {
+      const c = (plan.N * t) / P + 0.1;
+      return { gait: { kind, ph: c - Math.floor(c), cyc: c, S: plan.S, v: plan.v, rate: plan.rate, N: plan.N, dir, arms: o.gaArms, lean: o.gaLean,
+        bounce: o.gaBounce, heel: o.gaHeel, knee: o.gaKnee, hair: o.gaHair, prints: o.gaPrints, sparks: o.gaSparks }, quiet: 1 };
+    },
+  };
+};
+L.walk = gaitLoop("walk");
+L.run = gaitLoop("run");
+/** Walking or running: how fast it really goes and its strides, for the page (null for the other loops). */
+export const gaitOf = (o) => ((o.loop === "walk" || o.loop === "run") && fitsForm(o) ? loopOf(o).plan : null);
 
 // a loop its form can't do: it just rests in that form
 function loopOf(o) { return fitsForm(o) ? (L[o.loop] || L.sleep)(o) : { mods: () => ({}) }; }
