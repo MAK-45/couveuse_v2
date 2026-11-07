@@ -9,8 +9,8 @@
 // cross-legged to sleep or meditate) and the two that need flying can't be done (FORM_FIT).
 import { fit, clamp, lerp, seg, bump, ease, noise2, rng, cycle, TAU, WHITE, hex } from "../../core/index.js";
 import { meta as idleMeta } from "./ice-blob-idle.js";
-import { bodyBack, bodyFront, bodyAmbient, formCentre, formAnchor, gaitPlan, isForm, FORM_DEFAULTS } from "./ice-blob-transform.js";
-import { phases, settle } from "./ice-time.js";
+import { bodyBack, bodyFront, bodyAmbient, formCentre, formAnchor, gaitPlan, gaitLine, isForm, FORM_DEFAULTS } from "./ice-blob-transform.js";
+import { phases, settle, meltAt, DROP_LIFE } from "./ice-time.js";
 import { drawObject } from "./ice-scene-objects.js";
 import { hsl, fromHsl } from "./ice-blob-actions.js";
 
@@ -33,11 +33,9 @@ export const FORM_FIT = {
 export const fitsForm = (o, name = o.loop) => !(FORM_FIT[o.form] && FORM_FIT[o.form][name]);
 /** The three parts of a loop: the loop itself, its entry from rest, its exit back to rest. */
 export const PARTS = ["loop", "enter", "exit"];
-/** Loops that can't have an entry and an exit yet, and why (they play as a loop only). */
-export const PART_FIT = {
-  walk: "Démarrer et s’arrêter de marcher ne sont pas encore faits : la marche se joue seulement en boucle.",
-  run: "Démarrer et s’arrêter de courir ne sont pas encore faits : la course se joue seulement en boucle.",
-};
+/** Loops that can't have an entry and an exit yet, and why (they play as a loop only). None now: walking and running
+ * start with their first steps and stop with their last (see gaitParts at the end of this file). */
+export const PART_FIT = {};
 export const hasParts = (name) => !PART_FIT[name];
 
 export const meta = {
@@ -83,8 +81,14 @@ const E = ease.inOutSine;
 // the activity's own period, and the part being played
 const loopLen = (o) => o.duration * Math.max(1, Math.round(o.loops));
 const partOf = (o) => (o.part === "enter" || o.part === "exit" ? o.part : "loop");
-/** How long the animation lasts: the loop, or its entry or exit (each a whole number of the blob's loops). */
-export const total = (o) => { const p = partOf(o); return p === "loop" ? loopLen(o) : o.duration * Math.max(1, Math.round(p === "enter" ? o.inLoops : o.outLoops)); };
+/** How long the animation lasts: the loop, or its entry or exit (each a whole number of the blob's loops; walking and
+ * running take at least what their first or last steps need). */
+export const total = (o) => {
+  const p = partOf(o);
+  if (p === "loop") return loopLen(o);
+  const n = Math.max(1, Math.round(p === "enter" ? o.inLoops : o.outLoops));
+  return o.duration * (isGait(o) ? gaitLoops(o, p, n) : n);
+};
 // the loop's phase, 0..1, at any time (negative too)
 const phase = (o, t) => (((t / loopLen(o)) % 1) + 1) % 1;
 const whole = (v, lo = 1) => Math.max(lo, Math.round(v));
@@ -632,17 +636,31 @@ L.firefly = (o) => {
 // ---- walking and running on the spot (the human form on its legs): side on, it walks or runs where it is and its floor
 // of ice goes by under its feet like a treadmill (glints and prints carried back at the speed of its steps). Whole strides
 // a loop, and the floor goes by whole tiles a loop (gaitPlan): the speed asked, rounded so the loop is seamless
+const isGait = (o) => (o.loop === "walk" || o.loop === "run") && fitsForm(o);
+const PLANNED = new WeakMap();
+function gaitPlanOf(o, kind) {
+  let pl = PLANNED.get(o);
+  if (!pl) {
+    const r = Array.isArray(o.room) ? o.room : [-meta.origin[0], -meta.origin[1], meta.size[0] - meta.origin[0], meta.size[1] - meta.origin[1]];
+    const T = Math.max(16, Math.ceil(Math.max(r[2] - r[0], r[3] - r[1])));
+    pl = gaitPlan(o, kind, loopLen(o), T, kind === "run" ? o.gaRun : o.gaWalk, o.gaStride);
+    PLANNED.set(o, pl);
+  }
+  return pl;
+}
 const gaitLoop = (kind) => (o) => {
-  const P = loopLen(o), r = Array.isArray(o.room) ? o.room : [-meta.origin[0], -meta.origin[1], meta.size[0] - meta.origin[0], meta.size[1] - meta.origin[1]];
-  const T = Math.max(16, Math.ceil(Math.max(r[2] - r[0], r[3] - r[1]))), dir = o.gaDir === "left" ? -1 : 1;
-  const plan = gaitPlan(o, kind, P, T, kind === "run" ? o.gaRun : o.gaWalk, o.gaStride);
+  const P = loopLen(o), dir = o.gaDir === "left" ? -1 : 1, plan = gaitPlanOf(o, kind);
+  // the loop's strides at its clock t, and the line its steps follow (at its own pace: the loop's clock itself)
+  const cs = (t) => (plan.N * t) / P + 0.1, csInv = (c) => ((c - 0.1) * P) / plan.N;
+  const W0 = { kind, S: plan.S, v: plan.v, rate: plan.rate, N: plan.N, dir, arms: o.gaArms, lean: o.gaLean,
+    bounce: o.gaBounce, heel: o.gaHeel, knee: o.gaKnee, hair: o.gaHair, prints: o.gaPrints, sparks: o.gaSparks };
+  const gait = (line, t) => { const c = line.c(t); return { ...W0, ph: c - Math.floor(c), cyc: c, line, t }; };
+  const own = gaitLine({ S: plan.S, rate: plan.rate, cs, csInv });
   return {
     plan,
-    mods(t) {
-      const c = (plan.N * t) / P + 0.1;
-      return { gait: { kind, ph: c - Math.floor(c), cyc: c, S: plan.S, v: plan.v, rate: plan.rate, N: plan.N, dir, arms: o.gaArms, lean: o.gaLean,
-        bounce: o.gaBounce, heel: o.gaHeel, knee: o.gaKnee, hair: o.gaHair, prints: o.gaPrints, sparks: o.gaSparks }, quiet: 1 };
-    },
+    mods(t) { return { gait: gait(own, t), quiet: 1 }; },
+    // its entry and its exit (o.part): the line of its first steps, or of its last, and what they make of the figure
+    parts(part, T) { return gaitParts(o, kind, part, T, plan, (line) => (t) => gait(line, t), cs, csInv); },
   };
 };
 L.walk = gaitLoop("walk");
@@ -652,6 +670,59 @@ export const gaitOf = (o) => ((o.loop === "walk" || o.loop === "run") && fitsFor
 
 // a loop its form can't do (or a part it doesn't have yet): it just rests in that form
 function loopOf(o) { return fitsForm(o) && (partOf(o) === "loop" || hasParts(o.loop)) ? (L[o.loop] || L.sleep)(o) : { mods: () => ({}) }; }
+
+// ---- walking and running in three parts, the first steps and the last. Entry: it stands (its rest), melts into light and
+// takes shape again side on, still standing; it sets off, its steps growing to the loop's over a stride and a half (two
+// running) as its floor of ice starts to go by under it, leaning into the start; then it goes at the loop's own pace long
+// enough that its steps and its prints are the loop's, frame for frame. Exit: a stride more at its pace, then it slows down,
+// its steps shortening, leans back and stops; it melts into light and takes shape again facing us, at rest. Its steps
+// follow a line (gaitLine, ice-blob-transform.js): every foot stays where it came down while the floor goes back under it
+// by exactly as much as it goes, whatever its pace, so nothing slides. The pose changes (facing us / side on) only while it
+// is melted into light (the melt's plateau), its frame gathered at the point where both poses have it (anchors)
+const GAIT_RAMP = { walk: 1.5, run: 2 }; // strides from standing to its own pace, and back
+const PRINT_LIFE = { walk: 2.6, run: 1.7 }; // how many strides a print lasts (gaitFx)
+function gaitTimes(o, kind, part, T, rate) {
+  const R = GAIT_RAMP[kind] / rate, a0 = Math.max(0.12, (o.lead ?? 0.08) * T), Lm = Math.min(o.meltTime ?? 1.1, T * 0.4);
+  if (part === "enter") {
+    const m0 = a0, m1 = a0 + Lm / 2, m2 = a0 + Lm, g1 = m1 + R;
+    // (then at its own pace for as long as the prints of its first steps take to fade, and the drops of light)
+    return { melt: [m0, m2], swap: m1, go: [m1, g1], need: g1 + Math.max(DROP_LIFE, (PRINT_LIFE[kind] + 0.05) / rate) };
+  }
+  // (it slows down once the steps already on their way are set down: a foot in the air lands within 0.4 of a stride)
+  const f0 = Math.max(a0, 0.45 / rate), f1 = f0 + R, n0 = f1 - 0.25 * Lm, n2 = n0 + Lm;
+  return { melt: [n0, n2], swap: n0 + Lm / 2, go: [f0, f1], need: n2 + DROP_LIFE };
+}
+// how many of the blob's loops its entry or exit takes (at least n)
+const PART_LOOPS = new WeakMap();
+function gaitLoops(o, part, n) {
+  const key = part + n;
+  let m = PART_LOOPS.get(o);
+  if (!m) { m = {}; PART_LOOPS.set(o, m); }
+  if (m[key]) return m[key];
+  const kind = o.loop, rate = gaitPlanOf(o, kind).rate;
+  let k = n;
+  while (k < n + 8 && gaitTimes(o, kind, part, o.duration * k, rate).need > o.duration * k) k++;
+  return (m[key] = k);
+}
+function gaitParts(o, kind, part, T, plan, gaitOn, cs, csInv) {
+  const tm = gaitTimes(o, kind, part, T, plan.rate), enter = part === "enter", clock = enter ? (t) => t - T : (t) => t;
+  const line = gaitLine({ S: plan.S, rate: plan.rate, cs, csInv, at: clock(enter ? tm.go[1] : tm.go[0]),
+    pieces: [{ t0: clock(tm.go[0]), t1: clock(tm.go[1]), s0: enter ? 0 : 1, s1: enter ? 1 : 0 }] });
+  const gaitAt = gaitOn(line), [m0, m2] = tm.melt;
+  const at = (tt) => ({ k: line.s(clock(tt)), melt: meltAt(tt, m0, m2), swap: enter ? tt >= tm.swap : tt < tm.swap, s: enter ? E(seg(tt, m0, m2)) : 1 - E(seg(tt, m0, m2)) });
+  // where its frame and its middle are facing us at rest, and standing side on as it turns
+  const anchors = [formAnchor(o, null), formAnchor(o, () => ({ gait: gaitAt(clock(tm.swap)) }))];
+  const mods = (tt) => {
+    const a = at(tt);
+    // at its own pace: exactly the loop's
+    if (a.k >= 1 && a.swap && !(a.melt > 0)) return { gait: gaitAt(clock(tt)), quiet: 1 };
+    const out = { quiet: a.k > 0 || a.melt > 0 || a.swap ? 1 : 0 };
+    if (a.swap) out.gait = gaitAt(clock(tt));
+    if (a.melt > 0) { out.morph = a.melt; out.anchor = anchors[0].map((v, i) => lerp(v, anchors[1][i], a.s)); }
+    return out;
+  };
+  return { at, mods, anchors };
+}
 
 // ---- the three parts. The loop is the activity itself. Its entry starts on the rest's frame and the activity's own
 // clock runs up to 0 on its last frame, where the loop starts; its exit starts where the loop ends (its clock goes on)
@@ -673,7 +744,11 @@ function planOf(o) {
   if (pl) return pl;
   const act = loopOf(o), part = partOf(o), T = total(o);
   pl = { act, part, T, clock: part === "enter" ? (t) => t - T : (t) => t };
-  if (part !== "loop") {
+  if (part !== "loop" && act.parts) {
+    // walking, running: their own first and last steps
+    const g = act.parts(part, T);
+    Object.assign(pl, { at: g.at, own: g.mods, anchors: g.anchors });
+  } else if (part !== "loop") {
     const m0 = act.mods(0), pose = poseChange(o, m0);
     pl.at = phases(part, T, o.lead ?? 0.08, pose, o.meltTime ?? 1.1);
     if (pose && o.form === "grounded") {
@@ -688,6 +763,7 @@ function planOf(o) {
 function modsOf(pl) {
   const { act } = pl;
   if (pl.part === "loop") return (tt) => act.mods(tt);
+  if (pl.own) return pl.own;
   return (tt) => {
     const a = pl.at(tt), m = act.mods(pl.clock(tt));
     if (a.k >= 1 && a.swap && !(a.melt > 0)) return m;

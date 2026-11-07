@@ -8,10 +8,10 @@
 // (FORM_FIT says which and why).
 import { fit, clamp, lerp, seg, bump, ease, noise2, rng, TAU, WHITE, hex, toHex } from "../../core/index.js";
 import { meta as idleMeta, state as idleState } from "./ice-blob-idle.js";
-import { prog as progAt } from "./ice-time.js";
-import { bodyBack, bodyFront, bodyAmbient } from "./ice-blob-transform.js";
+import { prog as progAt, leadOut, meltAt, DROP_LIFE } from "./ice-time.js";
+import { bodyBack, bodyFront, bodyAmbient, formAnchor, formExtent, gaitFree, gaitLine } from "./ice-blob-transform.js";
 
-export const ACTIONS = ["walk", "jump", "aura", "morph", "spin", "split", "burst", "teleport", "nap", "inflate", "dance", "scared", "freeze", "drop", "rainbow", "comet", "melt", "curious", "portal"];
+export const ACTIONS = ["move", "walk", "jump", "aura", "morph", "spin", "split", "burst", "teleport", "nap", "inflate", "dance", "scared", "freeze", "drop", "rainbow", "comet", "melt", "curious", "portal"];
 /** What a new form can't do, and why (the page shows it; the effect then just rests). */
 export const FORM_FIT = {
   grounded: {
@@ -36,6 +36,9 @@ export const meta = {
   options: {
     ...idleMeta.options,
     form: "blob", action: "walk", loops: 2, lead: 0.08,
+    // the move: where it goes (offsets from its spot, in its own pixels; moveTo overrides them: a life asks for a place) and
+    // stays; how fast it glides there (its sizes a second), the arc, little hops, looking ahead; on its legs it walks or runs
+    moveX: 110, moveY: -25, moveSpeed: 2.6, moveArc: 0.35, moveHops: 0, moveHop: 5, moveLook: 1, moveGait: "walk", moveWalk: 4.5, moveRun: 10,
     // the stroll: stops picked at random inside a zone (offsets from its spot, in its own pixels)
     walkStops: 4, walkRoute: 1, walkMinX: -140, walkMaxX: 140, walkMinY: -50, walkMaxY: 50, walkPause: 0.35, walkCurve: 0.5,
     walkHops: 2, walkHop: 4, walkSquash: 1, walkLook: 1, walkJoy: 0.5,
@@ -64,7 +67,8 @@ export const meta = {
 };
 
 const E = ease.inOutSine, TOWARD = (a, b, k) => a + (b - a) * k;
-const total = (o) => o.duration * Math.max(1, Math.round(o.loops));
+/** How long an action lasts: a whole number of the blob's loops (a move: at least what its way takes). */
+export const total = (o) => o.duration * (o.action === "move" && fitsForm(o) ? moveLoops(o) : Math.max(1, Math.round(o.loops)));
 // the action's own progress: 0 before the lead-in, 1 after the lead-out, eased edges belong to each action
 // the lead-out is never shorter than a drop of light lives (1.7 s): every drop alive on the last frame was
 // shed by the resting blob, as on the idle's frames, so the seam between GIFs is exact
@@ -164,6 +168,104 @@ A.walk = (o) => {
     },
   };
 };
+
+// ---- the move: it goes somewhere else in the scene and stays there (its rest is there now: this action's first frame is
+// its rest where it was, its last its rest where it went, so another one, or a life, carries on from there). The blob and
+// the levitating figure glide there along a gentle arc, leaning into it, looking where they go (the blob may hop along);
+// the figure on its legs walks there (or runs) along its floor: it turns side on as it melts into light, sets off, goes
+// at its pace, slows down and stops, and turns back to face us, every foot staying where it came down. It moves as a
+// whole (ax, ay: its body, its light on the ground, its drops and motes), so standing there it is its rest drawn there
+const gnd = (o) => o.form === "grounded";
+const GAIT_RAMP = { walk: 1.5, run: 2 };
+/** Where the move takes it: [dx, dy] whole pixels from its spot, inside the scene (o.room) with all its body; on its legs only along its floor. */
+export function moveOf(o) {
+  const to = Array.isArray(o.moveTo) ? o.moveTo : [o.moveX, o.moveY];
+  let dx = Math.round(to[0] || 0), dy = gnd(o) ? 0 : Math.round(to[1] || 0);
+  if (Array.isArray(o.room)) {
+    const [x0, y0, x1, y1] = formExtent(o), r = o.room, fit = (v, lo, hi) => (lo > hi ? Math.round((lo + hi) / 2) : Math.min(hi, Math.max(lo, v)));
+    dx = fit(dx, Math.ceil(r[0] - x0 + 2), Math.floor(r[2] - x1 - 2));
+    if (!gnd(o)) dy = fit(dy, Math.ceil(r[1] - y0 + 2), Math.floor(r[3] - y1 - 2));
+  }
+  return [dx, dy];
+}
+// on its legs: its walk there, in seconds of the action (T long): melt, set off, its pace, stop, melt; and its line
+function moveWalk(o, T) {
+  const [dx] = moveOf(o), dist = Math.abs(dx), kind = o.moveGait === "run" ? "run" : "walk", g = gaitFree(o, kind, kind === "run" ? o.moveRun : o.moveWalk);
+  const a0 = Math.max(0.12, o.lead * T), Lm = Math.min(1.1, T * 0.2), R = GAIT_RAMP[kind] / g.rate, V = g.S * g.rate;
+  // up to its pace over R, at its pace for L, down over R: as far as it has to go (a short way: it never gets to its pace)
+  const L = Math.max(0, dist / V - R), peak = L > 0 ? 1 : dist / (V * R), s1 = a0 + Lm / 2, s2 = s1 + R, s3 = s2 + L, s4 = s3 + R;
+  const n0 = s4 - 0.25 * Lm, n2 = n0 + Lm;
+  return { kind, g, dist, dir: dx < 0 ? -1 : 1, melt1: [a0, a0 + Lm], swap1: s1, stop: s4, melt2: [n0, n2], swap2: n0 + Lm / 2, need: n2 + DROP_LIFE,
+    pieces: [{ t0: s1, t1: s2, s0: 0, s1: peak }, { t0: s2, t1: s3, s0: peak, s1: peak }, { t0: s3, t1: s4, s0: peak, s1: 0 }] };
+}
+// the blob, or the levitating figure: how long its glide takes
+const glideTime = (o) => { const [dx, dy] = moveOf(o); return Math.max(0.9, Math.hypot(dx, dy) / Math.max(1, o.moveSpeed * o.size)); };
+const MOVE_LOOPS = new WeakMap();
+function moveLoops(o) {
+  let n = MOVE_LOOPS.get(o);
+  if (n) return n;
+  n = Math.max(1, Math.round(o.loops));
+  for (let k = 0; k < 12; k++, n++) {
+    const T = o.duration * n;
+    if (gnd(o) ? moveWalk(o, T).need <= T : (leadOut(o, T) - o.lead) * T >= glideTime(o)) break;
+  }
+  MOVE_LOOPS.set(o, n);
+  return n;
+}
+A.move = (o) => {
+  const [dx, dy] = moveOf(o), d = Math.hypot(dx, dy);
+  if (!d) return { mods: () => ({}) };
+  if (gnd(o)) return walkTo(o, dx);
+  // the arc bulges upward (sideways for a move straight up or down)
+  let nx = -dy / d, ny = dx / d;
+  if (ny > 0 || (ny === 0 && nx < 0)) { nx = -nx; ny = -ny; }
+  const bend = Math.min(1.5, o.moveArc) * d * 0.18, hops = Math.max(0, Math.round(o.moveHops)), ux = dx / d, uy = dy / d, T = total(o), out = leadOut(o, T);
+  return {
+    mods(t) {
+      // (its progress does not wrap round: before it sets off it was here, after it arrives it is there, drops and all)
+      const a = seg(t / T, o.lead, out);
+      if (a <= 0) return {};
+      if (a >= 1) return { ax: dx, ay: dy };
+      const s = E(a), b = Math.sin(Math.PI * s) * bend, env = Math.sin(Math.PI * a);
+      // a little crouch as it sets off, a squash as it arrives
+      const sq = 0.1 * bump(a, 0, 0.16) + 0.08 * bump(a, 0.86, 1);
+      const m = { ax: dx * s + nx * b, ay: dy * s + ny * b, sy: 1 - sq, sx: 1 + sq * 0.7, quiet: 1,
+        lookX: ux * 1.3 * o.moveLook * Math.min(1, env * 2.5), lookY: uy * 0.8 * o.moveLook * Math.min(1, env * 2.5) };
+      if (hops && o.form !== "human") {
+        const h = Math.abs(Math.sin(Math.PI * hops * s)), land = 1 - h, w = env ** 0.5;
+        m.dy = -o.moveHop * h * w;
+        const k = (land > 0.85 ? ((land - 0.85) / 0.15) * 0.16 : -h * 0.05) * w;
+        m.sy -= k; m.sx += k * 0.8;
+      }
+      return m;
+    },
+  };
+};
+// on its legs: it walks (or runs) there along its floor
+function walkTo(o, dx) {
+  const T = total(o), W = moveWalk(o, T), { g, dir } = W;
+  const line = gaitLine({ S: g.S, rate: g.rate, pieces: W.pieces, at: W.swap1, c0: 0.55 });
+  const base = { kind: W.kind, S: g.S, v: g.v, rate: g.rate, N: 64, dir, arms: 1, lean: 1, bounce: 1, heel: 1, knee: 1, hair: 1, prints: 1, sparks: 1 };
+  const gaitAt = (t) => { const c = line.c(t); return { ...base, ph: c - Math.floor(c), cyc: c, line, t }; };
+  const along = (t) => dir * line.d(t);
+  // where its frame gathers as it melts: facing us here, side on here, side on there, facing us there
+  const A = [formAnchor(o, null), formAnchor(o, () => ({ gait: gaitAt(W.swap1) })), formAnchor(o, () => ({ gait: gaitAt(W.swap2), ax: along(W.swap2) })), formAnchor(o, () => ({ ax: dx }))];
+  const [m0, m2] = W.melt1, [n0, n2] = W.melt2, mix = (a, b, k) => a.map((v, i) => lerp(v, b[i], k));
+  return {
+    mods(t) {
+      if (t >= n2) return { ax: dx };
+      if (t < m0) return {};
+      const melt = t < m2 ? meltAt(t, m0, m2) : meltAt(t, n0, n2), out = { quiet: 1 };
+      if (t >= W.swap1 && t < W.swap2) Object.assign(out, { gait: gaitAt(t), ax: along(t) });
+      else if (t >= W.swap2) out.ax = dx;
+      if (melt > 0) {
+        out.morph = melt;
+        out.anchor = t < m2 ? mix(A[0], A[1], E(seg(t, m0, m2))) : mix(A[2], A[3], E(seg(t, n0, n2)));
+      }
+      return out;
+    },
+  };
+}
 
 A.jump = (o) => ({
   mods(t) {
@@ -939,7 +1041,8 @@ A.portal = (o) => {
 function drift(act, t) {
   if (act.copies) return [0, 0];
   const m = act.mods(t);
-  return m.still ? [0, 0] : [m.dx || 0, Math.min(0, m.dy || 0) * 0.5 + Math.max(0, m.dy || 0)];
+  // (ax, ay: it went somewhere else, all of it)
+  return m.still ? [0, 0] : [(m.dx || 0) + (m.ax || 0), Math.min(0, m.dy || 0) * 0.5 + Math.max(0, m.dy || 0) + (m.ay || 0)];
 }
 
 export function hsl(c) {

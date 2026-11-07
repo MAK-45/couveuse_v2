@@ -34,8 +34,9 @@ export const meta = {
 const ln = (x, y, u, s, r = 1.2) => noise2(x + Math.cos(TAU * u) * r, y + Math.sin(TAU * u) * r, s);
 const turns = (v) => Math.max(0, Math.round(v));
 
-// what an action can lay over the idle; all neutral here, so the idle is the action at rest
-export const NONE = Object.freeze({ dx: 0, dy: 0, rot: 0, sx: 1, sy: 1, grow: 1, morph: 0, shape: null, shut: 0, happy: 0, vis: 1, halo: 1, glow: 0, lookX: 0, lookY: 0, quiet: 0, eyeScale: 1, tw: null });
+// what an action can lay over the idle; all neutral here, so the idle is the action at rest. ax, ay move the whole
+// creature (body, its light on the ground, drops, motes): drawn there at rest, it is the rest drawn ax, ay farther
+export const NONE = Object.freeze({ dx: 0, dy: 0, ax: 0, ay: 0, rot: 0, sx: 1, sy: 1, grow: 1, morph: 0, shape: null, shut: 0, happy: 0, vis: 1, halo: 1, glow: 0, lookX: 0, lookY: 0, quiet: 0, eyeScale: 1, tw: null });
 const modAt = (M, t) => (M ? { ...NONE, ...M(t) } : NONE);
 
 // where the body is at phase u: bob, sway and a noise wander
@@ -49,7 +50,7 @@ function posAt(o, u) {
 export function state(o, t, M) {
   // tw: an action can slow or stop the blob's own clock (frozen, say); its idle reads that time instead
   const D = o.duration, m = modAt(M, t), ti = m.tw ?? t, u = (((ti / D) % 1) + 1) % 1, e = 0.004;
-  const at = (tt) => { const mm = modAt(M, tt), [ix, iy] = posAt(o, (mm.tw ?? tt) / D); return [ix + mm.dx, iy + mm.dy]; };
+  const at = (tt) => { const mm = modAt(M, tt), [ix, iy] = posAt(o, (mm.tw ?? tt) / D); return [ix + mm.dx + mm.ax, iy + mm.dy + mm.ay]; };
   const [x, y] = at(t), [x0, y0] = at(t - e * D), [x1, y1] = at(t + e * D);
   const vx = (x1 - x0) / (2 * e * o.duration), vy = (y1 - y0) / (2 * e * o.duration); // px a second
   // squash and stretch: moving up or down stretches it tall, the turn at the top and bottom squashes it
@@ -94,7 +95,8 @@ function aura(p, C, o, st, rad) {
   p.glow(st.x, st.y, S * 2, C[4], 0.22 * H + 0.3 * m.glow);
   if (o.ground > 0) {
     // a pool of its light on the ground below: brighter when it dips close
-    const gy = o.size * o.groundDist + o.hover + Math.max(0, m.dy), near = clamp(1 - (gy - st.y) / (gy + o.hover + 1) + 0.5);
+    // (moved elsewhere, ay, its ground goes with it)
+    const g0 = o.size * o.groundDist + o.hover + Math.max(0, m.dy), gy = g0 + m.ay, near = clamp(1 - (gy - st.y) / (g0 + o.hover + 1) + 0.5);
     for (let i = 0; i < 3; i++) p.glow(st.x, gy, S * (1.2 - i * 0.3), C[4 + i], 0.18 * o.ground * near * st.m.vis);
     p.shade(st.x - S * 1.6, gy - 3, st.x + S * 1.6, gy + 3, (x, y, out) => {
       const d = Math.hypot((x - st.x) / (S * (1.3 - 0.3 * near)), (y - gy) / 2.4);

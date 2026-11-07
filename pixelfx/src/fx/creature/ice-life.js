@@ -4,9 +4,9 @@
 // laid end to end on a score.
 //
 //   rest      the creature at rest where it is: its form (the blob, or a form of the Transformation tab), the place
-//             (home, or a world of the Mondes / Surface planète tabs) and the portal open there, if any. It lasts as
-//             long as nothing is asked; its own loop (the blob's, the figure's live loop, the world's with a portal
-//             open) gives its beats.
+//             (home, or a world of the Mondes / Surface planète tabs), the portal open there, if any, and where it stands
+//             in the scene (pos: it may have moved there). It lasts as long as nothing is asked; its own loop (the
+//             blob's, the figure's live loop, the world's with a portal open) gives its beats.
 //   segments  what it does, each starting on a beat of the rest it leaves and lasting whole loops: an animation from
 //             rest back to rest ("once"), the entry, loop and exit of an activity (the loop repeats until something
 //             else is asked), a change of form or of place (from one rest to another), a thing made or taken away.
@@ -50,7 +50,8 @@ const MARGIN = 0.15; // (s) nothing new starts sooner than this after now: the f
 // ---- what it can do: every animation of the tabs that go from rest back to rest, or loop with an entry and an exit
 /** Every animation a life can play, generated from the modules' own lists: { id, family, tab, pick, kind, name }. */
 export const CATALOG = [
-  ...actions.ACTIONS.map((name) => ({ id: "actions:" + name, family: "actions", tab: "actions", pick: { action: name }, kind: "once", name })),
+  // (the move goes from one rest to another: its rest is somewhere else after it)
+  ...actions.ACTIONS.map((name) => ({ id: "actions:" + name, family: "actions", tab: "actions", pick: { action: name }, kind: name === "move" ? "move" : "once", name })),
   ...loops.LOOPS.map((name) => ({ id: "loops:" + name, family: "loops", tab: "loops", pick: { loop: name }, kind: "loop", name })),
   ...elec.ELEC.map((name) => ({ id: "elec:" + name, family: "elec", tab: "elec", pick: { elec: name }, kind: "once", name })),
   { id: "clock", family: "clock", tab: "clock", pick: {}, kind: "once", name: "clock" },
@@ -65,8 +66,11 @@ export function whyNot(entry, form) {
 }
 
 // ---- rests. A hub: { form, place ("home" or a world's id), portal (null; at home the id of the world it opens onto;
-// in another world "home" for the way back), since (when this rest began), wt0 (when it arrived in that world) }
-const hubKey = (h) => `${h.form}|${h.place}|${h.portal}`;
+// in another world "home" for the way back), pos ([x, y]: where it stands, whole px from its home spot, the same in every
+// world), since (when this rest began), wt0 (when it arrived in that world) }. Everything it does at a pos is drawn there:
+// the painter moved by pos, its tab's options worked out for that spot (cfg.optsFor gets the hub)
+const posOf = (h) => (Array.isArray(h.pos) ? [Math.round(h.pos[0]) || 0, Math.round(h.pos[1]) || 0] : [0, 0]);
+const hubKey = (h) => `${h.form}|${h.place}|${h.portal}|${posOf(h)}`;
 const away = (h) => h.place !== "home";
 
 /**
@@ -76,7 +80,7 @@ const away = (h) => h.place !== "home";
  */
 export function createLife(cfg) {
   const t0 = cfg.t0 || 0, h = cfg.hub || {};
-  const hub = { form: FORMS.includes(h.form) ? h.form : "blob", place: h.place ?? "home", portal: h.portal ?? null, since: t0, wt0: h.wt0 ?? t0 };
+  const hub = { form: FORMS.includes(h.form) ? h.form : "blob", place: h.place ?? "home", portal: h.portal ?? null, pos: posOf(h), since: t0, wt0: h.wt0 ?? t0 };
   const things = (cfg.things || []).map((th, i) => ({ ...th, id: th.id ?? i + 1, born: -Infinity, dying: Infinity }));
   return { cfg, hub0: hub, segs: [], things, nextId: Math.max(1, ...things.map((th) => th.id + 1)), rests: new Map(), worlds: new Map() };
 }
@@ -94,7 +98,8 @@ function worldCtx(L, id, hub) {
   const key = id + "|" + hub.form;
   let w = L.worlds.get(key);
   if (!w) {
-    const o = { ...L.cfg.optsFor("portal", { pWorld: id, mode: "beyond" }, { ...hub, place: "home", portal: null }) };
+    // (the world is pinned to the scene: worked out from the home spot, wherever the creature stands)
+    const o = { ...L.cfg.optsFor("portal", { pWorld: id, mode: "beyond" }, { ...hub, place: "home", portal: null, pos: [0, 0] }) };
     const W = worldOf(o.world), room = Array.isArray(o.room) ? o.room : [-portal.meta.origin[0], -portal.meta.origin[1], portal.meta.size[0] - portal.meta.origin[0], portal.meta.size[1] - portal.meta.origin[1]];
     const P = portal.total({ ...o, mode: "live" }), cut = o.form === "grounded" && isSurface(W) ? transform.floorFor(o) : null;
     w = { o, w: W, P, room, view: [Math.round(o.pViewX || 0), Math.round(o.pViewY || 0)], cut };
@@ -150,7 +155,7 @@ function closeLoop(L, now) {
 }
 
 // ---- what a request needs: the steps that take it from the rest it is in to doing what's asked
-const STEP_LABEL = { close: "ferme le portail", open: "ouvre un portail", cross: "traverse le portail", reopen: "ouvre le chemin du retour",
+const STEP_LABEL = { move: "se déplace", close: "ferme le portail", open: "ouvre un portail", cross: "traverse le portail", reopen: "ouvre le chemin du retour",
   return: "rentre chez lui", revert: "redevient le blob", transform: "prend forme humaine", appear: "fait apparaître un objet", remove: "fait disparaître un objet" };
 function plan(L, req, h) {
   const steps = [];
@@ -208,19 +213,38 @@ function plan(L, req, h) {
       const entry = byId.get(req.id);
       if (!entry) { why = "Animation inconnue."; break; }
       why = whyNot(entry, h.form) || shut();
+      if (!why && entry.kind === "move") {
+        // where to (req.to: px from the home spot); without one (asking whether it could), only the form and portal matter
+        if (!req.to) break;
+        const p0 = posOf(h), d = actions.moveOf(moveOpts(L, entry, req.to, h));
+        if (!d[0] && !d[1]) why = h.form === "grounded" ? "Il y est déjà : sur ses jambes, il ne va que de côté, le long de son sol." : "Il y est déjà.";
+        else steps.push({ kind: "move", entry, to: [p0[0] + d[0], p0[1] + d[1]], label: req.label });
+        break;
+      }
       if (!why) steps.push({ kind: entry.kind === "loop" ? "enter" : "once", entry, label: req.label, reps: req.reps });
     }
   }
   return why ? { ok: false, why } : { ok: true, steps };
 }
 
+// the move's options from rest h to a place `to` (px from the home spot)
+function moveOpts(L, entry, to, h) {
+  const p0 = posOf(h);
+  return optsOf(L, entry.tab, { ...entry.pick, moveTo: [Math.round(to[0]) - p0[0], Math.round(to[1]) - p0[1]] }, h);
+}
 // one step as a segment starting at `at` from rest h, with the options of its tab
 function segment(L, step, h, at) {
   const D = L.cfg.D, k = step.kind, s = { at, kind: k, hub0: h, label: step.label || STEP_LABEL[k] || "" };
   let h1 = h;
   if (k === "once") {
     s.o = optsOf(L, step.entry.tab, step.entry.pick, h); s.mod = MODULES[step.entry.tab];
-    s.len = s.o.duration * Math.max(1, Math.round(s.o.loops));
+    s.len = step.entry.tab === "actions" ? actions.total(s.o) : s.o.duration * Math.max(1, Math.round(s.o.loops));
+  } else if (k === "move") {
+    // it goes there, and its rest is there now
+    s.o = moveOpts(L, step.entry, step.to, h); s.mod = actions;
+    s.len = actions.total(s.o);
+    const p0 = posOf(h), d = actions.moveOf(s.o);
+    h1 = { ...h, pos: [p0[0] + d[0], p0[1] + d[1]] };
   } else if (k === "enter" || k === "exit" || k === "loop") {
     const part = k === "loop" ? "loop" : k;
     s.o = optsOf(L, "loops", { ...step.entry.pick, part }, h); s.o.part = part; s.mod = loops; s.entry = step.entry;
@@ -237,8 +261,9 @@ function segment(L, step, h, at) {
     s.thing = th.id;
     s.len = s.o.duration * Math.max(1, Math.round(s.o.loops));
     // the objects tab draws them all for this one: what is there with this one coming or going, in the order they were made
-    const list = visible(L, at, h.place).filter((x) => x.id !== th.id).concat([th]).sort((a, b) => a.id - b.id);
-    s.o.objects = list.map((x) => x.ob); s.o.target = list.indexOf(th); s.o.mode = k;
+    const list = visible(L, at, h.place).filter((x) => x.id !== th.id).concat([th]).sort((a, b) => a.id - b.id), [px, py] = posOf(h);
+    // (things are placed from the home spot; the objects tab draws them from where the creature stands)
+    s.o.objects = list.map((x) => (px || py ? { ...x.ob, x: x.ob.x - px, y: x.ob.y - py } : x.ob)); s.o.target = list.indexOf(th); s.o.mode = k;
     if (k === "appear") th.born = at + s.len;
     else th.dying = at;
   } else {
@@ -260,7 +285,7 @@ function segment(L, step, h, at) {
 /**
  * Ask the creature for something; it does it after what it was already asked (a loop going on ends after its turn,
  * through its exit), starting on the next beat of its rest, taking the steps it needs first (closing a portal,
- * changing form, going home...). req: { id: a CATALOG id | "form" (form) | "go" (place) | "portal" (open, world) |
+ * changing form, going home...). req: { id: a CATALOG id (the move: "actions:move" with to: [x, y], px from the home spot) | "form" (form) | "go" (place) | "portal" (open, world) |
  * "appear" (ob, linked) | "remove" (thing) | "stop", label, reps (a loop's turns before it stops by itself), pick (more of the
  * objects tab's settings for appear / remove: appearStyle, removeStyle...) }.
  * Returns { ok } or { ok: false, why } (in French).
@@ -339,7 +364,7 @@ export function visible(L, t, place) {
 /** What to keep for next time: where it is and what it made (from the end of the score). */
 export function snapshot(L) {
   const h = tail(L);
-  return { hub: { form: h.form, place: h.place, portal: h.portal }, things: L.things.filter((th) => th.dying === Infinity).map(({ id, ob, place, linked }) => ({ id, ob, place, linked })) };
+  return { hub: { form: h.form, place: h.place, portal: h.portal, pos: posOf(h) }, things: L.things.filter((th) => th.dying === Infinity).map(({ id, ob, place, linked }) => ({ id, ob, place, linked })) };
 }
 
 // ---- drawing a frame
@@ -362,26 +387,34 @@ function thingsOn(p, L, x, t, layer) {
     p.fade = f0;
   }
 }
-// in another world the world is painted behind it, unless the portal's own animation paints it
+// in another world the world is painted behind it, unless the portal's own animation paints it (the row its feet stand
+// on, for what passes in front of it on a planet's ground, from the home spot)
 function worldBehind(L, x, t) {
   if (!away(x.hub) || x.mod === portal) return null;
   const w = worldCtx(L, x.hub.place, x.hub), wt = (((t - x.hub.wt0) % w.P) + w.P) % w.P;
-  return { ...w, wt, cut: x.o.form === "grounded" && isSurface(w.w) ? transform.floorFor(x.o) : null };
+  return { ...w, wt, cut: x.o.form === "grounded" && isSurface(w.w) ? transform.floorFor(x.o) + posOf(x.hub)[1] : null };
+}
+// a module draws where the creature stands: the painter moved by the rest's pos while it draws
+function at(p, pos, fn) {
+  if (!pos[0] && !pos[1]) return fn();
+  const tx = p.tx, ty = p.ty;
+  p.tx += pos[0]; p.ty += pos[1];
+  try { return fn(); } finally { p.tx = tx; p.ty = ty; }
 }
 function layerOf(p, t, o, front) {
   const L = o.life || demoLife(o);
   if (!L) return front ? idle.draw(p, t, o) : idle.drawBack(p, t, o);
-  const x = locate(L, t), w = worldBehind(L, x, t);
+  const x = locate(L, t), w = worldBehind(L, x, t), pos = posOf(x.hub);
   if (!front) {
     if (w) paintWorld(p, w.w, w.wt, w.P, w.room, w.view, w.cut === null ? null : { part: "back", y: w.cut });
-    x.mod.drawBack(p, x.tau, x.o);
+    at(p, pos, () => x.mod.drawBack(p, x.tau, x.o));
     thingsOn(p, L, x, t, "back");
     return;
   }
-  x.mod.draw(p, x.tau, x.o);
+  at(p, pos, () => x.mod.draw(p, x.tau, x.o));
   thingsOn(p, L, x, t, "front");
   if (w && w.cut !== null) paintWorld(p, w.w, w.wt, w.P, w.room, w.view, { part: "front", y: w.cut });
-  if (x.mod === portal) portal.worldFront(p, x.tau, x.o);
+  if (x.mod === portal) at(p, pos, () => portal.worldFront(p, x.tau, x.o));
 }
 export function drawBack(p, t, o) { layerOf(p, t, o, false); }
 export function draw(p, t, o) { layerOf(p, t, o, true); }
@@ -391,7 +424,9 @@ export function draw(p, t, o) { layerOf(p, t, o, true); }
 export function plainOpts(base = {}) {
   const worlds = base.worlds || {};
   return (tab, pick, hub) => {
-    const mod = MODULES[tab], o = { ...mod.meta.options, ...(base.tabs && base.tabs[tab]), room: base.room ?? null, ...pick };
+    // (the scene's room as seen from where it stands)
+    const [px, py] = posOf(hub), r = base.room ?? null, room = r && (px || py) ? [r[0] - px, r[1] - py, r[2] - px, r[3] - py] : r;
+    const mod = MODULES[tab], o = { ...mod.meta.options, ...(base.tabs && base.tabs[tab]), room, ...pick };
     for (const [k, v] of Object.entries(base)) if (/^(hu|gr)[A-Z]/.test(k) || k === "liveLoops" || k === "palette" || k === "seed") o[k] = v;
     if (tab !== "transform") o.form = hub.form;
     if (tab === "portal") o.world = worlds[pick.pWorld] ?? null;

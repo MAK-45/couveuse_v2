@@ -53,8 +53,8 @@ export function phases(part, T, lead = 0.08, pose = false, meltLen = 1.1) {
   const n2 = Math.max(0.6, full), n1 = n2 - L / 2, f1 = pose ? n1 : n2, f0 = Math.min(Math.max(0.12, lead * T), f1 - 0.3), n0 = n2 - L;
   return (t) => ({ k: t <= f0 ? 1 : t >= f1 ? 0 : 1 - E((t - f0) / (f1 - f0)), melt: pose ? meltAt(t, n0, n2) : 0, swap: !pose || t < n1, s: pose ? 1 - E(seg(t, n0, n2)) : 0 });
 }
-// a melt over [a, b]: up, a plateau at exactly 1 around the middle, down
-function meltAt(t, a, b) {
+/** A melt into light over [a, b]: up, a plateau at exactly 1 around the middle (where a pose may switch), down. */
+export function meltAt(t, a, b) {
   if (t <= a || t >= b) return 0;
   const v = Math.sin((Math.PI * (t - a)) / (b - a)) * 1.35;
   return v >= 1 ? 1 : E(v);

@@ -463,10 +463,12 @@ function grounding(o, st, G, fsy, tilt, xm = null) {
   const sx = o.grSway * 0.1 * U * Math.sin(TAU * st.u * whole(o.grSwayTurns, 1)) * G.gl, pel = sx * 0.3, Ls = 0.985 * Lw.Lg;
   const aY = FY - lerp(Lw.toe * Math.cos(Lw.a0), 0.07 * U, G.flat);
   const W = xm ? walking(Lw, xm) : null, wx = W ? W.wx : 0, fR = W ? W.feet[0] : 0, fL = W ? W.feet[1] : 0, uR = W ? W.up[0] : 0, uL = W ? W.up[1] : 0;
+  // (ax: another tab moves the whole of it along the floor, feet and all)
+  const ax = xm ? xm.m.ax || 0 : 0;
   let sup = -Infinity;
   for (const sd of [1, -1]) { const dx = sd * (Lw.fw - Lw.hw) - sx + ((sd > 0 ? fR : fL) - wx); sup = Math.max(sup, FY - 0.09 * U + sd * pel - Math.sqrt(Math.max(0, Ls * Ls - dx * dx)) - (sd > 0 ? uR : uL) * 2.5); }
-  const ox = sx + wx, oy = lerp(cY, sup, G.gl) + G.crouch - hips + (W ? W.rise : 0);
-  Object.assign(X, { sx, pel, feet: [[Lw.fw + fR - ox, aY - uR - oy], [-Lw.fw + fL - ox, aY - uL - oy]], fy: FY - oy });
+  const ox = sx + wx + ax, oy = lerp(cY, sup, G.gl) + G.crouch - hips + (W ? W.rise : 0);
+  Object.assign(X, { sx, pel, feet: [[Lw.fw + fR + ax - ox, aY - uR - oy], [-Lw.fw + fL + ax - ox, aY - uL - oy]], fy: FY - oy });
   if (W) Object.assign(X, { step: W.step, air: W.air, lean: W.lean, crouch: X.crouch + W.squat });
   return { ox, oy, X };
 }
@@ -542,9 +544,14 @@ function gaitK(W) {
     lean: (0.03 + 0.02 * v) * set("lean"), armA: (0.18 + 0.14 * v) * set("arms"), armB: 0.03, elbow: 0.22, elbowF: 0.34, hand: 0.12, lag: 0.05 };
 }
 const prOf = (K, U, q) => 0.03 * U * Math.cos(TAU * q) * (K.run ? 0.6 : 1);
+// standing still side on: the knee nearly straight
+const KNEE0 = 0.06;
+// what a pace between standing (0) and its own (1) makes of a value
+const toward = (rest, full, k) => (k >= 1 ? full : rest + (full - rest) * k);
 // one stride's geometry (cached): the rolling foot, the hips' height held by a leg down at q, where the ball lands so the
 // hips ride smoothly from one leg to the next (walking: as high on the trailing leg as on the landing one when the heel
-// strikes; running: as high as the foot lands as when it leaves), and the hips' height over the stride
+// strikes; running: as high as the foot lands as when it leaves). footAt / heldAt do the same for a step of any length
+// (rho: its length as a part of the stride's, 0 a foot set down where it stands)
 const SOLVED = new Map();
 function gaitSolve(Lw, W) {
   const key = [W.kind, W.S, W.v, W.bounce, W.heel, W.knee, W.lean, W.arms, Lw.U, Lw.T1, Lw.T2].join();
@@ -553,59 +560,143 @@ function gaitSolve(Lw, W) {
   const U = Lw.U, K = gaitK(W), S = Math.max(1, W.S || U), T1 = Lw.T1, T2 = Lw.T2, beta = K.beta;
   const ha = FOOT.ha * U, hb = FOOT.hb * U, fb = FOOT.fb * U, rH = FOOT.rH * U, rB = FOOT.rB * U;
   const dK = (k) => Math.sqrt(T1 * T1 + T2 * T2 + 2 * T1 * T2 * Math.cos(k));
-  // the foot down at stance phase q, for a ball landing at b0: the ankle (x, height above the ground), pitch, toes' pitch.
-  // It rocks round the heel's round (walking, as it lands) and round the ball of the foot, where the toes bend (as the
-  // heel lifts, and running as it lands): those stay where they are on the ground, so nothing of it sinks into it
-  const foot = (b0, q) => {
-    const ball = b0 - S * q;
+  // the foot down at stance phase q, its ball on the ground at `ball` (hip-relative): the ankle (x, height above the
+  // ground), pitch, toes' pitch. It rocks round the heel's round (walking, as it lands) and round the ball of the foot,
+  // where the toes bend (as the heel lifts, and running as it lands): those stay where they are on the ground, so nothing
+  // of it sinks into it. A shorter step (rho < 1) rolls the foot less
+  const footAt = (ball, q, rho = 1) => {
     if (q < K.q1) {
-      const a = K.ahs * (1 - ease.outQuad(q / K.q1));
+      const a = rho * K.ahs * (1 - ease.outQuad(q / K.q1));
       if (K.run) { const [rx, ry] = pitchOf(fb, ha - rB, a); return { x: ball - rx, h: rB + ry, a, toe: 0 }; }
       const [rx, ry] = pitchOf(-hb, ha - rH, a);
       return { x: ball - hb - fb - rx, h: rH + ry, a, toe: a };
     }
     if (q < K.q2) return { x: ball - fb, h: ha, a: 0, toe: 0 };
-    const k = (q - K.q2) / (beta - K.q2), a = K.ato * (K.run ? ease.inQuad(k) : k * k * (0.55 + 0.45 * k)), [rx, ry] = pitchOf(fb, ha - rB, a);
+    const k = (q - K.q2) / (beta - K.q2), a = rho * K.ato * (K.run ? ease.inQuad(k) : k * k * (0.55 + 0.45 * k)), [rx, ry] = pitchOf(fb, ha - rB, a);
     return { x: ball - rx, h: rB + ry, a, toe: 0 };
   };
-  // (the pelvis turns: the hip of the leg ahead is a little ahead, prOf)
-  const held = (b0, q) => { const f = foot(b0, q), d = dK(curve(K.knee, q)), x = f.x - prOf(K, U, q); return f.h + Math.sqrt(Math.max(0, d * d - x * x)); };
+  // how high a leg down holds the hips (its knee bends less on a shorter step; the pelvis turns: the hip of the leg ahead
+  // is a little ahead, prOf, less as it slows down: sig its pace)
+  const heldAt = (f, q, rho = 1, sig = 1) => { const d = dK(toward(KNEE0, curve(K.knee, q), rho)), x = f.x - prOf(K, U, q) * sig; return f.h + Math.sqrt(Math.max(0, d * d - x * x)); };
+  const held = (b0, q) => heldAt(footAt(b0 - S * q, q), q);
   const gap = (b0) => (K.run ? held(b0, 0) - held(b0, beta) : held(b0, 0) - held(b0, 0.5));
   let lo = -0.5 * S, hi = 1.5 * S;
   for (let i = 0; i < 50; i++) { const m = (lo + hi) / 2; if (gap(m) > 0) lo = m; else hi = m; }
-  const b0 = (lo + hi) / 2, dbl = beta - 0.5, e = 1e-4;
-  const fly = K.run ? { h0: held(b0, beta), h1: held(b0, 0), d0: (held(b0, beta) - held(b0, beta - e)) / e, d1: (held(b0, e) - held(b0, 0)) / e, L: 0.5 - beta } : null;
-  // the hips' height at stride phase ph: on one leg, passing from one leg to the other (walking), or in the air (running)
-  const hipsAt = (ph) => {
-    const f = frac(ph), q = f < 0.5 ? f : f - 0.5;
-    if (K.run) return q <= beta ? held(b0, q) : herm(fly.h0, fly.d0 * fly.L, fly.h1, fly.d1 * fly.L, (q - beta) / fly.L);
-    if (q >= dbl) return held(b0, q);
-    const w = ease.inOutSine(q / dbl);
-    return held(b0, q + 0.5) * (1 - w) + held(b0, q) * w;
-  };
-  sol = { K, S, b0, foot: (q) => foot(b0, q), hipsAt };
+  const b0 = (lo + hi) / 2;
+  sol = { K, S, b0, fb, footAt, heldAt };
   if (SOLVED.size > 40) SOLVED.clear();
   SOLVED.set(key, sol);
   return sol;
 }
-// the legs at the stride's phase: for each leg (near first) its hip, knee, ankle, the foot's and the toes' pitch, whether
-// it is down; and the hips' height. FY: the ground (local px)
+// ---- the line a gait follows in time. A gait at its own pace is a stride every 1 / rate seconds; one that sets off,
+// slows down or stops has a pace s (0 standing still .. 1 its own) given in pieces, each eased from one pace to the next.
+// From it: its cadence slows to `alpha` of its own as it stops, so its steps get shorter as well as slower; c(t) the
+// strides it has done (each foot lands on whole ones, the far one half a stride later), d(t) how far it has gone (px), and
+// for each moment the length of a step set down then (rho: 1 the stride's own, 0 none). While it goes at its own pace and
+// a loop's clock is given (cs: its strides at t, csInv the inverse), c and d are that loop's exactly, so they join frame
+// for frame; otherwise c(at) = c0 and d(at) = 0.
+const ALPHA = 0.55;
+export function gaitLine({ S, rate, pieces = [], alpha = ALPHA, cs = null, csInv = null, at = 0, c0 = 0 }) {
+  const P = pieces.filter((q) => q.t1 > q.t0).sort((a, b) => a.t0 - b.t0), n = P.length, V = S * rate;
+  const T0 = n ? P[0].t0 : 0, T1 = n ? P[n - 1].t1 : 0, sF = n ? P[0].s0 : 1, sL = n ? P[n - 1].s1 : 1;
+  const cum = [0];
+  for (const q of P) cum.push(cum[cum.length - 1] + ((q.s0 + q.s1) / 2) * (q.t1 - q.t0));
+  const find = (t) => { let i = 0; while (i < n - 1 && t > P[i].t1) i++; return i; };
+  const sAt = (t) => {
+    if (!n) return 1;
+    if (t <= T0) return sF;
+    if (t >= T1) return sL;
+    const q = P[find(t)], x = (t - q.t0) / (q.t1 - q.t0);
+    return q.s0 === q.s1 ? q.s0 : q.s0 + (q.s1 - q.s0) * E(x);
+  };
+  // the pace summed from the first piece's start: before it and after the last the pace stays as it was
+  const F = (t) => {
+    if (!n) return t;
+    if (t <= T0) return sF * (t - T0);
+    if (t >= T1) return cum[n] + sL * (t - T1);
+    const i = find(t), q = P[i], R = q.t1 - q.t0, x = (t - q.t0) / R;
+    return cum[i] + q.s0 * (t - q.t0) + (q.s1 - q.s0) * R * (x / 2 - Math.sin(Math.PI * x) / (2 * Math.PI));
+  };
+  const Fa = F(at), ca = cs ? cs(at) : c0, da = cs ? S * cs(at) : 0, own = (t) => !!cs && sAt(t) === 1;
+  const c = (t) => (own(t) ? cs(t) : ca + rate * (alpha * (t - at) + (1 - alpha) * (F(t) - Fa)));
+  const d = (t) => (own(t) ? S * cs(t) : da + V * (F(t) - Fa));
+  const tOf = (cc) => {
+    if (cs && csInv) { const t = csInv(cc); if (own(t)) return t; }
+    // c grows at least alpha * rate and at most rate a second
+    let lo, hi;
+    if (cc >= ca) { lo = at + (cc - ca) / rate; hi = at + (cc - ca) / (alpha * rate); } else { lo = at - (ca - cc) / (alpha * rate); hi = at - (ca - cc) / rate; }
+    for (let i = 0; i < 48; i++) { const m = (lo + hi) / 2; if (c(m) < cc) lo = m; else hi = m; }
+    return (lo + hi) / 2;
+  };
+  const rho = (t) => { const s = sAt(t); return s >= 1 ? 1 : s <= 0 ? 0 : s / (alpha + (1 - alpha) * s); };
+  // how fast its pace changes (px a second, a second): it leans into a start, back as it stops
+  const acc = (t) => {
+    if (!n || t <= T0 || t >= T1) return 0;
+    const q = P[find(t)], R = q.t1 - q.t0;
+    return V * (q.s1 - q.s0) * (Math.PI / 2) * Math.sin((Math.PI * (t - q.t0)) / R) / R;
+  };
+  return { c, d, s: sAt, rho, acc, tOf, V, rate, S, alpha };
+}
+// the line of a gait at its own pace, from what it says of now (t = 0: now)
+const LINES = new Map();
+function lineOf(W, S) {
+  if (W.line) return { L: W.line, t: W.t || 0 };
+  const c0 = W.cyc ?? W.ph ?? 0, r = W.rate || 1, key = [c0, r, S].join();
+  let L = LINES.get(key);
+  if (!L) {
+    L = { c: (t) => c0 + r * t, d: (t) => S * (c0 + r * t), s: () => 1, rho: () => 1, acc: () => 0, tOf: (cc) => (cc - c0) / r, V: S * r, rate: r, S };
+    if (LINES.size > 60) LINES.clear();
+    LINES.set(key, L);
+  }
+  return { L, t: 0 };
+}
+/** How far a gait has gone (px, the way it goes) at the moment it gives (the floor goes back by as much). */
+export const gaitDist = (Lw, W) => { const S = gaitSolve(Lw, W).S, { L, t } = lineOf(W, S); return L.d(t); };
+// the legs at that moment: for each leg (near first) its hip, knee, ankle, the foot's and the toes' pitch, whether it is
+// down; the hips' height; its pace. Each foot stays where it came down on the ground (it lands ahead of the hips by as
+// much as the step it takes, which the pace then gives it) while the ground goes back under it by as much as it goes:
+// whatever its pace, a foot down never slides. FY: the ground (local px)
 function gaitPose(Lw, W, FY) {
-  const sol = gaitSolve(Lw, W), U = Lw.U, K = sol.K, T1 = Lw.T1, T2 = Lw.T2, beta = K.beta, ph = frac(W.ph || 0);
-  const hipY = FY - sol.hipsAt(ph), at = (q) => { const f = sol.foot(q); return { x: f.x, y: FY - f.h, a: f.a, toe: f.toe }; };
-  const legs = [];
-  for (const [side, q] of [[1, ph], [-1, frac(ph + 0.5)]]) {
-    if (q < beta) { const f = at(q); legs.push({ side, q, A: [f.x, f.y], a: f.a, toe: f.toe, down: true }); continue; }
+  const sol = gaitSolve(Lw, W), U = Lw.U, K = sol.K, T1 = Lw.T1, T2 = Lw.T2, beta = K.beta, S = sol.S, fb = sol.fb, e = 1e-4;
+  const { L: Ln, t } = lineOf(W, S), c = Ln.c(t), sg = Ln.s(t);
+  // a step: the foot landed at stride count cj; how long a step that was (rho) and where its ball came down (G, px along
+  // the way it goes)
+  const step = (cj) => { const tj = Ln.tOf(cj), rho = Ln.rho(tj); return { cj, rho, G: Ln.d(tj) + fb + (sol.b0 - fb) * rho }; };
+  // that foot down at stride count cc (stance phase cc - cj), as the hips see it, and how high it holds them
+  const down = (sp, cc, tc = Ln.tOf(cc)) => { const f = sol.footAt(sp.G - Ln.d(tc), cc - sp.cj, sp.rho); return { x: f.x, h: f.h, y: FY - f.h, a: f.a, toe: f.toe, tc }; };
+  const heldBy = (sp, cc, tc) => { const f = down(sp, cc, tc); return sol.heldAt(f, cc - sp.cj, sp.rho, Ln.s(f.tc)); };
+  const steps = [step(Math.floor(c)), step(Math.floor(c - 0.5) + 0.5)];
+  // the hips: held by the leg that came down last; walking, passing from the other one to it while both are down;
+  // running, in the air between the toe-off of the one and the landing of the other
+  const [ld, tr] = c - steps[0].cj < 0.5 ? steps : [steps[1], steps[0]], q = c - ld.cj;
+  let hipH;
+  if (K.run) {
+    if (q <= beta) hipH = heldBy(ld, c, t);
+    else {
+      const c0 = ld.cj + beta, c1 = ld.cj + 0.5, nx = step(c1), Lf = 0.5 - beta;
+      const h0 = heldBy(ld, c0), h0b = heldBy(ld, c0 - e), h1 = heldBy(nx, c1), h1b = heldBy(nx, c1 + e);
+      hipH = herm(h0, ((h0 - h0b) / e) * Lf, h1, ((h1b - h1) / e) * Lf, (c - c0) / Lf);
+    }
+  } else {
+    const dbl = beta - 0.5;
+    if (q >= dbl) hipH = heldBy(ld, c, t);
+    else { const w = ease.inOutSine(q / dbl); hipH = heldBy(tr, c, t) * (1 - w) + heldBy(ld, c, t) * w; }
+  }
+  const hipY = FY - hipH, legs = [];
+  for (const [side, sp] of [[1, steps[0]], [-1, steps[1]]]) {
+    const qq = c - sp.cj;
+    if (qq < beta) { const f = down(sp, c, t); legs.push({ side, q: qq, A: [f.x, f.y], a: f.a, toe: f.toe, down: true }); continue; }
     // in the air: from the toe-off to the next landing, a smooth path leaving and arriving at the speeds of both, lifted
-    const s = (q - beta) / (1 - beta), e = 1e-4, k = 1 - beta;
-    const p0 = at(beta - e), p0b = at(beta - 2 * e), p1 = at(0), p1b = at(e);
+    // (less for a short step, not at all for a foot set down where it was)
+    const s = (qq - beta) / (1 - beta), k = 1 - beta, nx = step(sp.cj + 1), lk = Math.sqrt(clamp((nx.G - sp.G) / (0.55 * S)));
+    const p0 = down(sp, sp.cj + beta - e), p0b = down(sp, sp.cj + beta - 2 * e), p1 = down(nx, nx.cj), p1b = down(nx, nx.cj + e);
     const x = herm(p0.x, ((p0.x - p0b.x) / e) * k, p1.x, ((p1b.x - p1.x) / e) * k, s);
-    const y = herm(p0.y, ((p0.y - p0b.y) / e) * k, p1.y, ((p1b.y - p1.y) / e) * k, s) - K.lift * U * bumpAt(s, K.liftAt) - K.drive * U * bumpAt(s, K.driveAt);
-    legs.push({ side, q, s, A: [x, y], a: null, a0: p0.a, a1: p1.a, down: false });
+    const y = herm(p0.y, ((p0.y - p0b.y) / e) * k, p1.y, ((p1b.y - p1.y) / e) * k, s) - (K.lift * U * bumpAt(s, K.liftAt) + K.drive * U * bumpAt(s, K.driveAt)) * lk;
+    legs.push({ side, q: qq, s, A: [x, y], a: null, a0: p0.a, a1: p1.a, down: false, lk });
   }
   for (const L of legs) {
     // two bones from the hip to the ankle, the knee forward (the pelvis turns: the hip of the leg ahead is a little ahead)
-    const hx = prOf(K, U, L.q), hy = hipY;
+    const hx = prOf(K, U, L.q) * sg, hy = hipY;
     let [ax, ay] = L.A, dx = ax - hx, dy = ay - hy, d = Math.hypot(dx, dy);
     const R = T1 + T2 - 1e-3;
     if (d > R) { ax = hx + (dx / d) * R; ay = hy + (dy / d) * R; dx = ax - hx; dy = ay - hy; d = R; L.A = [ax, ay]; }
@@ -615,12 +706,12 @@ function gaitPose(Lw, W, FY) {
     if (L.a === null) {
       // in the air the foot hangs off the shin, relaxed (toes dropped a little), turning from its toe-off pitch to its landing one
       const sx = L.A[0] - L.knee[0], sy = L.A[1] - L.knee[1], sl = Math.hypot(sx, sy) || 1, rel = Math.atan2(sx / sl, sy / sl) - 0.28;
-      const w = Math.sin(Math.PI * L.s) ** 0.8;
+      const w = Math.sin(Math.PI * L.s) ** 0.8 * L.lk;
       L.a = (1 - w) * (L.a0 + (L.a1 - L.a0) * L.s) + w * rel;
       // ... but as it passes over the ground the ankle lifts the toes just enough to clear it (they would scrape it)
       const fb = FOOT.fb * U, hb = FOOT.hb * U, ha = FOOT.ha * U, rH = FOOT.rH * U, rB = FOOT.rB * U, rT = FOOT.rT * U, tb = FOOT.tb * U;
       const low = (a) => { const [, h2] = pitchOf(-hb, ha - rH, a), [, b2] = pitchOf(fb, ha - rB, a), [, t2] = pitchOf(tb, rB - rT, a); return L.A[1] + Math.max(h2 + rH, b2 + rB, b2 + t2 + rT); };
-      const lim = FY - 0.9 * Math.sin(Math.PI * L.s) ** 0.5;
+      const lim = FY - 0.9 * Math.sin(Math.PI * L.s) ** 0.5 * L.lk;
       if (low(L.a) > lim) {
         let best = L.a, bv = low(L.a);
         for (let k = 1; k <= 24 && bv > lim; k++) { const a = L.a + k * 0.05, v = low(a); if (v < bv) { best = a; bv = v; } }
@@ -629,7 +720,7 @@ function gaitPose(Lw, W, FY) {
       L.toe = L.a;
     }
   }
-  return { hipY, legs, K, sol };
+  return { hipY, legs, K, sol, sg, acc: Ln.acc(t), V: Ln.V };
 }
 /**
  * A gait for another tab: how fast it really goes and how many strides a loop of P seconds takes, so its feet stay planted
@@ -643,6 +734,12 @@ export function gaitPlan(o, kind, P, T, kmh, stride = 1) {
   const f0 = kind === "run" ? (2.67 + 0.145 * (v - 3)) / 2 : (1.58 + 0.56 * (v - 1)) / 2, N = Math.max(1, Math.round((clamp(f0, 0.45, 2) / Math.max(0.5, stride)) * P));
   return { tiles, N, S: (vpx * P) / N, v, kmh: v * 3.6, rate: N / P, vpx };
 }
+/** A gait going somewhere (no loop to fit): the speed asked (km/h) and a person's cadence at it, { S, v, kmh, rate, vpx }. */
+export function gaitFree(o, kind, kmh, stride = 1) {
+  const f = withForm(o), Lw = legsOf(f), pxm = (Lw.Lg + FOOT.ha * Lw.U) / 0.92, v = Math.max(0.5, kmh) / 3.6, vpx = v * pxm;
+  const f0 = kind === "run" ? (2.67 + 0.145 * (v - 3)) / 2 : (1.58 + 0.56 * (v - 1)) / 2, rate = clamp(f0, 0.45, 2) / Math.max(0.5, stride);
+  return { S: vpx / rate, v, kmh: v * 3.6, rate, vpx };
+}
 // the figure side on, walking or running (W = m.gait), in local px (y down, the ground at FY): the same parts as when it
 // stands, turned in profile. The near leg is part of the body (L), the near arm swings in front of it (Al), the far arm
 // and leg behind it (Fl, drawn darker), the hair behind the head (Hl)
@@ -650,9 +747,10 @@ function strider(o, st, h, P, W, FY) {
   const Lw = legsOf(o), U = Lw.U, J = U * 0.08, bw = o.huBuild, ww = o.huWaist, dir = W.dir < 0 ? -1 : 1, ph = frac(W.ph || 0), u = st.u;
   const pose = gaitPose(Lw, W, FY), K = pose.K, L = [], Al = [], Fl = [], Hl = [], hands = [], tips = [];
   const X = (x) => dir * x, cn = (Ls, ax, ay, ra, bx, by, rb, k) => cone(Ls, X(ax), ay, ra, X(bx), by, rb, k), ov = (Ls, cx, cy, rx, ry, k) => oval(Ls, X(cx), cy, rx, ry, k);
-  const hy = pose.hipY, psi = frac(2 * ph);
-  // the upper body leans into the pace (a little more as each push starts, running), turned round the hips
-  const lean = K.lean + (K.run ? 0.03 * Math.cos(TAU * (psi - 0.15)) : 0.01 * Math.cos(TAU * psi));
+  const hy = pose.hipY, psi = frac(2 * ph), sg = pose.sg, pxm = (Lw.Lg + FOOT.ha * U) / 0.92;
+  // the upper body leans into the pace (a little more as each push starts, running), turned round the hips; as it sets
+  // off it leans into the start, as it stops it leans back (sg: its pace, 0 standing still .. 1 its own)
+  const lean = toward(0, K.lean + (K.run ? 0.03 * Math.cos(TAU * (psi - 0.15)) : 0.01 * Math.cos(TAU * psi)), sg) + clamp((0.8 * pose.acc) / pxm / 9.8, -0.18, 0.22);
   const up = turner(lean, 0, hy), T = (x, y) => up(x * U, hy + y * U), br = 0.012 * o.breath * Math.sin(TAU * u * whole(o.breathTurns));
   const [pvx, pvy] = T(-0.04, -0.03), [blx, bly] = T(-0.01, -0.16), [wsx, wsy] = T(0.01, -0.4), [chx, chy] = T(0.045, -0.74 - br), [shx, shy] = T(-0.02, -0.93 - br);
   ov(L, pvx, pvy, 0.21 * U * ww, 0.2 * U, J);
@@ -682,7 +780,7 @@ function strider(o, st, h, P, W, FY) {
   const [sx0, sy0] = T(-0.03, -0.93 - br);
   for (const side of [1, -1]) {
     const Ls = side > 0 ? Al : Fl, aph = side > 0 ? ph : ph + 0.5, c = Math.cos(TAU * (aph - K.lag)), fw = (1 - c) / 2;
-    const a1 = K.armB - K.armA * c + lean * 0.6, a2 = a1 + K.elbow + K.elbowF * fw, a3 = a2 + K.hand;
+    const a1 = (K.armB - K.armA * c) * sg + lean * 0.6, a2 = a1 + toward(0.12, K.elbow, sg) + K.elbowF * fw * sg, a3 = a2 + toward(0.1, K.hand, sg);
     const ex = sx0 + Math.sin(a1) * 0.58 * U, ey = sy0 + Math.cos(a1) * 0.58 * U, wx = ex + Math.sin(a2) * 0.5 * U, wy = ey + Math.cos(a2) * 0.5 * U;
     const hx2 = wx + Math.sin(a3) * 0.2 * U, hy3 = wy + Math.cos(a3) * 0.2 * U;
     cn(Ls, sx0, sy0, 0.1 * U, ex, ey, 0.076 * U, J * 0.6);
@@ -693,7 +791,7 @@ function strider(o, st, h, P, W, FY) {
   }
   // hair of light behind the head: a cap, and locks from the back of the head that fall to the shoulders, stream back
   // with the speed and bounce with every step (lagging behind the body's rise and fall, more toward the tips)
-  const n = whole(o.huHairStrands), Lh = U * 0.29 * o.huHair, wind = clamp((K.v - 0.6) / 5.5) * (0.6 + 0.4 * clamp(W.hair ?? 1, 0, 2)), hs = 0.22 * clamp(W.hair ?? 1, 0, 3) * (K.run ? 1.4 : 1);
+  const n = whole(o.huHairStrands), Lh = U * 0.29 * o.huHair, wind = clamp((K.v * sg - 0.6) / 5.5) * (0.6 + 0.4 * clamp(W.hair ?? 1, 0, 2)), hs = 0.22 * clamp(W.hair ?? 1, 0, 3) * (K.run ? 1.4 : 1) * sg;
   if (n && Lh > 0.6) {
     oval(Hl, X(hcx - 0.06 * U), hcy - 0.05 * U, head.rx * 1.08, head.ry * 1.03, 0);
     for (let j = 0; j < n; j++) {
@@ -745,9 +843,10 @@ function build(o, t, ext = null) {
   const gait = ext && G && !seat && m.gait ? m.gait : null;
   if (seat) {
     const g = m.grow;
-    fsx = g; fsy = g; tilt = clamp(m.rot, -0.5, 0.5); ox = m.dx; oy = G.FY - (BOTTOM.lotus + 0.06) * G.Lw.U * g;
+    fsx = g; fsy = g; tilt = clamp(m.rot, -0.5, 0.5); ox = m.dx + m.ax; oy = G.FY - (BOTTOM.lotus + 0.06) * G.Lw.U * g;
   } else if (gait) {
-    fsx = ch.scale; fsy = ch.scale; tilt = 0; ox = 0; oy = 0;
+    // (on the spot, the world going by, or carried along the floor by ax as it goes)
+    fsx = ch.scale; fsy = ch.scale; tilt = 0; ox = m.ax; oy = 0;
     X = { gm: 1, grav: 1, lift: 0, hairUp: 0, hairGrav: 1, kick: 0, crouch: 0, gl: 1, flat: 1, sx: 0, pel: 0, feet: null, fy: G.FY, gait };
   } else if (G) {
     // gravity takes over from the blob's float: no more sway, tilt or squash; it falls and stands
@@ -801,6 +900,8 @@ function build(o, t, ext = null) {
   const Gs = new Float32Array(N), Gw = new Float32Array(N), Qx = new Float32Array(N), Qy = new Float32Array(N), Gk = new Float32Array(N), Gl = spiral ? new Uint8Array(N) : null, Hs = fig.Hl.length ? new Float32Array(N).fill(99) : null;
   // side on (walking, running): the near arm in front of the body (As) and the far limbs behind it (Fs), each with its thickness
   const As = fig.Al ? new Float32Array(N).fill(99) : null, Aw = As ? new Float32Array(N).fill(1) : null, Fs = fig.Fl ? new Float32Array(N).fill(99) : null, Fw = Fs ? new Float32Array(N).fill(1) : null;
+  // (as it melts into light, those limbs thin out and are gone into the body long before the body itself is light)
+  const lim = (1 - k) * U * 0.6, hlim = (1 - k) * U * 0.9;
   const band = U * 0.45, yF = spiral ? lerp(bottomOf(o) * U + U * 0.5, fig.box[1] - U * 0.3, ch.front) : 0, fsc = Math.min(fsx, fsy);
   for (let j = 0; j < H; j++)
     for (let i = 0; i < W; i++) {
@@ -820,9 +921,10 @@ function build(o, t, ext = null) {
         Gs[n] = s; Gw[n] = Math.max(0.5, w); Qx[n] = qx; Qy[n] = qy; Gk[n] = kk;
         continue;
       }
-      if (kk > 0) { field(fig.L, rx, ry, far / fsc); s = SD * fsc; w = SW * fsc; if (Hs && kk > 0.5) { field(fig.Hl, rx, ry, far / fsc); Hs[n] = SD * fsc; } }
-      if (As) { field(fig.Al, rx, ry, far / fsc); As[n] = SD * fsc; Aw[n] = Math.max(0.5, SW * fsc); }
-      if (Fs) { field(fig.Fl, rx, ry, far / fsc); Fs[n] = SD * fsc; Fw[n] = Math.max(0.5, SW * fsc); }
+      // (its hair thins away as it melts into light, and grows back as it takes shape)
+      if (kk > 0) { field(fig.L, rx, ry, far / fsc); s = SD * fsc; w = SW * fsc; if (Hs && kk > 0.5) { field(fig.Hl, rx, ry, far / fsc); Hs[n] = SD * fsc + hlim; } }
+      if (As) { field(fig.Al, rx, ry, far / fsc); As[n] = SD * fsc + lim; Aw[n] = Math.max(0.5, SW * fsc); }
+      if (Fs) { field(fig.Fl, rx, ry, far / fsc); Fs[n] = SD * fsc + lim; Fw[n] = Math.max(0.5, SW * fsc); }
       if (kk < 1) {
         // the blob's side, in its body space (its squash and tilt)
         const ux = dx * cb - dy * sb, uy = dx * sb + dy * cb, bx = ux / bs.sx, by = uy / bs.sy, r = Math.hypot(bx, by), e = rad(Math.atan2(by, bx));
@@ -943,8 +1045,9 @@ function aura(p, C, o, F) {
   if (k > 0.3) { const [hx, hy] = F.headS; p.glow(hx, hy, U * 1.2, C[4], 0.12 * Hh * k); }
   if (o.ground > 0) {
     const gyB = o.size * o.groundDist + o.hover + Math.max(0, m.dy), gyH = bottomOf(o) * F.U + o.size * (o.groundDist - 1) * 0.5 + o.hover;
-    const by = lerp(st.y, st.y + bottomOf(o) * F.U - o.size, k), G = F.G;
-    let gy = lerp(gyB, gyH, k), near = clamp(1 - (gy - by) / (gy + o.hover + 1) + 0.5);
+    const by = lerp(st.y, st.y + bottomOf(o) * F.U - o.size, k), G = F.G, ay = F.ext ? m.ay : 0;
+    // (moved elsewhere by another tab, ay, its ground goes with it)
+    let gy = lerp(gyB, gyH, k) + ay, near = clamp(1 - (gy - by) / (gy - ay + o.hover + 1) + 0.5);
     // the grounded form: its pool of light lands on the floor, brightest when its feet touch it
     if (G && G.fl > 0) { const fb = F.toScreen(0, F.fig.box[3])[1]; gy = lerp(gy, G.FY, G.fl); near = lerp(near, clamp(1 - (gy - fb) / (F.U * 2.2)), G.fl); }
     const R = lerp(S, U * 0.9, k);
@@ -1000,7 +1103,9 @@ function dropsAndHands(p, C, t, o, F) {
       if (!shown(t0)) return;
       const s0 = state(o, t0, null), { ox, oy, X } = grounding(o, s0, G1, 1, 0), f0 = stander(o, s0, ph.h - age, P, G1g, X), hd = f0.hands[i % f0.hands.length];
       if (!hd) return;
-      const x = ox + hd[0] + Math.sin(i * 2.3) * 0.6, y0 = oy + hd[1] + 2, hit = Math.sqrt(Math.max(0, FY - 0.5 - y0) / 46);
+      // (from where another tab had moved it to when it fell, ax)
+      const ax0 = F.ext && F.M ? F.M(t0).ax || 0 : 0;
+      const x = ox + ax0 + hd[0] + Math.sin(i * 2.3) * 0.6, y0 = oy + hd[1] + 2, hit = Math.sqrt(Math.max(0, FY - 0.5 - y0) / 46);
       if (age < hit) {
         const y = y0 + age * age * 46, k = age / hit;
         p.px(x, y, k < 0.25 ? WHITE : C[6]);
@@ -1055,8 +1160,8 @@ function floorFx(p, C, o, F, part = 0) {
   const room = roomOf(o), FY = G.FY, U = G.Lw.U, x0 = Math.floor(room[0]), x1 = Math.ceil(room[2]) - 1, W = Math.max(1, x1 - x0 + 1);
   if (FY > room[3]) return;
   const reach = G.fl * (Math.max(-room[0], room[2]) + 6), grow = G.fl < 1, Lt = o.grLight, ice = o.grLook !== "line", y1 = Math.ceil(room[3]);
-  // (lit round the figure: where it stands, or where another tab's steps took it)
-  const wx = F.X && F.X.step ? F.ox - F.X.sx : 0, lumAt = (px) => { const d = Math.abs(px - wx), edge = clamp(Math.min(px - room[0], room[2] - px) / (W * 0.14)); return Lt * (0.28 + 0.72 * Math.exp(-d / (U * 2.4))) * (0.3 + 0.7 * edge); };
+  // (lit round the figure: where it stands, or where another tab's steps or moves took it)
+  const wx = F.X && F.X.step ? F.ox - F.X.sx : F.X && F.X.gait ? F.ox : 0, lumAt = (px) => { const d = Math.abs(px - wx), edge = clamp(Math.min(px - room[0], room[2] - px) / (W * 0.14)); return Lt * (0.28 + 0.72 * Math.exp(-d / (U * 2.4))) * (0.3 + 0.7 * edge); };
   if (o.grNoFloor) {
     // on a planet's ground (another tab's world): no floor of ice to lay, only its light on the ground round its feet
     if (part) return;
@@ -1101,18 +1206,19 @@ function floorFx(p, C, o, F, part = 0) {
       if (yy >= y1) break;
       const edge = clamp(Math.min(px - room[0], room[2] - px) / (W * 0.14)), ll = Lt * (0.28 + 0.72 * Math.exp(-d / (U * 2.4 * (1 + dd * 1.4)))) * (0.3 + 0.7 * edge);
       const cl = Math.round(ll * kk * 4.2);
-      if (cl >= 1 && (cl > 1 || (x + yy) % 2 === 0)) p.px(px, yy + 0.5, C[Math.min(cl, 3)]);
+      if (cl >= 1 && (cl > 1 || (x - x0 + yy) % 2 === 0)) p.px(px, yy + 0.5, C[Math.min(cl, 3)]);
     }
   }
   // its light on the floor, and under its feet once it stands on it
   p.glow(wx, FY, U * 2.2, C[4], 0.16 * Lt * G.fl);
   if (grow) p.glow(reach, FY, 5, WHITE, 0.4 * G.fl), p.glow(-reach, FY, 5, WHITE, 0.4 * G.fl);
   if (G.plant && F.fig) for (const [tx, ty] of F.fig.tips) { const [x, y] = F.toScreen(tx, ty); p.glow(x, FY, U * 0.45, C[6], 0.3 * Lt * clamp(1 - (FY - y) / (U * 0.3)) * (F.k ?? 1)); }
-  // glints running on the ice (carried back with the floor while it walks or runs over it: a whole number of tiles a loop)
+  // glints running on the ice (carried back with the floor while it walks or runs over it on the spot: a whole number of
+  // tiles a loop; still when it walks along it). They dim as the figure melts into light, so they don't jump when it turns
   const n = whole(o.grGlints) * whole(o.liveLoops, 1), Wk = F.X && F.X.gait, Tt = Math.max(16, Math.ceil(Math.max(room[2] - room[0], room[3] - room[1])));
-  const slide = Wk ? (Wk.dir < 0 ? -1 : 1) * gaitSolve(G.Lw, Wk).S * (Wk.cyc ?? Wk.ph) : 0;
+  const slide = Wk ? (Wk.dir < 0 ? -1 : 1) * gaitDist(G.Lw, Wk) - (F.ext ? F.st.m.ax : 0) : 0, lit = F.ext ? 1 - (F.st.m.morph || 0) : 1;
   if (n) cycle(F.ph.h, F.P, n, o.seed + 313, (g) => g.range(0.45, 0.9), (age, life, r) => {
-    const k = age / life, r0 = r.range(0, 1), x = Wk ? Math.floor(room[0] + (((r0 * Tt - slide) % Tt) + Tt) % Tt) + 0.5 : Math.floor(lerp(room[0] + 3, room[2] - 3, r0)) + 0.5, a = Math.sin(Math.PI * k) * G.fl;
+    const k = age / life, r0 = r.range(0, 1), x = Wk ? Math.floor(room[0] + (((r0 * Tt - slide) % Tt) + Tt) % Tt) + 0.5 : Math.floor(lerp(room[0] + 3, room[2] - 3, r0)) + 0.5, a = Math.sin(Math.PI * k) * G.fl * lit;
     if (Wk && (x < room[0] + 3 || x > room[2] - 3)) return;
     if (Math.abs(x) > reach || a < 0.3) return;
     star(p, C, x, FY + 0.5, a > 0.75 ? 2 : 1);
@@ -1125,44 +1231,52 @@ function floorFx(p, C, o, F, part = 0) {
 function gaitFx(p, C, o, F) {
   const Wk = F.X && F.X.gait;
   if (!Wk || F.hidden || !F.G) return;
-  const Lw = F.G.Lw, sol = gaitSolve(Lw, Wk), K = sol.K, U = Lw.U, FY = F.G.FY, sd = Wk.dir < 0 ? -1 : 1, S = sol.S, c = Wk.cyc ?? Wk.ph;
+  const Lw = F.G.Lw, sol = gaitSolve(Lw, Wk), K = sol.K, U = Lw.U, FY = F.G.FY, sd = Wk.dir < 0 ? -1 : 1, S = sol.S, { L: Ln, t } = lineOf(Wk, S), c = Ln.c(t), dn = Ln.d(t);
   const N = Math.max(1, Math.round(Wk.N || 1)), pr = Math.max(0, Wk.prints ?? 1), sp = Math.max(0, Wk.sparks ?? 1), life = K.run ? 1.7 : 2.6;
   const fb = FOOT.fb * U, hb = FOOT.hb * U, tb = FOOT.tb * U, room = roomOf(o), Lt = o.grLight;
+  // (ox: where another tab carries it along the floor; lit: the prints dim as it melts into light, to turn)
+  const ox = F.ext ? F.st.m.ax : 0, lit = F.ext ? 1 - (F.st.m.morph || 0) : 1, X = (v) => ox + sd * v;
   for (const [side, off] of [[1, 0], [-1, 0.5]]) {
     for (let k = 0; k <= Math.ceil(life) + 1; k++) {
       const j = Math.floor(c - off) - k, a = c - off - j;
       if (a < 0 || a > life) continue;
-      const r = rng(o.seed, 717 + (side > 0 ? 0 : 1), ((j % N) + N) % N), ball = sol.b0 - S * a;
+      // that landing: how long a step it was (a foot set down where it stood leaves nothing) and where its ball came down
+      const cj = j + off, rho = Ln.rho(Ln.tOf(cj)), w = rho * lit;
+      if (w <= 0.02) continue;
+      const r = rng(o.seed, 717 + (side > 0 ? 0 : 1), ((j % N) + N) % N), G = Ln.d(Ln.tOf(cj)) + fb + (sol.b0 - fb) * rho, ball = G - dn;
       // the print: the sole's length (running, mostly the ball of the foot), a dash of light on the ground
-      const x0 = ball - (K.run ? fb * 0.7 : fb + hb), x1 = ball + tb * 0.8, fade = (1 - a / life) ** 1.4 * pr;
-      if (fade > 0.06 && a > 0.04) for (let x = Math.floor(Math.min(sd * x0, sd * x1)); x <= Math.ceil(Math.max(sd * x0, sd * x1)); x++) {
+      const x0 = ball - (K.run ? fb * 0.7 : fb + hb), x1 = ball + tb * 0.8, fade = (1 - a / life) ** 1.4 * pr * w;
+      if (fade > 0.06 && a > 0.04) for (let x = Math.floor(Math.min(X(x0), X(x1))); x <= Math.ceil(Math.max(X(x0), X(x1))); x++) {
         const px = x + 0.5;
         if (px < room[0] || px > room[2]) continue;
-        const e = Math.abs(px - sd * (x0 + x1) / 2) / ((x1 - x0) / 2 + 0.5), v = fade * (1 - 0.45 * e * e) * (0.85 + 0.3 * r.next());
+        const e = Math.abs(px - X((x0 + x1) / 2)) / ((x1 - x0) / 2 + 0.5), v = fade * (1 - 0.45 * e * e) * (0.85 + 0.3 * r.next());
         if (v < 0.12 || (v < 0.3 && (x + Math.floor(a * 7)) % 2)) continue;
         p.px(px, FY + 0.5, v > 0.75 ? C[6] : v > 0.45 ? C[5] : v > 0.25 ? C[4] : C[3]);
         if (v > 0.5) p.px(px, FY + 1.5, C[3]);
       }
-      if (fade > 0.1 && a > 0.04) p.glow(sd * (x0 + x1) / 2, FY, U * 0.35, C[5], 0.25 * fade * Lt);
+      if (fade > 0.1 && a > 0.04) p.glow(X((x0 + x1) / 2), FY, U * 0.35, C[5], 0.25 * fade * Lt);
       // the landing: a short flash where it touches down, and a few grains of light springing from it
       const fl = 1 - a / 0.12;
       if (fl > 0 && pr > 0) {
-        const cx = sd * (K.run ? ball : ball - fb - hb);
-        p.glow(cx, FY, U * 0.5, C[6], 0.45 * fl * Math.min(1.5, pr) * Lt);
-        for (let i = 0, m = K.run ? 4 : 2; i < m; i++) {
+        const cx = X(K.run ? ball : ball - fb - hb);
+        p.glow(cx, FY, U * 0.5, C[6], 0.45 * fl * Math.min(1.5, pr) * Lt * w);
+        if (w > 0.25) for (let i = 0, m = K.run ? 4 : 2; i < m; i++) {
           const g = rng(o.seed, 727, ((j % N) + N) % N, i, side > 0 ? 0 : 1), h = a / 0.12, vx = g.range(0.3, 1) * (i % 2 ? 1 : -1);
-          p.px(cx + sd * vx * h * U * 0.5, FY - 0.5 - Math.sin(Math.PI * h) * U * g.range(0.08, 0.2), h < 0.4 ? WHITE : C[6]);
+          p.px(cx + sd * vx * h * U * 0.5, FY - 0.5 - Math.sin(Math.PI * h) * U * g.range(0.08, 0.2) * w, h < 0.4 ? WHITE : C[6]);
         }
       }
       // running: light kicked up behind as the toes leave the ground, carried back and falling
       if (K.run && sp > 0) {
         const b = a - K.beta, Lk = 0.42;
-        if (b > 0 && b < Lk) for (let i = 0, m = Math.round(5 * sp); i < m; i++) {
-          const g = rng(o.seed, 737, ((j % N) + N) % N, i, side > 0 ? 0 : 1), h = b / g.range(0.6 * Lk, Lk);
-          if (h >= 1) continue;
-          const toe = sol.b0 - S * K.beta + tb, x = sd * (toe - S * b * g.range(1.1, 1.6) - g.range(0, 0.15) * U), y = FY - 0.5 - (g.range(0.15, 0.45) * U * Math.sin(Math.PI * Math.min(1, h * 1.15)));
-          p.px(x, y, h < 0.3 ? WHITE : h < 0.65 ? C[6] : C[4]);
-          if (h < 0.5) p.glow(x, y, 3, C[5], 0.3 * (1 - h) * sp);
+        if (b > 0 && b < Lk) {
+          const tOff = Ln.tOf(cj + K.beta), dOff = Ln.d(tOff), toe = G - dOff + tb;
+          for (let i = 0, m = Math.round(5 * sp * w); i < m; i++) {
+            const g = rng(o.seed, 737, ((j % N) + N) % N, i, side > 0 ? 0 : 1), h = b / g.range(0.6 * Lk, Lk);
+            if (h >= 1) continue;
+            const x = X(toe - (dn - dOff) * g.range(1.1, 1.6) - g.range(0, 0.15) * U), y = FY - 0.5 - (g.range(0.15, 0.45) * U * Math.sin(Math.PI * Math.min(1, h * 1.15)));
+            p.px(x, y, h < 0.3 ? WHITE : h < 0.65 ? C[6] : C[4]);
+            if (h < 0.5) p.glow(x, y, 3, C[5], 0.3 * (1 - h) * sp);
+          }
         }
       }
     }

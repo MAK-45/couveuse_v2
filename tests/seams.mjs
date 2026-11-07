@@ -1,8 +1,10 @@
 // Seam tests: the rules that make every GIF loop or chain without a visible jump. Pixel-exact.
 //   blob idle            frame 0 == frame at t = D (its own loop)
 //   actions / clock / electricity   first and last frames == the idle's first and last frames (chain with the idle GIF)
+//   the move             first frame == the rest where it was, last == the rest where it went (drawn there), every form
 //   objects              appear: first == live without, last == live with; remove: the reverse
 //   loops                frame at t == frame at t + T (its own loop); in three parts: entry from rest -> loop -> exit to rest
+//                        (walking and running too: their first steps from rest, their last steps back to it)
 //   portal               open: first == idle, last == live; live loops on itself; close: first == live, last == idle
 //                        cross: first == live, last == beyond (the blob at rest in the other world); beyond loops on itself
 //   worlds               a world loops on itself (its own period, whole blob loops)
@@ -12,7 +14,8 @@
 //   in a new form        every other tab drawn in the levitating or grounded human form: from rest now means from the
 //                        new form's loop (first and last frames == "live"'s), loops loop on themselves
 //   life (tab Vivre)     whole lives played by the life engine: every segment's first frame == the rest it leaves, its
-//                        last == the rest it reaches (forms, portals, other worlds, things linked to a world or following)
+//                        last == the rest it reaches (forms, portals, other worlds, things linked to a world or following,
+//                        moves to other places of the scene, walking and running)
 // Run: npm test      (exit code 1 on any failure)
 import { createFrame, clearFrame, painterFor, composite } from "../pixelfx/src/core/index.js";
 import * as idle from "../pixelfx/src/fx/creature/ice-blob-idle.js";
@@ -28,9 +31,9 @@ import * as transform from "../pixelfx/src/fx/creature/ice-blob-transform.js";
 import * as life from "../pixelfx/src/fx/creature/ice-life.js";
 
 const W = 320, H = 200, Ni = 120; // Ni: frames in one idle loop (D * fps with the defaults)
-function render(mod, o, t) {
+function render(mod, o, t, at = [0, 0]) {
   const f = createFrame(W, H); clearFrame(f);
-  const p = painterFor(f); p.place(160, 115);
+  const p = painterFor(f); p.place(160 + at[0], 115 + at[1]);
   p.layer = "back"; mod.drawBack(p, t, o); p.layer = "front"; mod.draw(p, t, o);
   return composite(f, new Uint8ClampedArray(W * H * 4), 0xff000000);
 }
@@ -43,8 +46,21 @@ report("idle self-loop", diff(render(idle, base, 0), render(idle, base, D)));
 const id0 = render(idle, base, 0), idL = render(idle, base, D - D / Ni);
 
 for (const name of actions.ACTIONS) {
+  if (name === "move") continue; // (it ends somewhere else: see below)
   const o = { ...actions.meta.options, action: name }, T = o.duration * o.loops, N = Ni * o.loops;
   report(`action ${name}`, diff(render(actions, o, 0), id0), diff(render(actions, o, (N - 1) * T / N), idL));
+}
+// the move: from its rest here to its rest there (drawn dx, dy farther, the scene seen from there), in every form, every way
+{
+  const room = [-160, -115, 160, 85], moved = (r, d) => [r[0] - d[0], r[1] - d[1], r[2] - d[0], r[3] - d[1]];
+  for (const [F, tag] of [[{}, ""], [{ form: "human" }, " human"], [{ form: "grounded" }, " ground"], [{ form: "grounded", grArms: "hips", liveLoops: 3 }, " ground L3"], [{ form: "human", huLegs: "lotus", liveLoops: 1 }, " lotus L1"]]) {
+    for (const [mv, how] of [[{}, ""], [{ moveX: -130, moveY: 40, moveArc: 1.2 }, " left"], [{ moveX: 17, moveY: -61, moveHops: 3 }, " hops"], [{ moveX: 63, moveGait: "run" }, " run"], [{ moveX: 300, moveY: -200 }, " edge"]]) {
+      const o = { ...actions.meta.options, ...F, room, action: "move", loops: 1, ...mv }, T = actions.total(o), N = Math.round(T / D) * Ni, d = actions.moveOf(o);
+      const rest = F.form ? { ...transform.meta.options, ...F, room, mode: "live" } : { ...idle.meta.options }, mod = F.form ? transform : idle;
+      const P = F.form ? transform.total(rest) : D, M = Math.round(P / D) * Ni, there = F.form ? { ...rest, room: moved(room, d) } : rest;
+      report(`action move${tag}${how}`, diff(render(actions, o, 0), render(mod, rest, 0)), diff(render(actions, o, (N - 1) * T / N), render(mod, there, (M - 1) * P / M, d)));
+    }
+  }
 }
 // the portals' other ways home, with their own lengths
 // and portals it must go round to reach (the blue one above it, opening upwards)
@@ -229,7 +245,7 @@ for (const [name, more] of elecCases) {
     const chain = (name, mod, o) => { const T = o.duration * o.loops, N = Ni * o.loops; report(`${name}${tag}`.slice(0, 34), diff(render(mod, o, 0), r0), diff(render(mod, o, (N - 1) * T / N), rL)); };
     const selfLoop = (name, mod, o, T) => report(`${name}${tag}`.slice(0, 34), diff(render(mod, o, 0), render(mod, o, T)), diff(render(mod, o, T / 3 - 1 / 30), render(mod, o, T + T / 3 - 1 / 30)));
     const lp = F.liveLoops ? 3 : 2;
-    for (const name of actions.ACTIONS) if (actions.fitsForm({ ...F }, name)) chain(`action ${name}`, actions, { ...actions.meta.options, ...F, room, action: name, loops: name === "portal" || name === "walk" ? 4 : lp });
+    for (const name of actions.ACTIONS) if (name !== "move" && actions.fitsForm({ ...F }, name)) chain(`action ${name}`, actions, { ...actions.meta.options, ...F, room, action: name, loops: name === "portal" || name === "walk" ? 4 : lp });
     chain("clock", clock, { ...clock.meta.options, ...F, room, loops: 3 });
     for (const name of elec.ELEC) chain(`elec ${name}`, elec, { ...elec.meta.options, ...F, room, elec: name, loops: lp + 1 });
     for (const name of loops.LOOPS) if (loops.fitsForm({ ...F }, name)) { const o = { ...loops.meta.options, ...F, room, loop: name, loops: lp }; selfLoop(`loop ${name}`, loops, o, o.duration * o.loops); }
@@ -281,6 +297,16 @@ for (const [name, more] of elecCases) {
     worlds: [{ id: "appear", ob: ob(-80, -20, "cube") }, { id: "portal", open: true, world: 1 }, { id: "go", place: 1 }, { id: "actions:jump" },
       { id: "appear", ob: ob(80, -30, "pyramid") }, { id: "appear", ob: ob(40, -60, "sphere"), linked: false }, { id: "loops:sing", reps: 1 },
       { id: "go", place: "home" }, { id: "form", form: "grounded" }, { id: "go", place: 2 }, { id: "actions:walk" }, { id: "go", place: 1 }, { id: "go", place: "home" }],
+    // it goes about the scene and does things there, in every form: things it makes stay where they were made; on its legs
+    // it walks there, then walks and runs on the spot
+    moves: [{ id: "actions:move", to: [90, -30] }, { id: "actions:jump" }, { id: "appear", ob: ob(-60, -20, "cube") }, { id: "loops:magic", reps: 1 },
+      { id: "actions:move", to: [-100, 20] }, { id: "elec:ball" }, { id: "remove", thing: 1 }, { id: "form", form: "human" }, { id: "actions:move", to: [30, -40] },
+      { id: "clock" }, { id: "form", form: "grounded" }, { id: "actions:move", to: [-80, 0] }, { id: "loops:walk", reps: 1 }, { id: "actions:move", to: [60, 0] },
+      { id: "loops:run", reps: 1 }, { id: "form", form: "blob" }],
+    // somewhere else in the scene, through portals and back, standing on a plain there and walking on it
+    away: [{ id: "actions:move", to: [-90, 10] }, { id: "portal", open: true, world: 1 }, { id: "go", place: 1 }, { id: "actions:move", to: [70, -20] },
+      { id: "appear", ob: ob(80, -30, "pyramid") }, { id: "go", place: "home" }, { id: "form", form: "grounded" }, { id: "go", place: 2 },
+      { id: "actions:move", to: [-40, 0] }, { id: "loops:walk", reps: 2 }, { id: "go", place: "home" }],
   };
   for (const [name, script] of Object.entries(scripts)) {
     const L = life.createLife({ D, optsFor: life.plainOpts({ room, worlds: { 1: { ...worlds.SPACE }, 2: { ...worlds.PLAIN } } }) });
