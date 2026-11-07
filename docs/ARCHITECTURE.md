@@ -41,6 +41,11 @@ and inlines everything into `dist/couveuse.html`.
   (`S.anim`, `V` with `pick`, the form in `S.shared.bodyForm`) and calls the tab's own `effOpts()`, so a life plays
   exactly what each tab shows. Tests and the render tool use `plainOpts()` (each module's defaults).
 
+The page has no tab bar: it opens on Vivre, and every other tab is the **settings page** of one thing, opened from Vivre (the
+⚙ on a card, or a « Régler … » link: `openPage(anim, pick)` selects the thing in that tab and shows it in the form the
+creature is in), with « Revenir à la vie » in the header or Escape (`backToLife()`). A settings page shows that thing in a loop
+in the preview, its settings, and the exports.
+
 In the page, `lifeTick()` draws the frame of the time it is (`lifeNow()`: real time × speed, paused with Pause), the
 buttons call `lifeAsk(req)`, `lifeStatus()` shows what it does and greys what it can't do, `lifeAuto()` lets it choose by
 itself, `S.life` keeps the settings, the last hub and the things.

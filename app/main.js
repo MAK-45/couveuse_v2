@@ -1001,8 +1001,8 @@ function formMarkup(rows) {
   }
   rows.appendChild(grid);
   const L = Math.max(1, Math.round(+S.transform.loops_live || 2));
-  rows.insertAdjacentHTML("beforeend", `<p class="note">${cur === "blob" ? "Le blob né, tel que réglé dans son onglet. Choisis une forme humaine pour que l’animation soit faite par la forme de l’onglet Transformation."
-    : `L’animation est faite par la ${cur === "grounded" ? "forme humaine au sol (sur ses jambes, avec la gravité, sur son sol de glace ou sur le sol d’une planète : elle marche, court, saute, s’accroupit, s’assoit)" : "forme humaine en lévitation"}, avec tous les réglages de l’onglet Transformation (silhouette, pose, cheveux${cur === "grounded" ? ", sol" : ""}, boucle de ${L} × ${(+V.duration).toFixed(1)} s). Partir du repos veut dire partir de sa « Forme en boucle » et y revenir : enchaîne blob né → transformation → ces animations… → retour au blob → blob né.`}</p>`);
+  rows.insertAdjacentHTML("beforeend", `<p class="note">${cur === "blob" ? "Le blob né, avec son apparence. Choisis une forme humaine pour voir l’animation faite par elle (ses réglages : Vivre › Forme › Régler les formes)."
+    : `L’animation est faite par la ${cur === "grounded" ? "forme humaine au sol (sur ses jambes, avec la gravité, sur son sol de glace ou sur le sol d’une planète : elle marche, court, saute, s’accroupit, s’assoit)" : "forme humaine en lévitation"}, avec tous les réglages des formes humaines (silhouette, pose, cheveux${cur === "grounded" ? ", sol" : ""}, boucle de ${L} × ${(+V.duration).toFixed(1)} s). Partir du repos veut dire partir de sa « Forme en boucle » et y revenir.`}</p>`);
 }
 // settings a form on its legs has no use for (it keeps to its floor: no height to stroll in, nothing to rise by)
 const GROUNDED_IDLE = new Set(["walkZoneH", "walkCurve", "walkHop", "walkHops", "walkSquash", "auraRise", "magicRise", "medRise", "atomRise"]);
@@ -1091,6 +1091,7 @@ function load() {
   return fresh();
 }
 let S = load();
+S.anim = "life"; // the page opens on the creature's life
 // V: what the current animation sees, the shared settings and its own together
 let V = {};
 const refreshV = () => (V = S.anim === "life" ? { ...S.shared, ...S.blob, ...S.life } : isWorldTab() ? worldsView() : S.anim === "transform" ? { ...S.shared, ...S.blob, ...S.transform } : S.anim === "explore" ? { ...S.shared, ...S.blob, ...S.explore } : S.anim === "portal" ? { ...S.shared, ...S.blob, ...S.portal } : S.anim === "elec" ? { ...S.shared, ...S.blob, ...S.elec } : S.anim === "clock" ? { ...S.shared, ...S.blob, ...S.clock } : S.anim === "loops" ? { ...S.shared, ...S.blob, ...S.loops } : S.anim === "objects" ? objectsView() : S.anim === "actions" ? { ...S.shared, ...S.blob, ...S.actions } : { ...S.shared, ...S[S.anim] });
@@ -1193,9 +1194,26 @@ function group(g, key, openDefault) {
 }
 function buildControls() {
   controls.innerHTML = ""; inputs = {};
-  // the scene, shared by every animation
+  const life = S.anim === "life";
+  // the page: the creature's life, or the settings of one thing, opened from it, with the way back
+  $("crumb").hidden = life; $("crumbName").textContent = life ? "" : pageName();
+  $("topNote").textContent = life ? "Il vit sans jamais sauter d’image. Réinitialiser : il repart du repos, chez lui, sans objet."
+    : "Ces réglages servent partout où il le fait. Réinitialiser ne remet qu’eux à zéro.";
+  for (const id of ["exAll", "exGif", "exPng", "exJson"]) $(id).hidden = life;
+  if (life) { lifeControls(); sceneGroup(); renderGroup(); wire(); syncUI(); return; }
+  controls.insertAdjacentHTML("beforeend", `<h2 class="pagetitle">${pageName()}</h2>`);
+  const intro = PAGE_INTRO[S.anim];
+  if (intro) controls.insertAdjacentHTML("beforeend", `<p class="note intro">${intro}</p>`);
+  settingsGroups();
+  sceneGroup();
+  renderGroup();
+  wire();
+  syncUI();
+}
+// the scene, shared by every animation: its format and background (closed: set once)
+function sceneGroup() {
   {
-    const [d, rows] = group({ title: "Scène", hint: "partagée par les animations" }, "scene", true);
+    const [d, rows] = group({ title: "Scène", hint: "format et fond" }, "scene", false);
     rows.innerHTML = `<div class="row"><label for="in-ratio"><span>Format de la scène</span><output id="out-scene"></output></label>
       <div class="inline"><select id="in-ratio">${Object.keys(RATIOS).map((k) => `<option value="${k}">${k === "libre" ? "Libre" : k.replace(":", " / ")}</option>`).join("")}</select></div>
       <div class="inline dims"><label class="dim">Largeur<input type="number" id="in-sw" min="16" max="1920" step="1" inputmode="numeric"></label><span aria-hidden="true">×</span><label class="dim">Hauteur<input type="number" id="in-sh" min="16" max="1920" step="1" inputmode="numeric"></label></div>
@@ -1203,20 +1221,13 @@ function buildControls() {
       <div class="row"><label for="in-bg"><span>Fond de la scène</span></label><div class="inline"><select id="in-bg"><option value="black">Noir complet</option><option value="none">Transparent</option><option value="color">Couleur</option></select><input type="color" id="in-bgc" aria-label="Couleur du fond"></div><p class="note" id="bgnote"></p></div>`;
     controls.appendChild(d);
   }
-  if (S.anim === "life") { lifeControls(); renderGroup(); wire(); syncUI(); return; }
-  if (S.anim === "loops") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence et la place de l’onglet Blob né. Chaque boucle tourne sans fin, sans raccord visible, et a une <b>entrée</b> qui part du repos du blob né et une <b>sortie</b> qui y revient (choisis le morceau) : repos → entrée → boucle autant de fois qu’on veut → sortie → repos. Quand la forme humaine doit changer de posture (s’asseoir, croiser les jambes), elle fond en lumière et reprend forme dans la nouvelle.</p>`);
-  if (S.anim === "elec") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence et la place de l’onglet Blob né. Il part de son repos, découvre l’électricité et joue avec, puis revient exactement à son repos : la première et la dernière image sont celles de la boucle du blob né. Mets les GIF bout à bout, ils s’enchaînent. Les couleurs de l’électricité se règlent à part, dans « L’électricité ».</p>`);
-  if (S.anim === "clock") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence et la place de l’onglet Blob né. Il part de sa position de repos, affiche l’heure, puis revient exactement à son repos : la première et la dernière image sont celles de la boucle du blob né.</p>`);
-  if (S.anim === "portal") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence et la place de l’onglet Blob né. Il ouvre un portail vers un autre monde, qu’on ne voit qu’à travers lui. Glisse le portail dans l’aperçu pour le placer, et sa poignée carrée pour changer sa taille. Les mondes se créent et se règlent dans les onglets Mondes et Surface planète.</p>`);
-  if (S.anim === "transform") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence, les couleurs et la place de l’onglet Blob né, et change de forme : une forme humaine faite de la même lumière de glace, en lévitation, ou debout sur ses jambes sur un sol de glace, avec la gravité. Trois animations qui s’enchaînent image pour image : la transformation part du repos du blob né, la forme en boucle tourne sans fin, et le retour revient exactement au repos du blob né. Les autres onglets (Actions, Objets, Boucles, Heure, Électricité, Portail, Action monde) peuvent être joués par cette forme, avec ces réglages : choisis-la dans leur groupe « Forme ».</p>`);
-  if (S.anim === "explore") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence et la place de l’onglet Blob né, et explore un des mondes des onglets Mondes et Surface planète. En vrai il reste sur place : c’est le monde qui défile derrière lui, les étoiles proches plus vite que les lointaines. Une seule vitesse règle tout : plus il va vite, plus le décor défile et plus il se déforme. Sous sa forme humaine au sol, il peut aussi marcher et courir, vu de profil : le sol défile sous ses pieds exactement à la vitesse de ses pas ; sur une surface de planète, il marche sur l’herbe, sans sol de glace. Boucle libre, sans raccord visible, qui n’a pas besoin de revenir au blob né.</p>`);
-  if (S.anim === "surface") controls.insertAdjacentHTML("beforeend", `<p class="note intro">La surface d’une planète, vue du sol : pour l’instant une plaine, avec son ciel, ses montagnes, ses prairies, ses arbres, ses rochers et son eau. Elle est faite de couches à différentes profondeurs : immobile, elle vit sur place (vent dans l’herbe, nuages, reflets) ; en mouvement, l’herbe proche défile plus vite que les montagnes, en boucle parfaite. Le blob s’y promène dans l’onglet Action monde, ou y passe par un portail.</p>`);
-  if (S.anim === "worlds") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Les mondes qu’on voit à travers les portails. Crée-les, règle-les et garde-les ici ; l’aperçu montre le monde entier, en boucle sans fin. Il est fait de couches à différentes profondeurs : quand la caméra bouge, les étoiles proches défilent plus vite que les lointaines.</p>`);
+}
+// a settings page: its own groups (the creature's form for the preview first, where it has one)
+function settingsGroups() {
   const groups0 = isWorldTab() ? worldGroups() : S.anim === "transform" ? transformGroups() : S.anim === "explore" ? exploreGroups() : S.anim === "portal" ? portalGroups() : S.anim === "elec" ? elecGroups() : S.anim === "clock" ? clockGroups() : S.anim === "loops" ? loopGroups() : S.anim === "objects" ? objectGroups() : S.anim === "actions" ? actionGroups() : ANIMS[S.anim].groups;
   // the tabs that can draw a new form start with the choice of form
-  const off = FORM_TABS.has(S.anim) ? 1 : 0, groups = off ? [formGroup(), ...groups0] : groups0;
-  if (S.anim === "objects") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence et la place de l’onglet Blob né. Rien ne pèse dans la scène : les objets flottent et tournent au rythme de sa boucle, et chaque animation se raccorde aux autres.</p>`);
-  if (S.anim === "actions") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence, la durée et la place réglées dans l’onglet Blob né. Chaque action commence et finit sur la même image que la boucle du blob né : mets les GIF bout à bout, ils s’enchaînent.</p>`);
+  const own = groups0.filter((g) => !(g.place && S.anim !== "blob" && S.anim !== "birth"));
+  const off = FORM_TABS.has(S.anim) ? 1 : 0, groups = off ? [formGroup(), ...own] : own;
   groups.forEach((g, gk) => {
     const gi = gk - off, [d, rows] = group(g, g.key || S.anim + gi, g.open || (gi < 2 && (S.anim === "actions" || S.anim === "objects")) ? true : gi === 0);
     if (g.formPicker) formMarkup(rows);
@@ -1238,7 +1249,15 @@ function buildControls() {
       }
       rows.appendChild(pr);
     }
-    if (g.picker || g.pickerList) {
+    if ((g.picker || g.pickerList) && COMPACT_PICK.has(S.anim)) {
+      const list = g.pickerList || ACTION_LIST, pk = g.pickerKey || "action", r = document.createElement("div");
+      r.className = "row";
+      r.innerHTML = `<label for="in-pick"><span>Réglages de</span></label><div class="inline"><select id="in-pick">${list.map(([id, name]) => { const why = unfit(pk, id); return `<option value="${id}"${why ? " disabled" : ""}>${name}${why ? " (pas dans cette forme)" : ""}</option>`; }).join("")}</select></div>`;
+      const sel = r.querySelector("select");
+      sel.value = V[pk];
+      sel.onchange = () => { setV(pk, sel.value); buildControls(); changed(); };
+      rows.appendChild(r);
+    } else if (g.picker || g.pickerList) {
       const list = g.pickerList || ACTION_LIST, pk = g.pickerKey || "action";
       const grid = document.createElement("div");
       grid.className = "actions"; grid.setAttribute("role", "radiogroup"); grid.setAttribute("aria-label", g.title);
@@ -1315,9 +1334,6 @@ function buildControls() {
     }
     controls.appendChild(d);
   });
-  renderGroup();
-  wire();
-  syncUI();
 }
 // the render and export settings, last in every tab
 function renderGroup() {
@@ -1341,6 +1357,8 @@ function applyRatio(from) {
 // wire a control if this tab has it
 function on(id, ev, fn) { const el = $(id); if (el) el[ev] = fn; }
 function wire() {
+  on("backLife", "onclick", backToLife);
+  on("toLife", "onclick", backToLife);
   on("in-ratio", "onchange", (e) => { setV("ratio", e.target.value); applyRatio("w"); syncUI(); changed(); });
   on("in-sw", "onchange", (e) => { setV("sceneW", clampInt(e.target.value, 16, 1920)); applyRatio("w"); syncUI(); changed(); });
   on("in-sh", "onchange", (e) => { setV("sceneH", clampInt(e.target.value, 16, 1920)); applyRatio("h"); syncUI(); changed(); });
@@ -1873,18 +1891,35 @@ function lifeTick(now) {
   }
   if (now - lifeLast > 250) { lifeLast = now; lifeAuto(t); lifeStatus(); PFX.life.trim(LIFE, t); }
 }
-// a button that asks for something (greyed, with the reason, when it can't be done after what is already asked)
-function lifeButton(grid, req, name, desc, onclick) {
-  const b = document.createElement("button");
-  b.type = "button"; b.className = "act"; b.dataset.life = JSON.stringify({ ...req, label: undefined });
+// a card that asks for something (greyed, with the reason, when it can't be done after what is already asked), and its
+// gear: the settings page of that thing (its preview in a loop, its export)
+function lifeButton(grid, req, name, desc, onclick, gear) {
+  const card = document.createElement("div"), b = document.createElement("button");
+  card.className = "lifecard";
+  b.type = "button"; b.className = "act";
+  if (req) b.dataset.life = JSON.stringify({ ...req, label: undefined });
   b.innerHTML = `<strong>${name}</strong><span>${desc}</span>`;
   b.onclick = onclick || (() => lifeAsk({ ...req, label: name }));
-  grid.appendChild(b);
+  card.appendChild(b);
+  if (gear) {
+    const g = document.createElement("button");
+    g.type = "button"; g.className = "gear"; g.textContent = "⚙"; g.title = `Régler : ${name}`; g.setAttribute("aria-label", `Régler ${name}`);
+    g.onclick = () => openPage(...gear);
+    card.appendChild(g);
+  }
+  grid.appendChild(card);
   return b;
 }
 function lifeGrid(rows, label) { const g = document.createElement("div"); g.className = "actions"; g.setAttribute("aria-label", label); rows.appendChild(g); return g; }
+// a plain button row (a settings page to open, an action of the page)
+function lifeLinks(rows, links) {
+  const r = document.createElement("div");
+  r.className = "inline links";
+  for (const [text, fn] of links) { const b = document.createElement("button"); b.type = "button"; b.textContent = text; b.onclick = fn; r.appendChild(b); }
+  rows.appendChild(r);
+}
 function lifeControls() {
-  controls.insertAdjacentHTML("beforeend", `<p class="note intro">Ici la créature <b>vit</b>, sans fin et sans jamais sauter d’image. Demande-lui quelque chose : elle le fait à son tour, en partant de son repos et en y revenant, et prend d’elle-même les étapes nécessaires (fermer un portail, changer de forme, rentrer chez elle…). Les boucles durent jusqu’à ce que tu demandes autre chose. Chaque animation garde les réglages de son onglet. Ce qu’elle fait apparaître reste dans le décor.</p>`);
+  controls.insertAdjacentHTML("beforeend", `<p class="note intro">Il <b>vit</b>, sans fin et sans jamais sauter d’image. Clique sur ce qu’il doit faire : il le fait à son tour, en partant de son repos et en y revenant, et prend de lui-même les étapes nécessaires. Les boucles durent jusqu’à ce que tu demandes autre chose. ⚙ ouvre les réglages d’une chose, avec son aperçu et son export en GIF.</p>`);
   {
     const [d, rows] = group({ title: "Maintenant", hint: "ce qu’il fait, ce qui suit" }, "life-now", true);
     rows.insertAdjacentHTML("beforeend", `<div class="lifenow" id="lifeNow" aria-live="polite"></div><div class="inline"><button type="button" id="lifeStop">Arrêter la boucle</button><button type="button" id="lifeClear">Vider la file</button></div>`);
@@ -1892,7 +1927,8 @@ function lifeControls() {
   }
   const fam = (title, hint, key, list, family, open) => {
     const [d, rows] = group({ title, hint }, "life-" + key, open), grid = lifeGrid(rows, title);
-    for (const [id, name, desc] of list) lifeButton(grid, { id: family === "clock" ? "clock" : `${family}:${id}` }, name, desc);
+    for (const [id, name, desc] of list) lifeButton(grid, { id: family === "clock" ? "clock" : `${family}:${id}` }, name, desc, null,
+      [family, family === "actions" ? { action: id } : family === "loops" ? { loop: id } : family === "elec" ? { elec: id } : {}]);
     controls.appendChild(d);
   };
   fam("Actions", "une fois, du repos au repos", "actions", ACTION_LIST, "actions", true);
@@ -1902,7 +1938,7 @@ function lifeControls() {
   {
     const [d, rows] = group({ title: "Forme", hint: "il se transforme" }, "life-form", false), grid = lifeGrid(rows, "Forme");
     for (const [id, name, desc] of BODY_FORMS) lifeButton(grid, { id: "form", form: id }, name, desc, () => lifeAsk({ id: "form", form: id, label: `devient ${FORM_NAMES[id]}` }));
-    rows.insertAdjacentHTML("beforeend", `<p class="note">Les formes humaines ont les réglages de l’onglet Transformation (styles de transformation et de retour compris).</p>`);
+    lifeLinks(rows, [["⚙ Régler les formes humaines", () => openPage("transform", { form: S.transform.form })]]);
     controls.appendChild(d);
   }
   {
@@ -1913,15 +1949,17 @@ function lifeControls() {
     lifeButton(grid, { id: "portal", open: false }, "Fermer le portail", "et revenir au repos", () => lifeAsk({ id: "portal", open: false, label: "ferme le portail" }));
     lifeButton(grid, { id: "go", place: W() }, "Aller dans ce monde", "il traverse le portail", () => lifeAsk({ id: "go", place: W(), label: "part dans ce monde" }));
     lifeButton(grid, { id: "go", place: "home" }, "Rentrer chez lui", "par le chemin du retour", () => lifeAsk({ id: "go", place: "home", label: "rentre chez lui" }));
-    rows.insertAdjacentHTML("beforeend", `<p class="note">Les portails ont les réglages de l’onglet Portail (forme, place, styles), les mondes ceux des onglets Mondes et Surface planète.</p>`);
+    const w = () => worldById(W()) || S.worlds.list[0];
+    lifeLinks(rows, [["⚙ Régler ce monde", () => openPage(tabOfType(w().wType), { world: w().id })], ["⚙ Régler le portail", () => openPage("portal", { world: w().id })],
+      ["＋ Créer un monde", () => openPage("worlds", {})]]);
     controls.appendChild(d);
   }
   {
     const [d, rows] = group({ title: "Objets", hint: "ils restent dans le décor" }, "life-objects", false);
     for (const def of [["shape", "Objet", { select: SHAPE_OPTS }], ["obSize", "Taille", 4, 30, 0.5, " px"], ["obHue", "Teinte", 0, 360, 1, "°"],
       ["obLayer", "Plan", { select: [["back", "Derrière lui"], ["front", "Devant lui"]] }],
-      ["linked", "Où il reste", { select: [["1", "Lié à ce monde : il y reste quand il part"], ["0", "Le suit d’un monde à l’autre"]] }],
-      ["appearStyle", "Il apparaît en", { select: OBJ_APPEAR || [["halo", "Halo"]] }], ["removeStyle", "Il disparaît en", { select: OBJ_REMOVE || [["dissolve", "Se dissout"]] }]]) rowFor(rows, def);
+      ["linked", "Où il reste", { select: [["1", "Lié à ce monde : il y reste quand le blob part"], ["0", "Il suit le blob d’un monde à l’autre"]] }],
+      ["appearStyle", "Il apparaît en", { select: OBJ_APPEAR }], ["removeStyle", "Il disparaît en", { select: OBJ_REMOVE }]]) rowFor(rows, def);
     rows.insertAdjacentHTML("beforeend", `<p class="note">Clique dans la scène pour choisir où le prochain objet apparaît (la croix).</p>`);
     const grid = lifeGrid(rows, "Faire apparaître");
     lifeButton(grid, { id: "appear" }, "Faire apparaître", "à la croix", () => {
@@ -1929,8 +1967,20 @@ function lifeControls() {
       const ob = { shape: S.life.shape, x: ((S.life.spotX / 100) * SW - pl.cx) / k, y: ((S.life.spotY / 100) * SH - pl.cy) / k, size: +S.life.obSize, spinY: 1, spinX: 0, tilt: 0.4,
         float: 4, floatTurns: 1, hue: +S.life.obHue, glow: 1, layer: S.life.obLayer, ph: (id * 0.37) % 1 };
       lifeAsk({ id: "appear", ob, linked: String(S.life.linked) !== "0", label: `fait apparaître ${(SHAPE_NAMES[ob.shape] || "un objet").toLowerCase()}`, pick: { appearStyle: S.life.appearStyle } });
-    });
+    }, ["objects", { mode: "appear" }]);
     rows.insertAdjacentHTML("beforeend", `<p class="note">Là où il est maintenant :</p><div class="actions" id="lifeThings"></div>`);
+    controls.appendChild(d);
+  }
+  {
+    const [d, rows] = group({ title: "Explorer un monde", hint: "bientôt dans sa vie" }, "life-explore", false), grid = lifeGrid(rows, "Explorer un monde");
+    rows.insertAdjacentHTML("afterbegin", `<p class="note">Pas encore dans sa vie : il leur faut une entrée et une sortie (le monde qui accélère et ralentit). Ouvre-les pour les régler, les voir et les exporter.</p>`);
+    for (const [id, name, desc] of EXPLORE_LIST) lifeButton(grid, null, name, desc, () => openPage("explore", { explore: id }));
+    controls.appendChild(d);
+  }
+  {
+    const [d, rows] = group({ title: "Apparence", hint: "son corps, ses yeux, sa lumière" }, "life-look", false);
+    lifeLinks(rows, [["⚙ Apparence de la créature", () => openPage("blob", {})], ["⚙ Sa naissance", () => openPage("birth", {})]]);
+    rows.insertAdjacentHTML("beforeend", `<p class="note">Taille, forme et mouvements de son corps, ses yeux, sa lumière, ses couleurs : toutes ses animations les gardent.</p>`);
     controls.appendChild(d);
   }
   {
@@ -1939,13 +1989,67 @@ function lifeControls() {
     rowFor(rows, ["calm", "Repos entre deux choses", 1, 8, 1, " battements"]);
     controls.appendChild(d);
   }
-  { const [d, rows] = group({ ...PLACE, rows: PLACE.rows.filter((r) => r[0] !== "canvas"), hint: "la même que le blob né" }, "life-place", false); for (const def of PLACE.rows.filter((r) => r[0] !== "canvas")) rowFor(rows, def); controls.appendChild(d); }
+  {
+    const pr = PLACE.rows.filter((r) => r[0] !== "canvas"), [d, rows] = group({ ...PLACE, rows: pr, hint: "où il vit dans la scène" }, "life-place", false);
+    for (const def of pr) rowFor(rows, def);
+    rows.insertAdjacentHTML("beforeend", `<div class="row"><div class="inline"><button type="button" id="center">Centrer</button><button type="button" id="fit">Ajuster à la scène</button><label class="check"><input type="checkbox" id="in-guides">Repères</label></div></div>`);
+    controls.appendChild(d);
+  }
   on("lifeStop", "onclick", () => lifeAsk({ id: "stop", label: "s’arrête" }));
   on("lifeClear", "onclick", () => { if (LIFE) { PFX.life.clearQueue(LIFE, lifeNow()); lifeSave(); lifeStatus(); say("File vidée : il finit ce qu’il fait."); } });
   on("lifeAutoOn", "onchange", (e) => { S.life.autonomous = e.target.checked; persist(); });
   if ($("lifeAutoOn")) $("lifeAutoOn").checked = !!S.life.autonomous;
   lifeStatus();
 }
+
+// ---- navigation: Vivre is the page; every other view is the settings of one thing, opened from it (⚙), with the way back
+const COMPACT_PICK = new Set(["actions", "loops", "elec", "explore"]);
+const PAGE_NAMES = { blob: "Apparence", birth: "Naissance", actions: "Action", loops: "En boucle", elec: "Électricité", clock: "Heure",
+  objects: "Apparition des objets", portal: "Portail", explore: "Explorer un monde", transform: "Formes humaines", worlds: "Monde", surface: "Surface de planète" };
+const PAGE_INTRO = {
+  blob: "Son apparence : la taille et la forme de son corps, ses mouvements au repos, ses yeux, sa lumière, ses couleurs. Toutes ses animations la gardent.",
+  birth: "Sa naissance, avant qu’il vive : une forme sans membres qui se forme dans son halo. Elle ne fait pas partie de sa vie ; l’aperçu la montre en boucle.",
+  actions: "Cette action part du repos et y revient : dans sa vie, elle s’enchaîne avec tout le reste. L’aperçu la montre en boucle ; tu peux l’exporter en GIF, en planche PNG ou en JSON.",
+  loops: "Une activité en trois morceaux : l’entrée depuis le repos, la boucle, la sortie vers le repos (choisis le morceau à voir). Quand la forme humaine doit changer de posture, elle fond en lumière et reprend forme dans la nouvelle.",
+  elec: "Il part du repos, joue avec l’électricité et y revient. Les couleurs de l’électricité se règlent dans « L’électricité ».",
+  clock: "Il affiche une heure puis revient au repos. Dans sa vie, il montre l’heure qu’il est.",
+  objects: "Comment les objets apparaissent et disparaissent. L’aperçu le montre sur des objets d’essai ; dans sa vie, ce sont tes objets, qui restent dans le décor.",
+  portal: "Le portail vers un autre monde : sa forme, sa place (glisse-le dans l’aperçu, sa poignée carrée change sa taille), sa manière de s’ouvrir, de se fermer et d’être traversé. Choisis le morceau à voir.",
+  explore: "Il explore un monde : le décor défile derrière lui. Pas encore dans sa vie (il lui faut une entrée et une sortie : le monde qui accélère et ralentit) ; l’aperçu la montre en boucle libre.",
+  transform: "Ses formes humaines, faites de sa lumière : en lévitation, ou debout sur un sol de glace avec la gravité. La silhouette, la pose, les cheveux, le sol, et ses manières de se transformer et de redevenir blob. Dans sa vie, tout ce qu’il fait sous une forme humaine garde ces réglages.",
+  worlds: "Les mondes de l’autre côté des portails : crée-les, règle-les, garde-les. L’aperçu montre le monde entier, en boucle.",
+  surface: "Une surface de planète vue du sol : ciel, montagnes, prairies, arbres, eau. Immobile, elle vit sur place ; en mouvement, l’herbe proche défile plus vite que les montagnes.",
+};
+function pageName() {
+  const a = S.anim, name = (list, id) => (list.find((x) => x[0] === id) || [id, id])[1];
+  if (a === "actions") return `Action : ${name(ACTION_LIST, V.action)}`;
+  if (a === "loops") return `En boucle : ${name(LOOP_LIST, V.loop)}`;
+  if (a === "elec") return `Électricité : ${name(ELEC_LIST, V.elec)}`;
+  if (a === "explore") return `Explorer : ${name(EXPLORE_LIST, V.explore)}`;
+  if (isWorldTab()) return `${PAGE_NAMES[a]} : ${selWorld().name}`;
+  return PAGE_NAMES[a] || ANIMS[a].name;
+}
+const FIT_KEY = { actions: "action", loops: "loop", explore: "explore", elec: "elec" };
+function openPage(anim, pick = {}) {
+  const key = FIT_KEY[anim], id = key && pick[key];
+  if (anim === "actions" && id) S.actions.action = id;
+  if (anim === "loops" && id) S.loops.loop = id;
+  if (anim === "elec" && id) S.elec.elec = id;
+  if (anim === "explore" && id) S.explore.explore = id;
+  if (isWorldTab(anim) && pick.world) S.worlds[selKey(anim)] = pick.world;
+  if (anim === "portal" && pick.world) S.portal.pWorld = pick.world;
+  if (anim === "objects" && pick.mode) S.objects.mode = pick.mode;
+  // the preview shows it in the form the creature is in now, when it can be done in that form
+  if (FORM_TABS.has(anim)) {
+    const form = (LIFE ? PFX.life.status(LIFE, lifeNow()).hub : S.life.hub).form;
+    S.shared.bodyForm = key && id && unfit(key, id, form) ? "blob" : form;
+  }
+  S.anim = anim; refreshV(); buildControls(); changed();
+  controls.scrollTop = 0;
+  say(`Réglages : ${pageName()}. « Revenir à la vie » (ou Échap) pour le retrouver.`);
+}
+function backToLife() { if (S.anim === "life") return; S.anim = "life"; refreshV(); buildControls(); changed(); say("Il vit."); }
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && S.anim !== "life" && !(e.target && e.target.closest && e.target.closest("input, select, textarea"))) backToLife(); });
 
 // ---- playback
 let playing = true, t0 = performance.now(), shown = -1, scrubIdx = 0;
@@ -2190,7 +2294,7 @@ const ERR = {
 const errText = (e) => (e && e.code === "sheet_big" ? e.message : ERR[e && e.code] || "Le téléchargement n’est pas disponible dans cette vue.");
 const btns = () => ["exAll", "exGif", "exPng", "exJson", "saveScene"].map($).filter(Boolean);
 async function run(jobs, done) {
-  if (S.anim === "life") { say("Dans Vivre, la créature vit en direct. Pour un GIF, une planche ou un JSON, ouvre l’onglet de l’animation."); return; }
+  if (S.anim === "life") { say("Dans Vivre, la créature vit en direct. Pour un GIF, une planche ou un JSON, ouvre les réglages de l’animation (⚙)."); return; }
   btns().forEach((b) => (b.disabled = true));
   if (pending) { pending = false; rebuild(); }
   try {

@@ -147,7 +147,17 @@ canvas#view:active { cursor: grabbing; }
 .actions.modes { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .tabs { flex-wrap: wrap; }
 .note { font-size: 12.5px; color: var(--muted); margin: 0; }
-.tab.live { font-weight: 700; }
+.crumb { display: flex; align-items: center; gap: 10px; font-size: 14px; color: #dcefff; }
+.crumb[hidden] { display: none; }
+.crumb span { font-weight: 600; }
+button.back { padding: 6px 12px; font-size: 13px; }
+.pagetitle { margin: 0; padding: 4px 22px 8px; font-size: 18px; font-weight: 600; }
+.crumb button.back { background: var(--glow); color: var(--btn-ink); border-color: var(--glow); }
+.lifecard { position: relative; display: flex; }
+.lifecard .act { flex: 1; padding-right: 30px; min-width: 0; }
+.controls .lifecard .gear { position: absolute; top: 4px; right: 4px; padding: 2px 7px; font-size: 13px; line-height: 1.3; background: transparent; color: var(--muted); border-color: transparent; }
+.controls .lifecard .gear:hover { color: var(--ink); border-color: var(--line); }
+.links { flex-wrap: wrap; }
 .lifenow { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; display: grid; gap: 4px; min-height: 3.2em; }
 .lifenow p { margin: 0; }
 @media (prefers-reduced-motion: reduce) { button { transition: none; } }
@@ -159,23 +169,9 @@ canvas#view:active { cursor: grabbing; }
     <header>
       <div>
         <h1>Couveuse</h1>
-        <p class="sub">Une créature de lumière : sa naissance, sa vie, ses actions, et ce qu’elle crée dans sa scène</p>
+        <p class="sub">Une créature de lumière qui vit, sans jamais sauter d’image</p>
       </div>
-      <div class="tabs" role="tablist" aria-label="Animation">
-        <button class="tab live" role="tab" data-anim="life">Vivre</button>
-        <button class="tab" role="tab" data-anim="birth">Naissance</button>
-        <button class="tab" role="tab" data-anim="blob">Blob né</button>
-        <button class="tab" role="tab" data-anim="actions">Actions</button>
-        <button class="tab" role="tab" data-anim="objects">Objets</button>
-        <button class="tab" role="tab" data-anim="loops">Boucles</button>
-        <button class="tab" role="tab" data-anim="clock">Heure</button>
-        <button class="tab" role="tab" data-anim="elec">Électricité</button>
-        <button class="tab" role="tab" data-anim="portal">Portail</button>
-        <button class="tab" role="tab" data-anim="explore">Action monde</button>
-        <button class="tab" role="tab" data-anim="transform">Transformation</button>
-        <button class="tab" role="tab" data-anim="worlds">Mondes</button>
-        <button class="tab" role="tab" data-anim="surface">Surface planète</button>
-      </div>
+      <div class="crumb" id="crumb" hidden><button type="button" class="back" id="toLife">← Revenir à la vie</button><span id="crumbName"></span></div>
     </header>
     <div class="view"><div class="canvas-wrap" id="wrap"><canvas id="view" width="480" height="270" aria-label="Scène : la créature en boucle. Glisse-la pour la placer, ou utilise les flèches."></canvas></div></div>
     <div class="transport">
@@ -194,7 +190,7 @@ canvas#view:active { cursor: grabbing; }
 
   <aside class="controls" id="controls">
     <div class="top">
-      <p>Chaque réglage garde la boucle sans couture. Réinitialiser ne touche que l’animation affichée.</p>
+      <p id="topNote"></p>
       <button id="reset">Réinitialiser</button>
     </div>
     <div id="groups"></div>

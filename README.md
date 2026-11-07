@@ -3,8 +3,9 @@
 Une créature de lumière glacée en pixel art qui **vit** dans une page web, sans fin et sans jamais sauter d’image, et
 l’éditeur web qui règle chacune de ses animations et l’exporte en GIF, planche PNG et JSON, toujours en boucle parfaite.
 
-Treize onglets : **Vivre** (elle vit : on lui demande quoi faire, elle l’enchaîne d’elle-même, et ce qu’elle fait apparaître
-reste dans le décor, lié à un monde ou la suivant), **Naissance**, **Blob né** (le repos), **Actions** (19, il revient
+La page s’ouvre sur **Vivre** : il vit, on lui demande quoi faire, il l’enchaîne de lui-même, et ce qu’il fait apparaître reste
+dans le décor, lié à un monde ou le suivant. Chaque chose se règle depuis là (⚙), dans sa page de réglages, qui la montre en
+boucle et l’exporte : **Naissance**, **Apparence** (le blob né, son repos), **Actions** (19, il revient
 toujours au repos), **Objets** (il crée et retire des formes qui flottent dans la scène), **Boucles** (20 activités, chacune
 avec son entrée depuis le repos et sa sortie vers le repos), **Heure** (il affiche l’heure), **Électricité**, **Portail**,
 **Action monde**, **Transformation** (il prend une forme humaine, en lévitation ou debout sur un sol de glace avec la

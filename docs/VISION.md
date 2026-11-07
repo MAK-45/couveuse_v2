@@ -47,9 +47,13 @@ construit et laisse dans le décor. Tout doit pouvoir se combiner : même scène
 - Tout ce qui est nouveau (effets, objets, décors) reste **dans ce même style** : palette de 8 teintes,
   contours d’un pixel éclairés en haut à gauche, lueurs douces.
 
-## Ce qui existe (treize onglets)
+## Ce qui existe
 
-**Vivre** (la créature vit : voir plus bas) · Naissance · Blob né (repos) · Actions (19, retour au repos) · Objets (scène vivante, apparition,
+La page s’ouvre sur **Vivre** : la créature vit (voir plus bas). Il n’y a plus de barre d’onglets : chaque chose qu’il fait
+se règle depuis Vivre, avec la ⚙ de son bouton ou un lien « Régler … », dans une page de réglages qui la montre en boucle et
+l’exporte (GIF, planche PNG, JSON), avec « Revenir à la vie » pour revenir. Ces pages de réglages sont :
+
+Naissance · Apparence (le blob né, son repos) · Actions (19, retour au repos) · Objets (scène vivante, apparition,
 disparition) · Boucles (20 activités : dormir, magie, jongler…, chacune avec son entrée depuis le repos et sa sortie vers
 le repos ; marche et course seulement en boucle pour l’instant) · Heure (affiche une heure choisie
 ou celle de l’export, puis revient au repos) · Électricité (8 animations où le blob part de son repos,

@@ -145,6 +145,11 @@ After any change to an effect or to `app/`, run `npm run build && npm test`.
     us (trees, rocks, flowers, tall grass; only their shadows), part "front" draws only that, on transparency)
   - `ice-spirit-birth.js` is the first, abandoned birth version; ignore it.
 - `app/main.js` the whole UI (state, controls, render pipeline, GIF encoder, export). `app/index.template.html` HTML + CSS.
+  **No tab bar**: the page opens on Vivre (`S.anim = "life"`); every other tab is a **settings page** opened from Vivre (⚙ on
+  a card, or a « Régler … » link: `openPage(anim, pick)`), with « Revenir à la vie » in the header (or Escape: `backToLife()`).
+  In the code they are still tabs (`S.anim`, `ANIMS`); `PAGE_NAMES` / `PAGE_INTRO` name and introduce each page, a picker grid
+  is a one-line select there (`COMPACT_PICK`), the scene's format and the render settings come last, closed; the exports
+  (GIF, PNG, JSON) are on the settings pages only. A new animation needs no new page: its card and ⚙ come from its list.
   The Vivre tab is its own section (« the life tab »): `optsAs(tab, pick, hub)` builds any tab's options as that tab does,
   `lifeTick()` draws the life live (time-based, `lifeNow()`), `lifeControls()` the buttons (greyed with `can()`'s reason),
   `S.life` keeps its settings, where it is and what it made.
