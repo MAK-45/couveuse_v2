@@ -11,6 +11,8 @@
 //                        (both forms: levitating, and on its legs on a floor with gravity)
 //   in a new form        every other tab drawn in the levitating or grounded human form: from rest now means from the
 //                        new form's loop (first and last frames == "live"'s), loops loop on themselves
+//   life (tab Vivre)     whole lives played by the life engine: every segment's first frame == the rest it leaves, its
+//                        last == the rest it reaches (forms, portals, other worlds, things linked to a world or following)
 // Run: npm test      (exit code 1 on any failure)
 import { createFrame, clearFrame, painterFor, composite } from "../pixelfx/src/core/index.js";
 import * as idle from "../pixelfx/src/fx/creature/ice-blob-idle.js";
@@ -23,6 +25,7 @@ import * as portal from "../pixelfx/src/fx/creature/ice-blob-portal.js";
 import * as worlds from "../pixelfx/src/fx/creature/ice-worlds.js";
 import * as explore from "../pixelfx/src/fx/creature/ice-blob-explore.js";
 import * as transform from "../pixelfx/src/fx/creature/ice-blob-transform.js";
+import * as life from "../pixelfx/src/fx/creature/ice-life.js";
 
 const W = 320, H = 200, Ni = 120; // Ni: frames in one idle loop (D * fps with the defaults)
 function render(mod, o, t) {
@@ -259,6 +262,33 @@ for (const [name, more] of elecCases) {
     for (const name of explore.EXPLORE) if (explore.fitsForm({ ...F }, name)) for (const more of name === "move" ? [{ exStyle: "comet" }, { exStyle: "ghosts" }] : [{}]) {
       const o = { ...explore.meta.options, ...F, room, explore: name, ...more, loops: lp }, T = o.duration * o.loops;
       selfLoop(`explore ${name}${more.exStyle ? " " + more.exStyle : ""}`, explore, o, T);
+    }
+  }
+}
+
+// the life engine (tab Vivre): lives asked for one request after another, as the page does. Each segment starts on a
+// beat of the rest it leaves and must start on that rest's frame, and end on the frame before the next rest's first
+// (that rest drawn with the things there at that moment); loops' own joins are checked above
+{
+  const room = [-160, -115, 160, 85], dt = D / Ni, lifeOf = (L, t) => render(life, { ...life.meta.options, life: L }, t);
+  const restOf = (L, h, as) => ({ ...L, segs: [], hub0: h, things: L.things.map((th) => ({ ...th, born: th.born <= as ? -Infinity : Infinity, dying: th.dying >= as ? Infinity : -Infinity })) });
+  const ob = (x, y, shape, layer = "back") => ({ shape, x, y, size: 11, spinY: 1, spinX: 0, tilt: 0.4, float: 4, floatTurns: 1, hue: 0, glow: 1, layer, ph: 0.3 });
+  const scripts = {
+    blob: [{ id: "actions:jump" }, { id: "loops:magic", reps: 1 }, { id: "appear", ob: ob(-70, -30, "cube") }, { id: "elec:ball" },
+      { id: "appear", ob: ob(60, 20, "gem", "front"), linked: false }, { id: "actions:spin" }, { id: "remove", thing: 1 }, { id: "clock" }],
+    forms: [{ id: "form", form: "human" }, { id: "loops:meditate", reps: 1 }, { id: "appear", ob: ob(70, -40, "crystal") }, { id: "form", form: "grounded" },
+      { id: "loops:sleep", reps: 1 }, { id: "actions:jump" }, { id: "elec:charge" }, { id: "form", form: "blob" }],
+    worlds: [{ id: "appear", ob: ob(-80, -20, "cube") }, { id: "portal", open: true, world: 1 }, { id: "go", place: 1 }, { id: "actions:jump" },
+      { id: "appear", ob: ob(80, -30, "pyramid") }, { id: "appear", ob: ob(40, -60, "sphere"), linked: false }, { id: "loops:sing", reps: 1 },
+      { id: "go", place: "home" }, { id: "form", form: "grounded" }, { id: "go", place: 2 }, { id: "actions:walk" }, { id: "go", place: 1 }, { id: "go", place: "home" }],
+  };
+  for (const [name, script] of Object.entries(scripts)) {
+    const L = life.createLife({ D, optsFor: life.plainOpts({ room, worlds: { 1: { ...worlds.SPACE }, 2: { ...worlds.PLAIN } } }) });
+    for (const r of script) { const res = life.want(L, r, 0.5); if (!res.ok) { fails++; console.log(`FAIL life ${name} refused ${r.id}: ${res.why}`); } }
+    for (const sg of L.segs) {
+      const end = sg.at + sg.len;
+      report(`life ${name} ${sg.kind} ${sg.label}`.slice(0, 34), sg.kind === "loop" || sg.kind === "exit" ? 0 : diff(lifeOf(L, sg.at), lifeOf(restOf(L, sg.hub0, sg.at), sg.at)),
+        sg.kind === "loop" || sg.kind === "enter" ? 0 : diff(lifeOf(L, end - dt), lifeOf(restOf(L, sg.hub1, end), end - dt)));
     }
   }
 }

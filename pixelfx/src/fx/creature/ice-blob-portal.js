@@ -45,6 +45,8 @@ export const meta = {
     ...idleMeta.options,
     // the world seen through it (null: deep space with its defaults) and the scene's bounds in local pixels
     world: null, room: null,
+    // (for the life engine: where the world's clock is when "reopen" starts, and the world's near part left for later)
+    wClock0: 0, frontLater: 0,
     form: "blob", mode: "open", loops: 2, lead: 0.08, castLean: 1,
     // the portal: centre (offset from the blob's spot), height, width / height, shape, plane
     pX: 92, pY: -16, pH: 84, pRatio: 0.62, pShape: "oval", pLayer: "back",
@@ -74,8 +76,8 @@ function clockOf(o, t, P) {
   let x = t;
   if (o.mode === "open") x = t - total(o);
   if (o.mode === "cross" || o.mode === "return" || o.mode === "reopen") {
-    const T = total(o), r = ((T % P) + P) % P, shift = r > P / 2 ? r - P : r;
-    x = t - shift * E(seg(((t / T) % 1 + 1) % 1, 0.1, 0.9));
+    const c0 = o.mode === "reopen" ? o.wClock0 || 0 : 0, T = total(o), r = (((c0 + T) % P) + P) % P, shift = r > P / 2 ? r - P : r;
+    x = c0 + t - shift * E(seg(((t / T) % 1 + 1) % 1, 0.1, 0.9));
   }
   return ((x % P) + P) % P;
 }
@@ -464,12 +466,21 @@ export function drawBack(p, t, o) {
   bodyAmbient(p, t, o, false, C);
 }
 
+/** The world's near part (trees, rocks, tall grass in front of a figure on its legs), when draw() left it for later. */
+export function worldFront(p, t, o) {
+  const pl = plan(o, t), cut = cutIn(o, pl);
+  if (cut !== null) paintWorld(p, worldIn(o), pl.wt, pl.P, pl.room, pl.view, { part: "front", y: cut });
+}
+/** Where a crossing is (its progress 0..1) and its timetable, for what else lives in the scene (objects fade with it). */
+export const crossAt = (o, t) => prog(o, t);
+export const CROSS = X;
+
 export function draw(p, t, o) {
   const C = fit(o.palette, 8), pl = plan(o, t), Cp = paletteFor(o, o.pHue || 0), front = o.pLayer === "front" && !crossy(o);
   const st = bodyFront(p, t, bodyIn(o, pl), pl.M, C, total(o));
   bodyAmbient(p, t, o, true, C);
   const cut = cutIn(o, pl);
-  if (cut !== null) paintWorld(p, worldIn(o), pl.wt, pl.P, pl.room, pl.view, { part: "front", y: cut });
+  if (cut !== null && !o.frontLater) paintWorld(p, worldIn(o), pl.wt, pl.P, pl.room, pl.view, { part: "front", y: cut });
   if (front) drawPortal(p, o, Cp, pl.g, pl.wt, pl.P, pl.room);
   if (o.mode === "return" && o.pLayer === "front") drawPortal(p, o, Cp, pl.back, pl.wt, pl.P, pl.room);
   // (the light comes from a figure's hand)
