@@ -25,7 +25,9 @@ inside a tab), **ask the author** which kind they want, and wait for the answer 
 Ask in French, e.g. « Tu la veux une seule fois (elle part du repos et y revient), ou en boucle (elle s’y met, continue
 autant que tu veux, puis s’arrête et revient au repos) ? »
 Only backdrops (Mondes, Surface planète) loop freely; Action monde's loops are free too and not yet playable in Vivre
-(their entry and exit, the world speeding up and slowing down, are still to do), as are walking and running.
+(their entry and exit, the world speeding up and slowing down, are still to do). Walking and running (Boucles) have
+theirs: the first and last steps (`gaitTimes()`).
+An action that takes it **somewhere else** (the move, `PLACE_ACTIONS`) ends at its rest drawn there (hub `pos`).
 
 **Every new animation must be made for every transformation**, not only for the blob: today the levitating human
 form and the human form on its legs, and every form added later to the Transformation tab. Draw the creature with
@@ -98,7 +100,7 @@ thing (the page has no tab bar). "Tab Actions" = the settings page of an action,
   - `pixelfx/src/fx/spawn/ice-spirit-gestation.js` — tab **Naissance** (birth, box-drawn)
   - `pixelfx/src/fx/creature/ice-life.js` — tab **Vivre**, the life engine: a score of segments laid end to end, each one a
     tab's animation played with that tab's options (`cfg.optsFor(tab, pick, hub)`, the page's `optsAs()`), starting on a
-    beat of the rest it leaves (a hub: `form`, `place` home or a world's id, `portal`) and lasting whole loops. `CATALOG`
+    beat of the rest it leaves (a hub: `pos` where it is in the scene (the module drawn shifted, `o.room` shifted back; `{ id: "move", to }` takes it there), `form`, `place` home or a world's id, `portal`) and lasting whole loops. `CATALOG`
     (from the modules' lists), `want(L, req, now)` (plans the steps it needs: close a portal, revert, transform, reopen,
     return... then the animation; a loop's `enter` → `loop` (rep ∞ until asked otherwise) → `exit`), `can()` (why not),
     `status()`, `clearQueue()`, `trim()`, `snapshot()` (hub + things to keep), `plainOpts()` (tests, render tool,
@@ -109,13 +111,15 @@ thing (the page has no tab bar). "Tab Actions" = the settings page of an action,
     `settle(m, k)` (modifiers back to rest by an intensity), `phases(part, T, lead, pose)` (an entry's or exit's timetable:
     k, the melt into light when the pose changes, `swap`, `s` for the anchor)
   - `pixelfx/src/fx/creature/ice-blob-idle.js` — tab **Blob né**; the blob itself (exports `blobBack`, `blobFront`, `state`, `ambient`, `NONE`)
-  - `pixelfx/src/fx/creature/ice-blob-actions.js` — tab **Actions** (19 actions; exports `hsl`, `fromHsl`, `walkRoute`, `portalSpots`)
+  - `pixelfx/src/fx/creature/ice-blob-actions.js` — tab **Actions** (19 actions back to rest, and `move` (`PLACE_ACTIONS`): it goes to a point and rests there, the painter carried
+    in whole px (`carried()`, `carriedAt()`), on its legs its own steps (`m.steps`); exports `hsl`, `fromHsl`, `walkRoute`, `portalSpots`)
   - `pixelfx/src/fx/creature/ice-scene-objects.js` — tab **Objets** (solids, appear/remove; exports `drawObject`)
   - `pixelfx/src/fx/creature/ice-blob-loops.js` — tab **Boucles** (20 endless activities; `walk`/`run` = `gaitLoop()`: the figure on
     its legs walks or runs on the spot, its floor of ice going by under its feet like a treadmill, same `m.gait` and `ga` keys as Action monde).
     Each loop has three parts (`o.part`: "loop", "enter" from rest, "exit" back to rest; `inLoops` / `outLoops`, `meltTime`;
     `total(o)` is the part's length, `loopLen` the activity's period): `planOf()` / `modsOf()` / `layer()` at the end of the file;
-    walking and running have no entry or exit yet (`PART_FIT`)
+    walking and running start and stop (`gaitTimes()`: it melts to turn side on, the cadence rises from still, falls to still;
+    `GAIT_TRAIL` prints never show a step it didn't take; their parts may last more loops than asked)
   - `pixelfx/src/fx/creature/ice-blob-clock.js` — tab **Heure** (shows the time)
   - `pixelfx/src/fx/creature/ice-blob-electric.js` — tab **Électricité** (8 electric animations, rest → electricity → rest like actions; own colours `elCore`/`elColor`/`elGlow`)
   - `pixelfx/src/fx/creature/ice-blob-portal.js` — tab **Portail** (the blob opens a portal onto a world: `open` from rest, `live` portal open, `close` back to rest; `cross` from `live` through the portal, with its mirror image, out of a mirrored portal into `beyond` = its rest in the other world; then `reopen` (a portal home, our void inside) → `beyondOpen` (loop) → `return` back through to the Blob né's rest, or to `live` with `returnKeep`; 3 open + 3 close styles, 5 shapes)

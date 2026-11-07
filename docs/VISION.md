@@ -53,9 +53,9 @@ La page s’ouvre sur **Vivre** : la créature vit (voir plus bas). Il n’y a p
 se règle depuis Vivre, avec la ⚙ de son bouton ou un lien « Régler … », dans une page de réglages qui la montre en boucle et
 l’exporte (GIF, planche PNG, JSON), avec « Revenir à la vie » pour revenir. Ces pages de réglages sont :
 
-Naissance · Apparence (le blob né, son repos) · Actions (19, retour au repos) · Objets (scène vivante, apparition,
+Naissance · Apparence (le blob né, son repos) · Actions (19, retour au repos, et le Déplacement : il va ailleurs dans la scène et s’y repose) · Objets (scène vivante, apparition,
 disparition) · Boucles (20 activités : dormir, magie, jongler…, chacune avec son entrée depuis le repos et sa sortie vers
-le repos ; marche et course seulement en boucle pour l’instant) · Heure (affiche une heure choisie
+le repos, marche et course comprises : premier et dernier pas) · Heure (affiche une heure choisie
 ou celle de l’export, puis revient au repos) · Électricité (8 animations où le blob part de son repos,
 découvre l’électricité et la manipule, puis revient exactement à son repos, comme les actions : étincelle, statique, boule de plasma, charge et décharge, deux pôles, éclair en
 chaîne, orage, atome ; couleurs de l’électricité réglables à part : cœur, arc, lueur, avec des préréglages) ·
@@ -107,7 +107,17 @@ jamais), la vitesse est en km/h (arrondie pour que la boucle soit parfaite), et 
 (arbres, rochers, hautes herbes) passe devant elle ; dans l’espace, elle garde son sol de glace, qui défile avec ses pas. Le blob né
 et la forme en lévitation ne marchent pas (pas de jambes, ou pas de sol sous les pieds) : grisé, avec la raison. Dans les Boucles,
 la marche et la course se font **sur place** : son sol de glace (reflets, empreintes) défile sous ses pieds comme un
-tapis roulant.
+tapis roulant. Elles vivent dans Vivre : pour **démarrer**, elle fond en lumière face à nous, reprend forme de profil, les
+deux pieds au sol (en course, sur un pied), puis ses pas s’accélèrent jusqu’à l’allure de la boucle, le sol avec eux ; pour
+**s’arrêter**, ses pas ralentissent jusqu’à l’arrêt, les empreintes s’éteignent, et elle fond en lumière pour revenir face à
+nous, au repos.
+
+**Se déplacer.** L’action « Déplacement » (une fois) l’emmène ailleurs dans la scène, à la croix qu’on pose en cliquant dans
+Vivre, et elle s’y repose : tout ce qu’elle fait ensuite se fait là. Le blob et la forme en lévitation y glissent en
+flottant (penchés dans leur élan, un peu étirés par la vitesse, le regard vers où ils vont, petits bonds au choix) ; la forme
+au sol y marche le long de son sol, un nombre entier de pas. Les objets restent où ils sont nés. Avant d’ouvrir un portail ou
+de partir dans un monde, elle revient d’elle-même à sa place ; avant de prendre la forme au sol, le blob redescend à sa
+hauteur (son sol reste toujours au même niveau). Sa page de réglages la montre en aller-retour.
 
 **Règle pour la suite : chaque nouvelle animation est faite pour chaque transformation** (blob né, forme humaine en
 lévitation, forme humaine au sol, et toute forme ajoutée plus tard), adaptée à chacune ; si elle n’a vraiment pas de sens
@@ -116,7 +126,7 @@ existantes.
 
 ## La vie (page Vivre)
 
-La créature vit sans fin. Des boutons lui demandent quoi faire : les 19 actions, les 18 activités en boucle (elle s’y met,
+La créature vit sans fin. Des boutons lui demandent quoi faire : les 19 actions et le déplacement, les 20 activités en boucle (marche et course comprises) (elle s’y met,
 continue jusqu’à ce qu’on lui demande autre chose ou « Arrêter la boucle », puis s’arrête), les 8 animations
 d’électricité, l’heure (l’heure qu’il est), ses trois formes, les portails et les mondes (ouvrir, fermer, aller dans un
 monde, rentrer), et les objets. Elle fait chaque chose **à son tour**, en partant de son repos et en y revenant, au

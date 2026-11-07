@@ -82,7 +82,8 @@ Les commandes prêtes (dans Claude Code) font la même chose avec la bonne recet
 ## Ce qui reste à faire (idées, dans un ordre conseillé)
 
 1. **L’exploration dans la vie** (Action monde) : une entrée (le monde accélère) et une sortie (il ralentit et s’arrête).
-2. **Marcher et courir dans la vie** : le premier pas et le dernier pas.
+2. **Se déplacer dans un autre monde avec son décor** : marcher dans Action monde et y rester ailleurs (pour l’instant le
+   déplacement se fait dans la scène, le monde reste immobile).
 3. **S’asseoir pour de vrai** : une posture assise où les genoux plient, que le sommeil et la méditation utiliseront.
 4. **Les compagnons** : un animal de lumière qui a son propre repos et ses animations, lié à un monde ou suivant le blob.
 5. **Construire des objets** : il assemble un objet pièce par pièce et le laisse dans le décor.

@@ -484,8 +484,16 @@ function walking(Lw, xm) {
   const lift = Math.max(0, -m.dy), maxC = 0.42 * Lw.Lg, squat = maxC * Math.tanh((Math.max(0, m.dy) + Math.max(0, 1 - m.sy) * U * 1.3) / maxC);
   const air = E(clamp((lift - 0.06 * U) / (0.42 * U))), wrapPi = (a) => a - TAU * Math.round(a / TAU);
   const lean = clamp(wrapPi(m.rot), -0.55, 0.55) * (1 - air) + clamp(xm.vx / 160, -0.18, 0.18);
+  // (another tab may lay its own steps: m.steps = { feet: [near, far] x of each foot from its spot, sw: [near, far] how
+  // far through its swing each foot is, 0..1, lifted while it swings; the Actions tab's move walks so along its floor)
+  if (m.steps) {
+    const st2 = m.steps, q = [Math.sin(Math.PI * clamp(st2.sw[0])), Math.sin(Math.PI * clamp(st2.sw[1]))], u2 = [0.17 * U * q[0], 0.17 * U * q[1]];
+    return { wx: d, feet: [st2.feet[0] + d, st2.feet[1] + d], up: u2, step: { up: u2, flat: [1 - 0.75 * q[0], 1 - 0.75 * q[1]] }, rise: squat - lift, squat, air, lean };
+  }
   return { wx: d, feet: [L * S(c), L * S(c - 0.5)], up, step: { up, flat: [1 - 0.75 * sR * mv, 1 - 0.75 * sL * mv] }, rise: squat - lift, squat, air, lean };
 }
+/** How long a step of the figure on its legs is, in local px (the Actions tab's move walks with it). */
+export const stepOf = (o) => 0.62 * legsOf(withForm(o)).U;
 
 // ---- walking and running, seen from the side. Another tab asks for it with m.gait = { kind: "walk" | "run", ph: the
 // stride's phase (0..1: the near foot lands at 0, the far one at 0.5), cyc: the same, unwrapped (strides so far), S: the
@@ -501,6 +509,8 @@ function walking(Lw, xm) {
 // landing, lifted (the heel kicked up when running); the arms swing against the legs, the upper body leans into the pace,
 // the head stays level, the hair streams back and bounces with every step.
 export const GAITS = ["walk", "run"];
+/** How long a print of light stays on the ground behind it, in strides. */
+export const GAIT_TRAIL = { walk: 2.6, run: 1.7 };
 const frac = (x) => x - Math.floor(x);
 const herm = (p0, m0, p1, m1, s) => { const s2 = s * s, s3 = s2 * s; return (2 * s3 - 3 * s2 + 1) * p0 + (s3 - 2 * s2 + s) * m0 + (3 * s2 - 2 * s3) * p1 + (s3 - s2) * m1; };
 // the foot's frame turned by its pitch a (toes up > 0), y down
@@ -1111,8 +1121,10 @@ function floorFx(p, C, o, F, part = 0) {
   // glints running on the ice (carried back with the floor while it walks or runs over it: a whole number of tiles a loop)
   const n = whole(o.grGlints) * whole(o.liveLoops, 1), Wk = F.X && F.X.gait, Tt = Math.max(16, Math.ceil(Math.max(room[2] - room[0], room[3] - room[1])));
   const slide = Wk ? (Wk.dir < 0 ? -1 : 1) * gaitSolve(G.Lw, Wk).S * (Wk.cyc ?? Wk.ph) : 0;
+  // (while it melts into light to change pose, the glints dim with it: it may start or stop walking then)
+  const melt = F.ext && F.st.m.morph > 0 ? 1 - F.st.m.morph : 1;
   if (n) cycle(F.ph.h, F.P, n, o.seed + 313, (g) => g.range(0.45, 0.9), (age, life, r) => {
-    const k = age / life, r0 = r.range(0, 1), x = Wk ? Math.floor(room[0] + (((r0 * Tt - slide) % Tt) + Tt) % Tt) + 0.5 : Math.floor(lerp(room[0] + 3, room[2] - 3, r0)) + 0.5, a = Math.sin(Math.PI * k) * G.fl;
+    const k = age / life, r0 = r.range(0, 1), x = Wk ? Math.floor(room[0] + (((r0 * Tt - slide) % Tt) + Tt) % Tt) + 0.5 : Math.floor(lerp(room[0] + 3, room[2] - 3, r0)) + 0.5, a = Math.sin(Math.PI * k) * G.fl * melt;
     if (Wk && (x < room[0] + 3 || x > room[2] - 3)) return;
     if (Math.abs(x) > reach || a < 0.3) return;
     star(p, C, x, FY + 0.5, a > 0.75 ? 2 : 1);
@@ -1126,12 +1138,18 @@ function gaitFx(p, C, o, F) {
   const Wk = F.X && F.X.gait;
   if (!Wk || F.hidden || !F.G) return;
   const Lw = F.G.Lw, sol = gaitSolve(Lw, Wk), K = sol.K, U = Lw.U, FY = F.G.FY, sd = Wk.dir < 0 ? -1 : 1, S = sol.S, c = Wk.cyc ?? Wk.ph;
-  const N = Math.max(1, Math.round(Wk.N || 1)), pr = Math.max(0, Wk.prints ?? 1), sp = Math.max(0, Wk.sparks ?? 1), life = K.run ? 1.7 : 2.6;
+  const N = Math.max(1, Math.round(Wk.N || 1)), pr = Math.max(0, Wk.prints ?? 1), sp = Math.max(0, Wk.sparks ?? 1), life = GAIT_TRAIL[K.run ? "run" : "walk"];
   const fb = FOOT.fb * U, hb = FOOT.hb * U, tb = FOOT.tb * U, room = roomOf(o), Lt = o.grLight;
+  // starting off (Wk.from: the stride it set off at) there is no print of a step it never took; stopping, the prints
+  // left behind fade out (Wk.fade) before it turns back to rest
+  const fade = Number.isFinite(Wk.fade) ? clamp(Wk.fade) : 1, f0 = p.fade;
+  if (fade <= 0) return;
+  p.fade = f0 * fade;
   for (const [side, off] of [[1, 0], [-1, 0.5]]) {
     for (let k = 0; k <= Math.ceil(life) + 1; k++) {
       const j = Math.floor(c - off) - k, a = c - off - j;
       if (a < 0 || a > life) continue;
+      if (Number.isFinite(Wk.from) && j + off < Wk.from - 1e-6) continue;
       const r = rng(o.seed, 717 + (side > 0 ? 0 : 1), ((j % N) + N) % N), ball = sol.b0 - S * a;
       // the print: the sole's length (running, mostly the ball of the foot), a dash of light on the ground
       const x0 = ball - (K.run ? fb * 0.7 : fb + hb), x1 = ball + tb * 0.8, fade = (1 - a / life) ** 1.4 * pr;
@@ -1167,6 +1185,7 @@ function gaitFx(p, C, o, F) {
       }
     }
   }
+  p.fade = f0;
 }
 // the landing (and the jump on the way back), in time: a ripple of light runs along the floor both ways, light
 // splashes up from its feet and falls back to the floor

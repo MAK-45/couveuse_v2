@@ -281,6 +281,12 @@ for (const [name, more] of elecCases) {
     worlds: [{ id: "appear", ob: ob(-80, -20, "cube") }, { id: "portal", open: true, world: 1 }, { id: "go", place: 1 }, { id: "actions:jump" },
       { id: "appear", ob: ob(80, -30, "pyramid") }, { id: "appear", ob: ob(40, -60, "sphere"), linked: false }, { id: "loops:sing", reps: 1 },
       { id: "go", place: "home" }, { id: "form", form: "grounded" }, { id: "go", place: 2 }, { id: "actions:walk" }, { id: "go", place: 1 }, { id: "go", place: "home" }],
+    // it moves about the scene and lives there (things stay where they were made); on its legs it walks and runs, and
+    // goes back to its spot by itself before a portal opens
+    moves: [{ id: "move", to: [90, -30] }, { id: "actions:jump" }, { id: "appear", ob: ob(-60, -20, "cube") }, { id: "loops:magic", reps: 1 },
+      { id: "form", form: "grounded" }, { id: "move", to: [-80, 0] }, { id: "loops:walk", reps: 1 }, { id: "loops:run", reps: 1 }, { id: "remove", thing: 1 },
+      { id: "go", place: 2 }, { id: "move", to: [60, 0] }, { id: "loops:walk", reps: 1 }, { id: "go", place: "home" }, { id: "form", form: "human" },
+      { id: "move", to: [40, 40] }, { id: "portal", open: true, world: 1 }, { id: "move", to: [500, -400] }],
   };
   for (const [name, script] of Object.entries(scripts)) {
     const L = life.createLife({ D, optsFor: life.plainOpts({ room, worlds: { 1: { ...worlds.SPACE }, 2: { ...worlds.PLAIN } } }) });

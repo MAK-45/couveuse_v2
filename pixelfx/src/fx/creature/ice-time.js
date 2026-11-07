@@ -42,16 +42,19 @@ export function settle(m, k) {
  *   part "exit":  in full -> rest. k falls, the pose switches back once k is 0, and the last DROP_LIFE is rest.
  * melt: 0..1 (1 exactly while the pose switches, so nothing of either pose shows), swap: the activity's pose is on,
  * s: 0..1 how far the melt has gone from the pose at rest to the activity's (for where the light gathers).
+ * The function also carries its times: melt0 / melt1 (the melt's start and end), swapAt (when the pose switches), full.
  */
 export function phases(part, T, lead = 0.08, pose = false, meltLen = 1.1) {
   const L = pose ? Math.min(meltLen, T * 0.4) : 0, a0 = Math.max(0.12, lead * T), full = T - DROP_LIFE;
   if (part === "enter") {
     const m0 = a0, m1 = a0 + L / 2, m2 = a0 + L, r0 = pose ? m1 : a0, r1 = Math.max(r0 + 0.3, full);
-    return (t) => ({ k: t <= r0 ? 0 : t >= r1 ? 1 : E((t - r0) / (r1 - r0)), melt: pose ? meltAt(t, m0, m2) : 0, swap: !pose || t >= m1, s: pose ? E(seg(t, m0, m2)) : 1 });
+    const f = (t) => ({ k: t <= r0 ? 0 : t >= r1 ? 1 : E((t - r0) / (r1 - r0)), melt: pose ? meltAt(t, m0, m2) : 0, swap: !pose || t >= m1, s: pose ? E(seg(t, m0, m2)) : 1 });
+    return Object.assign(f, { melt0: m0, swapAt: pose ? m1 : 0, melt1: m2, full });
   }
   // exit: k falls over [f0, f1]; the pose switches back at f1 (k = 0 there), the melt around it; rest after
   const n2 = Math.max(0.6, full), n1 = n2 - L / 2, f1 = pose ? n1 : n2, f0 = Math.min(Math.max(0.12, lead * T), f1 - 0.3), n0 = n2 - L;
-  return (t) => ({ k: t <= f0 ? 1 : t >= f1 ? 0 : 1 - E((t - f0) / (f1 - f0)), melt: pose ? meltAt(t, n0, n2) : 0, swap: !pose || t < n1, s: pose ? 1 - E(seg(t, n0, n2)) : 0 });
+  const f = (t) => ({ k: t <= f0 ? 1 : t >= f1 ? 0 : 1 - E((t - f0) / (f1 - f0)), melt: pose ? meltAt(t, n0, n2) : 0, swap: !pose || t < n1, s: pose ? 1 - E(seg(t, n0, n2)) : 0 });
+  return Object.assign(f, { melt0: n0, swapAt: pose ? n1 : n2, melt1: n2, full });
 }
 // a melt over [a, b]: up, a plateau at exactly 1 around the middle, down
 function meltAt(t, a, b) {

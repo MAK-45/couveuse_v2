@@ -56,6 +56,17 @@ jump, and GIFs placed end to end chain:
   the ice floor's glints go by with it, wrapped on the tile. The world's layer under its feet is found by `groundDepth()` and
   given `wDrift = tiles / depth`, so it makes exactly `tiles` a loop; other layers make their own whole number (`wAllMove: 0`:
   one too far to make a whole tile stays still).
+- **Starting and stopping to walk or run** (Boucles, `gaitTimes()`). The stride's phase is the integral of the cadence: the
+  entry holds still at the stride it sets off at (`from`), then the cadence rises by `E` over [r0, r1] to the loop's, which it
+  is for the last DROP_LIFE, where the phase is the loop's own `N (t − T) / P + 0.1`; the exit is the loop's own phase until
+  f0, then the cadence falls to 0 at f1. r0 and f0 are chosen within one stride's time so it sets off and stops standing well
+  (walking on both feet, `STAND`), and the entry long enough that every print alive where the loop starts was left after
+  `from` (no print of a step it never took; `total()` adds loops if needed). The ground goes by at `S` times the cadence, so
+  the planted foot never slides. Facing us at rest, side on walking: a pose change, through the melt (rule 9); the ice floor's
+  glints dim with the melt (their layout changes when the gait switches), the prints fade out (`fade`) before it.
+- **Moving about the scene** (the move). Its frame is the rest's shifted by whole pixels (`carried()`): at its start the shift
+  is 0, at its end the destination, every modifier neutral there, so its last frame is the rest drawn there pixel for pixel;
+  the rest there is drawn shifted the same way (`pos`), with `o.room` shifted back.
 - **Encoding.** GIF frames carry a palette computed from that frame alone, so two identical frames in two
   different GIFs produce identical pixels.
 

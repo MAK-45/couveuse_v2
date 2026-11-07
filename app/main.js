@@ -157,6 +157,7 @@ const ACTION_LIST = [
   ["melt", "Fonte", "fond en flaque, se reforme"],
   ["curious", "Curiosité", "regarde, se penche, observe"],
   ["portal", "Portails", "passe d’un portail bleu à un orange"],
+  ["move", "Déplacement", "va à la croix et y reste"],
 ];
 // how long each action lasts by default, in loops of the blob's rest
 const LOOPS_DEF = { portal: 4, walk: 4, comet: 3, freeze: 3, drop: 3, melt: 3, scared: 3, curious: 3 };
@@ -165,6 +166,9 @@ const PORTAL_FACES = [["270", "Le sol (s’ouvre vers le haut)"], ["90", "Le pla
   ["180", "Un mur à droite (s’ouvre vers la gauche)"], ["315", "Une pente, vers le haut à droite"], ["225", "Une pente, vers le haut à gauche"],
   ["45", "Un surplomb, vers le bas à droite"], ["135", "Un surplomb, vers le bas à gauche"]];
 const ACTION_PARAMS = {
+  move: [["mvTX", "Destination horizontale", 0, 100, 0.5, " %"], ["mvTY", "Destination verticale (pas sur ses jambes)", 0, 100, 0.5, " %"],
+    ["mvHold", "Pause là-bas (aperçu aller-retour)", 0, 0.6, 0.01, ""], ["mvHops", "Petits bonds en chemin", 0, 8, 1, ""], ["mvHop", "Hauteur des bonds", 0, 16, 0.5, " px"],
+    ["mvLean", "Se penche dans son élan", 0, 2.5, 0.05, ""], ["mvSquash", "S’étire avec la vitesse", 0, 2.5, 0.05, ""], ["mvLook", "Regarde où il va", 0, 2, 0.05, ""]],
   walk: [["walkRoute", "Trajet", { button: "Autre trajet" }],
     ["walkStops", "Nombre d’étapes", 1, 10, 1, ""], ["walkZoneW", "Largeur de la zone parcourue", 10, 100, 1, " % de la largeur"], ["walkZoneH", "Hauteur de la zone parcourue", 10, 100, 1, " % de la hauteur"],
     ["walkPause", "Temps passé aux arrêts", 0, 0.8, 0.01, " part"], ["walkCurve", "Trajets en courbe", 0, 1.5, 0.05, ""],
@@ -236,7 +240,7 @@ const BLOB_KEYS = new Set(Object.keys(PFX.blob.meta.options));
 const ACTION_KEYS = new Set(Object.keys(PFX.actions.meta.options).filter((k) => !BLOB_KEYS.has(k) && k !== "form"));
 // distances an action covers are set on the scene (points in %, lengths in % of the scene's height) and turned
 // into the effect's own pixels when drawn, so the blob can reach any corner whatever the scene's size
-const SCENE_ACTION_DEF = { walkZoneW: 90, walkZoneH: 70, tpTX: 85, tpTY: 25, jumpHeight: 30, splitDistance: 14, burstRadius: 28, auraRise: 5, spinRise: 5,
+const SCENE_ACTION_DEF = { walkZoneW: 90, walkZoneH: 70, tpTX: 85, tpTY: 25, mvTX: 80, mvTY: 38, jumpHeight: 30, splitDistance: 14, burstRadius: 28, auraRise: 5, spinRise: 5,
   danceAmp: 5, scareRetreat: 18, dropFloor: 92, cometRadius: 30, meltDrop: 10, curiousPeek: 8,
   portalATX: 30, portalATY: 86, portalBTX: 90, portalBTY: 40 };
 for (const [id] of ACTION_LIST)
@@ -246,7 +250,7 @@ const SCENE_LENGTHS = ["jumpHeight", "splitDistance", "burstRadius", "auraRise",
 for (const k of Object.keys(SCENE_ACTION_DEF)) ACTION_KEYS.add(k);
 const actionDef = () => ({ ...Object.fromEntries([...ACTION_KEYS].filter((k) => k in PFX.actions.meta.options).map((k) => [k, PFX.actions.meta.options[k]])), ...SCENE_ACTION_DEF });
 // where an action wants to go, as a scene point, if it has one
-const TARGETS = { teleport: ["tpTX", "tpTY"], portal: [["portalATX", "portalATY"], ["portalBTX", "portalBTY"]] };
+const TARGETS = { teleport: ["tpTX", "tpTY"], move: ["mvTX", "mvTY"], portal: [["portalATX", "portalATY"], ["portalBTX", "portalBTY"]] };
 // an action's targets as a list of key pairs (one or more)
 const targetKeys = (a) => { const t = TARGETS[a]; return !t ? [] : Array.isArray(t[0]) ? t : [t]; };
 // ---- the objects tab: things the blob makes in its scene, which stay and float with it
@@ -440,7 +444,7 @@ const loopsDef = () => {
 };
 for (const k of Object.keys(loopsDef())) LOOP_KEYS.add(k);
 const LOOP_PARTS = [["loop", "La boucle"], ["enter", "Entrée : depuis le repos"], ["exit", "Sortie : retour au repos"]];
-// the part shown: walking and running have no entry or exit yet (they play as a loop only)
+// the part shown (a loop with no entry or exit yet, in PART_FIT, plays as a loop only)
 const loopPart = (src = V) => (PFX.loops.hasParts(src.loop) && (src.part === "enter" || src.part === "exit") ? src.part : "loop");
 function loopGroups() {
   const cur = LOOP_LIST.find((a) => a[0] === V.loop) || LOOP_LIST[0], parts = PFX.loops.hasParts(cur[0]);
@@ -1128,7 +1132,7 @@ const fmt = (v, step, unit) => (step < 1 ? (+v).toFixed(step < 0.5 ? 2 : 1) : St
 const fmtRow = (k, v, step, unit) => {
   if (k === "posX") return `${(+v).toFixed(1)} % · ${Math.round((v / 100) * V.sceneW)} px`;
   if (k === "posY") return `${(+v).toFixed(1)} % · ${Math.round((v / 100) * V.sceneH)} px`;
-  if (k === "walkTX" || k === "tpTX" || k === "portalATX" || k === "portalBTX" || k === "ptX") return `${(+v).toFixed(1)} % · ${Math.round((v / 100) * V.sceneW)} px`;
+  if (k === "walkTX" || k === "tpTX" || k === "mvTX" || k === "portalATX" || k === "portalBTX" || k === "ptX") return `${(+v).toFixed(1)} % · ${Math.round((v / 100) * V.sceneW)} px`;
   if (k === "walkTY" || k === "tpTY" || k === "portalATY" || k === "portalBTY" || k === "ptY") return `${(+v).toFixed(1)} % · ${Math.round((v / 100) * V.sceneH)} px`;
   if (unit === " % de la scène") return `${(+v).toFixed(1)} % · ${Math.round((v / 100) * V.sceneH)} px`;
   if (k === "scale") return `${v}× · ${V.canvas * v} px`;
@@ -1507,6 +1511,7 @@ function effOpts(src = V) {
     const pl = placement(), k = V.scale, h = SH / k;
     o.loops = V["loops_" + V.action] || 2;
     o.tpX = ((V.tpTX / 100) * SW - pl.cx) / k; o.tpY = ((V.tpTY / 100) * SH - pl.cy) / k;
+    o.mvX = ((V.mvTX / 100) * SW - pl.cx) / k; o.mvY = ((V.mvTY / 100) * SH - pl.cy) / k;
     o.portalAX = ((V.portalATX / 100) * SW - pl.cx) / k; o.portalAY = ((V.portalATY / 100) * SH - pl.cy) / k;
     o.portalBX = ((V.portalBTX / 100) * SW - pl.cx) / k; o.portalBY = ((V.portalBTY / 100) * SH - pl.cy) / k;
     o.portalRoom = [-pl.cx / k, -pl.cy / k, (SW - pl.cx) / k, (SH - pl.cy) / k];
@@ -1891,6 +1896,8 @@ function lifeTick(now) {
   }
   if (now - lifeLast > 250) { lifeLast = now; lifeAuto(t); lifeStatus(); PFX.life.trim(LIFE, t); }
 }
+// the cross (where the next object appears, where it goes when it moves) in the effect's px from its spot
+function spotTo() { const pl = placement(), k = V.scale; return [Math.round(((S.life.spotX / 100) * SW - pl.cx) / k), Math.round(((S.life.spotY / 100) * SH - pl.cy) / k)]; }
 // a card that asks for something (greyed, with the reason, when it can't be done after what is already asked), and its
 // gear: the settings page of that thing (its preview in a loop, its export)
 function lifeButton(grid, req, name, desc, onclick, gear) {
@@ -1919,7 +1926,7 @@ function lifeLinks(rows, links) {
   rows.appendChild(r);
 }
 function lifeControls() {
-  controls.insertAdjacentHTML("beforeend", `<p class="note intro">Il <b>vit</b>, sans fin et sans jamais sauter d’image. Clique sur ce qu’il doit faire : il le fait à son tour, en partant de son repos et en y revenant, et prend de lui-même les étapes nécessaires. Les boucles durent jusqu’à ce que tu demandes autre chose. ⚙ ouvre les réglages d’une chose, avec son aperçu et son export en GIF.</p>`);
+  controls.insertAdjacentHTML("beforeend", `<p class="note intro">Il <b>vit</b>, sans fin et sans jamais sauter d’image. Clique sur ce qu’il doit faire : il le fait à son tour, en partant de son repos et en y revenant, et prend de lui-même les étapes nécessaires. Les boucles durent jusqu’à ce que tu demandes autre chose. Clique dans la scène pour poser la croix : c’est là qu’il va quand tu lui demandes de se déplacer, et là qu’apparaît le prochain objet. ⚙ ouvre les réglages d’une chose, avec son aperçu et son export en GIF.</p>`);
   {
     const [d, rows] = group({ title: "Maintenant", hint: "ce qu’il fait, ce qui suit" }, "life-now", true);
     rows.insertAdjacentHTML("beforeend", `<div class="lifenow" id="lifeNow" aria-live="polite"></div><div class="inline"><button type="button" id="lifeStop">Arrêter la boucle</button><button type="button" id="lifeClear">Vider la file</button></div>`);
@@ -1927,8 +1934,12 @@ function lifeControls() {
   }
   const fam = (title, hint, key, list, family, open) => {
     const [d, rows] = group({ title, hint }, "life-" + key, open), grid = lifeGrid(rows, title);
-    for (const [id, name, desc] of list) lifeButton(grid, { id: family === "clock" ? "clock" : `${family}:${id}` }, name, desc, null,
-      [family, family === "actions" ? { action: id } : family === "loops" ? { loop: id } : family === "elec" ? { elec: id } : {}]);
+    for (const [id, name, desc] of list) {
+      const gear = [family, family === "actions" ? { action: id } : family === "loops" ? { loop: id } : family === "elec" ? { elec: id } : {}];
+      // the move goes to the cross (click in the scene to put it) and rests there
+      if (family === "actions" && PFX.actions.PLACE_ACTIONS.includes(id)) lifeButton(grid, { id: "move" }, name, desc, () => lifeAsk({ id: "move", to: spotTo(), label: "se déplace" }), gear);
+      else lifeButton(grid, { id: family === "clock" ? "clock" : `${family}:${id}` }, name, desc, null, gear);
+    }
     controls.appendChild(d);
   };
   fam("Actions", "une fois, du repos au repos", "actions", ACTION_LIST, "actions", true);

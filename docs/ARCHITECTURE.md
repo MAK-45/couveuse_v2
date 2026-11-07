@@ -29,7 +29,16 @@ and inlines everything into `dist/couveuse.html`.
   French), `status()` what it does and what follows, `snapshot()` what to keep (the last hub, the things), `trim()`
   forgets what ended long ago.
 - `CATALOG` is made from the modules' own lists (`ACTIONS`, `LOOPS`, `ELEC`, the clock); `whyNot()` reads their `FORM_FIT`
-  and the loops' `PART_FIT`. Adding an action or a loop to its module puts it in Vivre.
+  and the loops' `PART_FIT` (empty now: walking and running have their entry and exit). Adding an action or a loop to its
+  module puts it in Vivre. Actions in `PLACE_ACTIONS` (the move) don't come back where they started: they are not in the
+  catalog but a request of their own (`{ id: "move", to: [x, y] }`, the page's cross) and a segment kind "move".
+- **Where it is in the scene**: a hub has `pos` (whole px from its spot). The engine draws the module shifted there
+  (`shifted()`, the painter's origin moved) and `optsOf()` shifts `o.room` back, so what is pinned to the scene (a floor, the
+  world, the bounds of a stroll) stays put; things are not shifted (objects passed to appear / remove are, by `-pos`). The
+  move (`A.move` in ice-blob-actions.js) shifts the painter itself by where it has got to (`carried()`, whole px) and draws
+  the rest of the way as `dx`/`dy`; on its legs it lays its own steps (`m.steps`, read by `walking()`), a whole number of
+  `stepOf(o)` so both feet land where it stops. Portals open at the spot: `plan()` adds a move back there first
+  (`atSpot()`); the figure on its legs moves only along x, so the blob floats back to its height before it takes that form.
 - **Things** (objects; companions later): `{ id, ob, place, linked, born, dying }`. Present from the end of their "appear" to
   the start of their "remove", seen where the creature is if `linked` to that place, everywhere if not. The engine draws
   them after the module's back and front layers (`drawObject`), fading those of the world it leaves and of the one it

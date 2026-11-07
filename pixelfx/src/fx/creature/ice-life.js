@@ -50,7 +50,7 @@ const MARGIN = 0.15; // (s) nothing new starts sooner than this after now: the f
 // ---- what it can do: every animation of the tabs that go from rest back to rest, or loop with an entry and an exit
 /** Every animation a life can play, generated from the modules' own lists: { id, family, tab, pick, kind, name }. */
 export const CATALOG = [
-  ...actions.ACTIONS.map((name) => ({ id: "actions:" + name, family: "actions", tab: "actions", pick: { action: name }, kind: "once", name })),
+  ...actions.ACTIONS.filter((name) => !actions.PLACE_ACTIONS.includes(name)).map((name) => ({ id: "actions:" + name, family: "actions", tab: "actions", pick: { action: name }, kind: "once", name })),
   ...loops.LOOPS.map((name) => ({ id: "loops:" + name, family: "loops", tab: "loops", pick: { loop: name }, kind: "loop", name })),
   ...elec.ELEC.map((name) => ({ id: "elec:" + name, family: "elec", tab: "elec", pick: { elec: name }, kind: "once", name })),
   { id: "clock", family: "clock", tab: "clock", pick: {}, kind: "once", name: "clock" },
@@ -65,8 +65,11 @@ export function whyNot(entry, form) {
 }
 
 // ---- rests. A hub: { form, place ("home" or a world's id), portal (null; at home the id of the world it opens onto;
-// in another world "home" for the way back), since (when this rest began), wt0 (when it arrived in that world) }
-const hubKey = (h) => `${h.form}|${h.place}|${h.portal}`;
+// in another world "home" for the way back), pos ([x, y] where it is in the scene, whole px from its spot; the Actions
+// tab's move takes it there), since (when this rest began), wt0 (when it arrived in that world) }
+const posOf = (h) => (Array.isArray(h.pos) ? h.pos : [0, 0]);
+const elsewhere = (h) => { const [x, y] = posOf(h); return x !== 0 || y !== 0; };
+const hubKey = (h) => `${h.form}|${h.place}|${h.portal}|${posOf(h).join(",")}`;
 const away = (h) => h.place !== "home";
 
 /**
@@ -76,7 +79,8 @@ const away = (h) => h.place !== "home";
  */
 export function createLife(cfg) {
   const t0 = cfg.t0 || 0, h = cfg.hub || {};
-  const hub = { form: FORMS.includes(h.form) ? h.form : "blob", place: h.place ?? "home", portal: h.portal ?? null, since: t0, wt0: h.wt0 ?? t0 };
+  const pos = Array.isArray(h.pos) ? h.pos.map((v) => Math.round(+v || 0)) : [0, 0];
+  const hub = { form: FORMS.includes(h.form) ? h.form : "blob", place: h.place ?? "home", portal: h.portal ?? null, pos, since: t0, wt0: h.wt0 ?? t0 };
   const things = (cfg.things || []).map((th, i) => ({ ...th, id: th.id ?? i + 1, born: -Infinity, dying: Infinity }));
   return { cfg, hub0: hub, segs: [], things, nextId: Math.max(1, ...things.map((th) => th.id + 1)), rests: new Map(), worlds: new Map() };
 }
@@ -85,6 +89,9 @@ export function createLife(cfg) {
 // portal leaves the world's near part to the life (drawn after the things); no portal stays open behind it
 function optsOf(L, tab, pick, hub) {
   const o = { ...L.cfg.optsFor(tab, pick, hub) };
+  // somewhere else in the scene: the creature is drawn shifted there (layerOf), so the scene is shifted back
+  const [px, py] = posOf(hub);
+  if ((px || py) && Array.isArray(o.room)) o.room = [o.room[0] - px, o.room[1] - py, o.room[2] - px, o.room[3] - py];
   if (tab === "portal") { o.frontLater = 1; o.crossKeep = 0; o.returnKeep = 0; }
   else if (away(hub) && o.form === "grounded" && isSurface(worldCtx(L, hub.place, hub).w)) o.grNoFloor = 1;
   return o;
@@ -151,7 +158,7 @@ function closeLoop(L, now) {
 
 // ---- what a request needs: the steps that take it from the rest it is in to doing what's asked
 const STEP_LABEL = { close: "ferme le portail", open: "ouvre un portail", cross: "traverse le portail", reopen: "ouvre le chemin du retour",
-  return: "rentre chez lui", revert: "redevient le blob", transform: "prend forme humaine", appear: "fait apparaître un objet", remove: "fait disparaître un objet" };
+  return: "rentre chez lui", revert: "redevient le blob", move: "se déplace", home: "revient à sa place", transform: "prend forme humaine", appear: "fait apparaître un objet", remove: "fait disparaître un objet" };
 function plan(L, req, h) {
   const steps = [];
   // a portal open where it is must close first (the other animations don't draw it); in another world the way home
@@ -161,8 +168,11 @@ function plan(L, req, h) {
     if (!away(h)) { steps.push({ kind: "close" }); h = { ...h, portal: null }; return null; }
     return "Le chemin du retour est ouvert : il ne peut que rentrer chez lui (le refermer depuis l’autre monde n’existe pas encore).";
   };
+  // portals open where it rests at its spot: it goes back there first
+  const atSpot = () => { if (elsewhere(h)) { steps.push({ kind: "move", to: [0, 0], label: STEP_LABEL.home }); h = { ...h, pos: [0, 0] }; } };
   const goHome = () => {
     if (!away(h)) return;
+    atSpot();
     if (h.portal === null) { steps.push({ kind: "reopen" }); h = { ...h, portal: "home" }; }
     steps.push({ kind: "return" }); h = { ...h, place: "home", portal: null };
   };
@@ -171,6 +181,7 @@ function plan(L, req, h) {
     goHome();
     if (W === "home") return;
     if (h.portal !== null && h.portal !== W) { steps.push({ kind: "close" }); h = { ...h, portal: null }; }
+    atSpot();
     if (h.portal === null) { steps.push({ kind: "open", world: W }); h = { ...h, portal: W }; }
     steps.push({ kind: "cross" }); h = { ...h, place: W, portal: null };
   };
@@ -179,6 +190,8 @@ function plan(L, req, h) {
     const why = shut();
     if (why) return why;
     if (h.form !== "blob") { steps.push({ kind: "revert" }); h = { ...h, form: "blob" }; }
+    // (on its legs its floor is where it always is: it floats back to its height first)
+    if (form === "grounded" && posOf(h)[1] !== 0) { steps.push({ kind: "move", to: [posOf(h)[0], 0], label: "redescend à sa hauteur" }); h = { ...h, pos: [posOf(h)[0], 0] }; }
     if (form !== "blob") { steps.push({ kind: "transform", form }); h = { ...h, form }; }
     return null;
   };
@@ -188,9 +201,10 @@ function plan(L, req, h) {
     case "go": goTo(req.place ?? "home"); break;
     case "portal":
       if (req.open === false) { if (h.portal === null) break; why = away(h) ? "Le chemin du retour ne se referme pas depuis l’autre monde : il peut rentrer par lui." : null; if (!why) steps.push({ kind: "close" }); break; }
-      if (away(h)) { if (h.portal === null) steps.push({ kind: "reopen" }); break; }
+      if (away(h)) { if (h.portal === null) { atSpot(); steps.push({ kind: "reopen" }); } break; }
       if (req.world == null) { why = "Choisis d’abord un monde."; break; }
       if (h.portal === req.world) break;
+      atSpot();
       if (h.portal !== null) steps.push({ kind: "close" });
       steps.push({ kind: "open", world: req.world });
       break;
@@ -201,6 +215,15 @@ function plan(L, req, h) {
       if (!why && !th) why = "Cet objet n’est plus là.";
       else if (!why && th.linked && th.place !== h.place) why = "Cet objet est resté dans un autre monde.";
       if (!why) steps.push({ kind: "remove", thing: th.id, label: req.label, pick: req.pick });
+      break;
+    }
+    case "move": {
+      // somewhere else in the scene (on its legs, along its floor): it goes there and rests there
+      why = shut();
+      if (why || !Array.isArray(req.to)) break; // (without a place: only whether it could go)
+      const to = Array.isArray(req.to) ? [Math.round(+req.to[0] || 0), h.form === "grounded" ? posOf(h)[1] : Math.round(+req.to[1] || 0)] : [0, 0];
+      if (to[0] === posOf(h)[0] && to[1] === posOf(h)[1]) { why = "Il y est déjà."; break; }
+      steps.push({ kind: "move", to, label: req.label, pick: req.pick });
       break;
     }
     case "stop": break;
@@ -226,6 +249,19 @@ function segment(L, step, h, at) {
     s.o = optsOf(L, "loops", { ...step.entry.pick, part }, h); s.o.part = part; s.mod = loops; s.entry = step.entry;
     s.len = loops.total(s.o);
     if (k === "loop") { s.T = s.len; s.rep = step.reps ? Math.max(1, Math.round(step.reps)) : Infinity; s.len = s.rep === Infinity ? Infinity : s.rep * s.T; s.exitLabel = step.exitLabel; }
+  } else if (k === "move") {
+    // the Actions tab's move, from where it is to where it goes; then it rests there
+    const [px, py] = posOf(h), to = [...step.to];
+    s.o = optsOf(L, "actions", { ...step.pick, action: "move" }, h); s.mod = actions;
+    // (all of it stays inside the scene)
+    const room = optsOf(L, "actions", { action: "move" }, { ...h, pos: [0, 0] }).room;
+    if (Array.isArray(room)) {
+      const e = transform.formExtent(s.o), lim = (v, lo, hi) => Math.round(lo > hi ? (lo + hi) / 2 : Math.min(hi, Math.max(lo, v)));
+      to[0] = lim(to[0], room[0] - e[0] + 2, room[2] - e[2] - 2);
+      if (h.form !== "grounded") to[1] = lim(to[1], room[1] - e[1] + 2, room[3] - e[3] - 2);
+    }
+    Object.assign(s.o, { action: "move", mvRound: 0, mvX: to[0] - px, mvY: to[1] - py });
+    s.len = s.o.duration * Math.max(1, Math.round(s.o.loops)); h1 = { ...h, pos: [to[0], to[1]] };
   } else if (k === "transform" || k === "revert") {
     s.o = optsOf(L, "transform", k === "transform" ? { mode: "transform", form: step.form } : { mode: "revert", form: h.form }, h); s.mod = transform;
     s.len = transform.total(s.o); h1 = { ...h, form: k === "transform" ? step.form : "blob" };
@@ -238,7 +274,8 @@ function segment(L, step, h, at) {
     s.len = s.o.duration * Math.max(1, Math.round(s.o.loops));
     // the objects tab draws them all for this one: what is there with this one coming or going, in the order they were made
     const list = visible(L, at, h.place).filter((x) => x.id !== th.id).concat([th]).sort((a, b) => a.id - b.id);
-    s.o.objects = list.map((x) => x.ob); s.o.target = list.indexOf(th); s.o.mode = k;
+    const [px, py] = posOf(h);
+    s.o.objects = list.map((x) => (px || py ? { ...x.ob, x: x.ob.x - px, y: x.ob.y - py } : x.ob)); s.o.target = list.indexOf(th); s.o.mode = k;
     if (k === "appear") th.born = at + s.len;
     else th.dying = at;
   } else {
@@ -339,7 +376,7 @@ export function visible(L, t, place) {
 /** What to keep for next time: where it is and what it made (from the end of the score). */
 export function snapshot(L) {
   const h = tail(L);
-  return { hub: { form: h.form, place: h.place, portal: h.portal }, things: L.things.filter((th) => th.dying === Infinity).map(({ id, ob, place, linked }) => ({ id, ob, place, linked })) };
+  return { hub: { form: h.form, place: h.place, portal: h.portal, pos: posOf(h) }, things: L.things.filter((th) => th.dying === Infinity).map(({ id, ob, place, linked }) => ({ id, ob, place, linked })) };
 }
 
 // ---- drawing a frame
@@ -366,7 +403,15 @@ function thingsOn(p, L, x, t, layer) {
 function worldBehind(L, x, t) {
   if (!away(x.hub) || x.mod === portal) return null;
   const w = worldCtx(L, x.hub.place, x.hub), wt = (((t - x.hub.wt0) % w.P) + w.P) % w.P;
-  return { ...w, wt, cut: x.o.form === "grounded" && isSurface(w.w) ? transform.floorFor(x.o) : null };
+  return { ...w, wt, cut: x.o.form === "grounded" && isSurface(w.w) ? transform.floorFor(x.o) + posOf(x.hub)[1] : null };
+}
+// the creature where it is in the scene: its module drawn shifted there (whole px)
+function shifted(p, x, fn) {
+  const [px, py] = posOf(x.hub);
+  if (!px && !py) return fn();
+  const tx = p.tx, ty = p.ty;
+  p.tx = p.toX(px, py); p.ty = p.toY(px, py);
+  try { fn(); } finally { p.tx = tx; p.ty = ty; }
 }
 function layerOf(p, t, o, front) {
   const L = o.life || demoLife(o);
@@ -374,11 +419,11 @@ function layerOf(p, t, o, front) {
   const x = locate(L, t), w = worldBehind(L, x, t);
   if (!front) {
     if (w) paintWorld(p, w.w, w.wt, w.P, w.room, w.view, w.cut === null ? null : { part: "back", y: w.cut });
-    x.mod.drawBack(p, x.tau, x.o);
+    shifted(p, x, () => x.mod.drawBack(p, x.tau, x.o));
     thingsOn(p, L, x, t, "back");
     return;
   }
-  x.mod.draw(p, x.tau, x.o);
+  shifted(p, x, () => x.mod.draw(p, x.tau, x.o));
   thingsOn(p, L, x, t, "front");
   if (w && w.cut !== null) paintWorld(p, w.w, w.wt, w.P, w.room, w.view, { part: "front", y: w.cut });
   if (x.mod === portal) portal.worldFront(p, x.tau, x.o);

@@ -9,8 +9,8 @@
 // cross-legged to sleep or meditate) and the two that need flying can't be done (FORM_FIT).
 import { fit, clamp, lerp, seg, bump, ease, noise2, rng, cycle, TAU, WHITE, hex } from "../../core/index.js";
 import { meta as idleMeta } from "./ice-blob-idle.js";
-import { bodyBack, bodyFront, bodyAmbient, formCentre, formAnchor, gaitPlan, isForm, FORM_DEFAULTS } from "./ice-blob-transform.js";
-import { phases, settle } from "./ice-time.js";
+import { bodyBack, bodyFront, bodyAmbient, formCentre, formAnchor, gaitPlan, isForm, FORM_DEFAULTS, GAIT_TRAIL } from "./ice-blob-transform.js";
+import { phases, settle, DROP_LIFE } from "./ice-time.js";
 import { drawObject } from "./ice-scene-objects.js";
 import { hsl, fromHsl } from "./ice-blob-actions.js";
 
@@ -34,10 +34,7 @@ export const fitsForm = (o, name = o.loop) => !(FORM_FIT[o.form] && FORM_FIT[o.f
 /** The three parts of a loop: the loop itself, its entry from rest, its exit back to rest. */
 export const PARTS = ["loop", "enter", "exit"];
 /** Loops that can't have an entry and an exit yet, and why (they play as a loop only). */
-export const PART_FIT = {
-  walk: "Démarrer et s’arrêter de marcher ne sont pas encore faits : la marche se joue seulement en boucle.",
-  run: "Démarrer et s’arrêter de courir ne sont pas encore faits : la course se joue seulement en boucle.",
-};
+export const PART_FIT = {};
 export const hasParts = (name) => !PART_FIT[name];
 
 export const meta = {
@@ -84,7 +81,12 @@ const E = ease.inOutSine;
 const loopLen = (o) => o.duration * Math.max(1, Math.round(o.loops));
 const partOf = (o) => (o.part === "enter" || o.part === "exit" ? o.part : "loop");
 /** How long the animation lasts: the loop, or its entry or exit (each a whole number of the blob's loops). */
-export const total = (o) => { const p = partOf(o); return p === "loop" ? loopLen(o) : o.duration * Math.max(1, Math.round(p === "enter" ? o.inLoops : o.outLoops)); };
+export const total = (o) => {
+  const p = partOf(o);
+  if (p === "loop") return loopLen(o);
+  const n = Math.max(1, Math.round(p === "enter" ? o.inLoops : o.outLoops));
+  return o.duration * (GAITED(o) ? gaitLoops(o, p, n) : n);
+};
 // the loop's phase, 0..1, at any time (negative too)
 const phase = (o, t) => (((t / loopLen(o)) % 1) + 1) % 1;
 const whole = (v, lo = 1) => Math.max(lo, Math.round(v));
@@ -631,22 +633,79 @@ L.firefly = (o) => {
 
 // ---- walking and running on the spot (the human form on its legs): side on, it walks or runs where it is and its floor
 // of ice goes by under its feet like a treadmill (glints and prints carried back at the speed of its steps). Whole strides
-// a loop, and the floor goes by whole tiles a loop (gaitPlan): the speed asked, rounded so the loop is seamless
+// a loop, and the floor goes by whole tiles a loop (gaitPlan): the speed asked, rounded so the loop is seamless.
+// Its entry: it melts into light facing us and takes shape again side on, both feet on the ground (running: on one
+// foot), then sets off, its steps quickening up to the loop's pace (its arms and lean coming with the pace), its floor
+// going by faster with them; no print of a step it never took. Its exit: its steps slow down to a stop on both feet,
+// the prints it left fade, and it melts into light to turn back to us at rest. The stride's phase is the integral of
+// the cadence, so its planted foot never slides; where it sets off and stops is chosen so that it stands well.
 const gaitLoop = (kind) => (o) => {
   const P = loopLen(o), r = Array.isArray(o.room) ? o.room : [-meta.origin[0], -meta.origin[1], meta.size[0] - meta.origin[0], meta.size[1] - meta.origin[1]];
   const T = Math.max(16, Math.ceil(Math.max(r[2] - r[0], r[3] - r[1]))), dir = o.gaDir === "left" ? -1 : 1;
   const plan = gaitPlan(o, kind, P, T, kind === "run" ? o.gaRun : o.gaWalk, o.gaStride);
+  // the gait at stride c, at s of the loop's pace (arms and lean come with the pace), with what an entry or exit adds
+  const gait = (c, s = 1, more = null) => ({ gait: { kind, ph: c - Math.floor(c), cyc: c, S: plan.S, v: plan.v, rate: plan.rate * s, N: plan.N, dir,
+    arms: s >= 1 ? o.gaArms : o.gaArms * (0.35 + 0.65 * s), lean: s >= 1 ? o.gaLean : o.gaLean * (0.25 + 0.75 * s),
+    bounce: o.gaBounce, heel: o.gaHeel, knee: o.gaKnee, hair: o.gaHair, prints: o.gaPrints, sparks: o.gaSparks, ...more }, quiet: 1 });
   return {
     plan,
-    mods(t) {
-      const c = (plan.N * t) / P + 0.1;
-      return { gait: { kind, ph: c - Math.floor(c), cyc: c, S: plan.S, v: plan.v, rate: plan.rate, N: plan.N, dir, arms: o.gaArms, lean: o.gaLean,
-        bounce: o.gaBounce, heel: o.gaHeel, knee: o.gaKnee, hair: o.gaHair, prints: o.gaPrints, sparks: o.gaSparks }, quiet: 1 };
+    mods(t) { return gait((plan.N * t) / P + 0.1); },
+    // an entry or exit T long, with its timetable at (phases()): the modifiers at t
+    partMods(part, Tp, at) {
+      const g = gaitTimes(o, kind, plan, P, part, Tp, at);
+      return (t) => { const x = g(t); return gait(x.c, x.s, part === "enter" ? { from: x.from } : x.fade < 1 ? { fade: x.fade } : null); };
     },
   };
 };
 L.walk = gaitLoop("walk");
 L.run = gaitLoop("run");
+const GAITED = (o) => (o.loop === "walk" || o.loop === "run") && fitsForm(o);
+// I(x) = the integral of ease.inOutSine from 0 to x
+const easeInt = (x) => x / 2 - Math.sin(Math.PI * x) / (2 * Math.PI);
+// where it stands when it sets off or stops (a stride's phase, mod a half): walking with both feet down, running on one
+const STAND = { walk: 0.06, run: 0.18 }, RAMP = { walk: [1.1, 2.6], run: [1, 2.2] };
+// the stride c (unwrapped, as the loop's: c = N t / P + 0.1), the share s of the loop's pace, and (entry) the stride it
+// sets off at, (exit) the prints' fade, at t of an entry or exit Tp long; ok: whether Tp is long enough for it
+function gaitTimes(o, kind, plan, P, part, Tp, at) {
+  const N = plan.N, R = N / P, [Lmin, Lmax] = RAMP[kind], tgt = STAND[kind], mod = (x) => ((x % 0.5) + 0.5) % 0.5, E2 = ease.inOutSine;
+  if (part === "enter") {
+    // the steps quicken over [r0, r1] and are the loop's for the last DROP_LIFE; it sets off from stride cs
+    // (a ramp long enough that every print alive where the loop starts was left after it set off)
+    const need = 2 * ((GAIT_TRAIL[kind] + 0.05) / R - DROP_LIFE) + 2 / R;
+    const r1 = at.full, base = Math.max(at.swapAt, r1 - Math.max(Lmax, need)), cs0 = 0.1 - R * (DROP_LIFE + (r1 - base) / 2);
+    let r0 = base + (2 / R) * mod(tgt - cs0);
+    const Lr = r1 - r0, cs = 0.1 - R * (DROP_LIFE + Lr / 2);
+    // every print alive where the loop starts was left after it set off
+    const ok = Lr >= Lmin && cs <= 0.1 - GAIT_TRAIL[kind] - 0.05;
+    const g = (t) => {
+      if (t >= r1) return { c: (N * (t - Tp)) / P + 0.1, s: 1, from: cs };
+      if (t <= r0) return { c: cs, s: 0, from: cs };
+      const x = (t - r0) / Lr;
+      return { c: 0.1 - R * DROP_LIFE - R * Lr * (0.5 - easeInt(x)), s: E2(x), from: cs };
+    };
+    return Object.assign(g, { ok });
+  }
+  // exit: the loop's steps until f0, slowing down to a stop at f1, as it starts to melt into light
+  const f1 = at.melt0, Lb = Math.min(Lmax, f1 - 0.1), cb = 0.1 + R * (f1 - Lb / 2), Ld = Lb - (2 / R) * mod(tgt - cb), f0 = f1 - Ld;
+  const ok = Ld >= Lmin && f0 > 0.1, stop = 0.1 + R * (f1 - Ld / 2), fadeAt = (t) => 1 - E2(seg(t, f1 - Ld * 0.35, at.swapAt - 0.02));
+  const g = (t) => {
+    if (t <= f0) return { c: (N * t) / P + 0.1, s: 1, fade: fadeAt(t) };
+    if (t >= f1) return { c: stop, s: 0, fade: fadeAt(t) };
+    const x = (t - f0) / Ld;
+    return { c: 0.1 + R * f0 + R * Ld * (x - easeInt(x)), s: 1 - E2(x), fade: fadeAt(t) };
+  };
+  return Object.assign(g, { ok });
+}
+// how many of the blob's loops an entry or exit of walking or running takes: as asked, or more if it needs them to set
+// off or stop gently (and to leave no print it didn't make)
+function gaitLoops(o, part, n) {
+  const act = L[o.loop](o), D = o.duration, P = loopLen(o);
+  for (let k = n; k < n + 16; k++) {
+    const Tp = D * k, at = phases(part, Tp, o.lead ?? 0.08, true, o.meltTime ?? 1.1);
+    if (gaitTimes(o, o.loop, act.plan, P, part, Tp, at).ok) return k;
+  }
+  return n + 16;
+}
 /** Walking or running: how fast it really goes and its strides, for the page (null for the other loops). */
 export const gaitOf = (o) => ((o.loop === "walk" || o.loop === "run") && fitsForm(o) ? loopOf(o).plan : null);
 
@@ -661,10 +720,10 @@ function loopOf(o) { return fitsForm(o) && (partOf(o) === "loop" || hasParts(o.l
 // the floor, legs crossed, arms down) can't be faded: the figure melts into light (morph 1), the pose switches while
 // nothing of the figure shows, and it takes shape again in the new pose; on its legs its frame gathers meanwhile at a
 // point that goes from where the one pose has it to where the other does (anchor), so the light it melts into doesn't jump.
-const POSE_KEYS = ["legs", "arms", "seat"];
+const POSE_KEYS = ["legs", "arms", "seat", "gait"];
 function poseChange(o, m0) {
   if (!isForm(o)) return false;
-  if (o.form === "grounded") return m0.seat > 0.5;
+  if (o.form === "grounded") return m0.seat > 0.5 || !!m0.gait; // (walking, it turns side on)
   return !!((m0.legs && m0.legs !== (o.huLegs ?? FORM_DEFAULTS.huLegs)) || (m0.arms && m0.arms !== (o.huArms ?? FORM_DEFAULTS.huArms)));
 }
 const PLANS = new WeakMap();
@@ -676,6 +735,7 @@ function planOf(o) {
   if (part !== "loop") {
     const m0 = act.mods(0), pose = poseChange(o, m0);
     pl.at = phases(part, T, o.lead ?? 0.08, pose, o.meltTime ?? 1.1);
+    if (act.partMods) pl.mods = act.partMods(part, T, pl.at);
     if (pose && o.form === "grounded") {
       const keep = {};
       for (const k of POSE_KEYS) if (k in m0) keep[k] = m0[k];
@@ -689,7 +749,7 @@ function modsOf(pl) {
   const { act } = pl;
   if (pl.part === "loop") return (tt) => act.mods(tt);
   return (tt) => {
-    const a = pl.at(tt), m = act.mods(pl.clock(tt));
+    const a = pl.at(tt), m = pl.mods ? pl.mods(tt) : act.mods(pl.clock(tt));
     if (a.k >= 1 && a.swap && !(a.melt > 0)) return m;
     const out = settle(m, a.k);
     if (a.swap) for (const key of POSE_KEYS) if (key in m) out[key] = m[key];

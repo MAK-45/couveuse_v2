@@ -9,9 +9,11 @@
 import { fit, clamp, lerp, seg, bump, ease, noise2, rng, TAU, WHITE, hex, toHex } from "../../core/index.js";
 import { meta as idleMeta, state as idleState } from "./ice-blob-idle.js";
 import { prog as progAt } from "./ice-time.js";
-import { bodyBack, bodyFront, bodyAmbient } from "./ice-blob-transform.js";
+import { bodyBack, bodyFront, bodyAmbient, stepOf } from "./ice-blob-transform.js";
 
-export const ACTIONS = ["walk", "jump", "aura", "morph", "spin", "split", "burst", "teleport", "nap", "inflate", "dance", "scared", "freeze", "drop", "rainbow", "comet", "melt", "curious", "portal"];
+export const ACTIONS = ["walk", "jump", "aura", "morph", "spin", "split", "burst", "teleport", "nap", "inflate", "dance", "scared", "freeze", "drop", "rainbow", "comet", "melt", "curious", "portal", "move"];
+/** Actions that don't come back where they started (the life plays them as a change of place, not from rest to rest). */
+export const PLACE_ACTIONS = ["move"];
 /** What a new form can't do, and why (the page shows it; the effect then just rests). */
 export const FORM_FIT = {
   grounded: {
@@ -60,6 +62,9 @@ export const meta = {
     portalMode: "back", portalAX: -70, portalAY: 50, portalAAngle: "270", portalBX: 120, portalBY: -30, portalBAngle: "180",
     portalColorA: "#2f8cff", portalColorB: "#ff8a1c", portalSize: 1.5, portalDepth: 0.3, portalShots: 1, portalHold: 0.25,
     portalExit: 2.2, portalLook: 1, portalArc: 2.5, portalLoops: 3, portalSwirl: 1, portalSparks: 1, portalGlow: 1, portalSplash: 1,
+    // the move: where it goes (offset from its spot, in its own pixels; on its legs only x, along its floor); mvRound: there
+    // and back (its settings page shows it so, in a loop); in its life it goes there and rests there (mvRound 0)
+    mvX: 110, mvY: -20, mvRound: 1, mvHops: 0, mvHop: 5, mvLean: 1, mvSquash: 1, mvLook: 1, mvHold: 0.2,
   },
 };
 
@@ -935,6 +940,45 @@ A.portal = (o) => {
   };
 };
 
+// ---- the move: it goes somewhere else in the scene and rests there. The whole creature is carried (its aura, motes,
+// drops of light, its floor's light under it): the painter is shifted by where it has got to, in whole pixels, so its
+// last frame is its rest drawn there, pixel for pixel. Floating it leans into the way, stretches a little with the
+// speed, looks where it goes (and may hop); on its legs it walks there along its floor, the leading foot first, a whole
+// number of steps so both feet land where it stops. mvRound: there and back, for its settings page's loop.
+A.move = (o) => {
+  const gr = o.form === "grounded", X = Math.round(o.mvX || 0), Y = gr ? 0 : Math.round(o.mvY || 0), d = Math.hypot(X, Y), round = o.mvRound > 0;
+  const ux = d ? X / d : 0, uy = d ? Y / d : 0, hold = clamp(o.mvHold, 0, 0.6);
+  // how far along it is (0..1) and how fast (the share of its top speed, signed: < 0 coming back)
+  const along = (a) => {
+    if (!round) return [E(a), Math.sin(Math.PI * a)];
+    const r = (1 - hold) / 2;
+    if (a < r) return [E(a / r), Math.sin((Math.PI * a) / r)];
+    if (a > 1 - r) { const b = (a - 1 + r) / r; return [1 - E(b), -Math.sin(Math.PI * b)]; }
+    return [1, 0];
+  };
+  const steps = gr && d > 0 ? Math.max(1, Math.round(d / (stepOf(o) * 1.15))) : 0;
+  return {
+    move: true,
+    // where the painter is shifted to at t (whole pixels)
+    at(t) { const a = prog(o, t); if (a <= 0) return [0, 0]; if (a >= 1) return round ? [0, 0] : [X, Y]; const [q] = along(a); return [Math.round(X * q), Math.round(Y * q)]; },
+    mods(t) {
+      const a = prog(o, t);
+      if (a <= 0 || a >= 1 || !d) return {};
+      const [q, v] = along(a), w = Math.abs(v), sg = Math.sign(v) || 1, sh = this.at(t);
+      // the frame is carried in whole pixels: what is left of the way is the body's own (so it glides smoothly)
+      const rx = X * q - sh[0], ry = Y * q - sh[1];
+      if (gr) {
+        // its steps: the feet land on a whole number of steps, each foot swinging in its half of a stride
+        const c = q * steps, Ls = d / steps, fr = (x) => x - Math.floor(x), S = (x) => Math.floor(x) + E(clamp(fr(x) * 2)), sw = (x) => (fr(x) < 0.5 ? clamp(fr(x) * 2) : 0);
+        const fa = Ls * S(c) - d * q, fb = Ls * S(c - 0.5) - d * q;
+        return { dx: rx, steps: { feet: [ux * fa, ux * fb], sw: [sw(c), sw(c - 0.5)] }, rot: ux * sg * 0.12 * w * o.mvLean, lookX: ux * sg * w * 1.2 * o.mvLook, quiet: 1 };
+      }
+      const hops = Math.max(0, Math.round(o.mvHops)), hop = hops ? Math.abs(Math.sin(Math.PI * hops * (round ? (a < 0.5 ? q : 2 - q) : q))) * w : 0, sq = 0.12 * w * o.mvSquash;
+      return { dx: rx, dy: ry - o.mvHop * hop, rot: ux * sg * 0.28 * w * o.mvLean, sx: 1 + sq, sy: 1 - sq * 0.7, lookX: ux * sg * w * 1.4 * o.mvLook, lookY: uy * sg * w * 1.1 * o.mvLook, quiet: 1 };
+    },
+  };
+};
+
 // the motes around it follow where it goes (not when it blinks out and in)
 function drift(act, t) {
   if (act.copies) return [0, 0];
@@ -965,7 +1009,30 @@ function actionOf(o) {
   return fitsForm(o) ? (A[o.action] || A.walk)(o) : REST;
 }
 
-export function drawBack(p, t, o) {
+// the move carries the whole creature: the painter shifted by where it has got to, the scene (o.room) shifted back, so
+// what is pinned to the scene (its floor, a stroll's bounds) stays where it is
+const SHIFTED = new WeakMap();
+function carried(p, t, o, fn) {
+  const act = actionOf(o);
+  if (!act.move) return fn(o);
+  const [sx, sy] = act.at(t);
+  if (!sx && !sy) return fn(o);
+  let m = SHIFTED.get(o);
+  if (!m) { m = new Map(); SHIFTED.set(o, m); }
+  const key = sx + "," + sy;
+  let o2 = m.get(key);
+  if (!o2) { o2 = { ...o, room: Array.isArray(o.room) ? [o.room[0] - sx, o.room[1] - sy, o.room[2] - sx, o.room[3] - sy] : o.room }; if (m.size > 64) m.clear(); m.set(key, o2); }
+  const tx = p.tx, ty = p.ty;
+  p.tx = p.toX(sx, sy); p.ty = p.toY(sx, sy);
+  try { return fn(o2); } finally { p.tx = tx; p.ty = ty; }
+}
+/** Where the move has carried it at t (offset from its spot, whole px), [0, 0] for the other actions. */
+export function carriedAt(o, t) { const act = actionOf(o); return act.move ? act.at(t) : [0, 0]; }
+
+export function drawBack(p, t, o) { carried(p, t, o, (oo) => back(p, t, oo)); }
+export function draw(p, t, o) { carried(p, t, o, (oo) => front(p, t, oo)); }
+
+function back(p, t, o) {
   const C0 = actionOf(o), C = fit(C0.palette ? C0.palette(t) : o.palette, 8), act = actionOf(o), list = act.copies ? act.copies(t) : [(tt) => act.mods(tt)], T = total(o);
   let st = null;
   // (on a floor: the first draws it, the copies only their reflection in it)
@@ -974,7 +1041,7 @@ export function drawBack(p, t, o) {
   if (act.back) act.back(p, C, t, st);
 }
 
-export function draw(p, t, o) {
+function front(p, t, o) {
   const C0 = actionOf(o), C = fit(C0.palette ? C0.palette(t) : o.palette, 8), act = actionOf(o), list = act.copies ? act.copies(t) : [(tt) => act.mods(tt)], T = total(o);
   let st = null;
   // copies drawn back to front by height, so the lower ones cover the higher
