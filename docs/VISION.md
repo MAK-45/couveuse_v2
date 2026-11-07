@@ -53,9 +53,11 @@ La page s’ouvre sur **Vivre** : la créature vit (voir plus bas). Il n’y a p
 se règle depuis Vivre, avec la ⚙ de son bouton ou un lien « Régler … », dans une page de réglages qui la montre en boucle et
 l’exporte (GIF, planche PNG, JSON), avec « Revenir à la vie » pour revenir. Ces pages de réglages sont :
 
-Naissance · Apparence (le blob né, son repos) · Actions (19, retour au repos) · Objets (scène vivante, apparition,
+Naissance · Apparence (le blob né, son repos) · Actions (20 : 19 qui reviennent au repos, et **Se déplacer**, qui l’emmène
+ailleurs dans la scène, où il reste : le blob y glisse en arc, avec de petits bonds s’il veut, la forme en lévitation y vole,
+la forme au sol y marche ou y court, de profil, le long de son sol) · Objets (scène vivante, apparition,
 disparition) · Boucles (20 activités : dormir, magie, jongler…, chacune avec son entrée depuis le repos et sa sortie vers
-le repos ; marche et course seulement en boucle pour l’instant) · Heure (affiche une heure choisie
+le repos ; la marche et la course aussi : premiers pas et derniers pas) · Heure (affiche une heure choisie
 ou celle de l’export, puis revient au repos) · Électricité (8 animations où le blob part de son repos,
 découvre l’électricité et la manipule, puis revient exactement à son repos, comme les actions : étincelle, statique, boule de plasma, charge et décharge, deux pôles, éclair en
 chaîne, orage, atome ; couleurs de l’électricité réglables à part : cœur, arc, lueur, avec des préréglages) ·
@@ -107,7 +109,12 @@ jamais), la vitesse est en km/h (arrondie pour que la boucle soit parfaite), et 
 (arbres, rochers, hautes herbes) passe devant elle ; dans l’espace, elle garde son sol de glace, qui défile avec ses pas. Le blob né
 et la forme en lévitation ne marchent pas (pas de jambes, ou pas de sol sous les pieds) : grisé, avec la raison. Dans les Boucles,
 la marche et la course se font **sur place** : son sol de glace (reflets, empreintes) défile sous ses pieds comme un
-tapis roulant.
+tapis roulant. Elles ont leur **entrée** et leur **sortie**, donc elles vivent dans Vivre : face à nous, elle se tourne de
+profil d’un **quart de tour** (sans jamais redevenir une boule de lumière : épaules, hanches et pieds se resserrent, ses yeux
+glissent), puis ses pas grandissent jusqu’à son allure, penchée pour démarrer, pendant que son sol se met à défiler ; à la
+sortie ses pas raccourcissent, elle se penche en arrière pour freiner, s’arrête et se retourne vers nous. Le pied posé ne
+glisse jamais, même quand l’allure change. Pour **se déplacer**, elle marche ainsi pour de vrai jusqu’à l’endroit choisi, ses
+empreintes restant sur le sol.
 
 **Règle pour la suite : chaque nouvelle animation est faite pour chaque transformation** (blob né, forme humaine en
 lévitation, forme humaine au sol, et toute forme ajoutée plus tard), adaptée à chacune ; si elle n’a vraiment pas de sens
@@ -116,7 +123,7 @@ existantes.
 
 ## La vie (page Vivre)
 
-La créature vit sans fin. Des boutons lui demandent quoi faire : les 19 actions, les 18 activités en boucle (elle s’y met,
+La créature vit sans fin. Des boutons lui demandent quoi faire : les 20 actions, les 20 activités en boucle (elle s’y met,
 continue jusqu’à ce qu’on lui demande autre chose ou « Arrêter la boucle », puis s’arrête), les 8 animations
 d’électricité, l’heure (l’heure qu’il est), ses trois formes, les portails et les mondes (ouvrir, fermer, aller dans un
 monde, rentrer), et les objets. Elle fait chaque chose **à son tour**, en partant de son repos et en y revenant, au
@@ -126,7 +133,13 @@ qu’elle fait et ce qui suit ; ce qu’elle ne peut pas faire est grisé avec l
 sa page de réglages (sa ⚙). Une **vie autonome** la laisse choisir seule quoi faire quand on ne lui demande rien.
 
 Quand la forme humaine doit changer de posture pour une activité (s’asseoir en tailleur pour dormir, croiser les jambes
-pour méditer), elle **fond en lumière**, change de pose pendant qu’il ne reste rien de sa silhouette, et reprend forme.
+pour méditer), elle **fond en lumière**, change de pose pendant qu’il ne reste rien de sa silhouette, et reprend forme. Pour
+marcher et courir, elle se tourne de profil d’un quart de tour, sans fondre.
+
+**Elle va et vient dans la scène.** « Se déplacer » l’emmène jusqu’à la croix (un clic dans la scène) : elle y reste, son repos
+est là-bas, et tout ce qu’elle fait ensuite se fait là-bas (actions, boucles, formes, portails, mondes) ; les objets, les
+portails et les mondes restent où ils sont dans la scène. Sa place est gardée d’une visite à l’autre (elle revient chez elle
+si on change sa place dans la scène ou la scène elle-même). En vie autonome, elle se promène aussi d’un endroit à l’autre.
 
 **Les objets restent dans le décor** jusqu’à ce qu’on lui demande de les faire disparaître. On choisit où (un clic dans la
 scène), la forme, la taille, la teinte, le plan, la manière d’apparaître et de disparaître, et **où il reste** : **lié au
@@ -138,9 +151,9 @@ compagnons (animaux de compagnie) quand ils viendront.
 
 - La forme humaine qui s’assoit vraiment (genoux qui plient), d’autres personnages et des **animaux de compagnie** (liés
   à un monde ou suivant la créature), des objets qu’elle **construit** et laisse dans le décor.
-- Dans Vivre : l’exploration (Action monde) avec une entrée et une sortie (le monde qui accélère et ralentit), la marche et
-  la course qui démarrent et s’arrêtent, refermer le chemin du retour depuis l’autre monde, enregistrer un moment de sa vie
-  en GIF.
+- Dans Vivre : l’exploration (Action monde) avec une entrée et une sortie (le monde qui accélère et ralentit), refermer le
+  chemin du retour depuis l’autre monde, enregistrer un moment de sa vie en GIF ; se déplacer aussi en profondeur (vers le
+  fond ou vers nous) et, sur ses jambes, changer de hauteur dans la scène.
 - Toujours plus d’actions et d’activités, chacune paramétrable, avec plus de portée dans la scène.
 - La scène continuera d’évoluer : d’autres événements y auront lieu.
 - D’autres formes viendront (la forme humaine en lévitation et au sol sont les premières), chacune avec sa transformation,

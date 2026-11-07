@@ -14,13 +14,17 @@ and inlines everything into `dist/couveuse.html`.
 
 `ice-life.js` makes the creature live: a **score** of segments laid end to end, a frame being a pure function of (t, score).
 
-- A **hub** is a rest: `{ form, place, portal, since, wt0 }` — its form (blob, human, grounded), where it is ("home" or a
-  world's id), the portal open there (null; at home the world it opens onto; in another world "home"), when this rest began
-  and when it arrived in that world. Its rest is drawn by the objects tab's live scene with nothing in it (the form's own
+- A **hub** is a rest: `{ form, place, portal, pos, since, wt0 }` — its form (blob, human, grounded), where it is ("home" or a
+  world's id), the portal open there (null; at home the world it opens onto; in another world "home"), where it stands in the
+  scene (`pos`: whole px from its home spot, the same in every world), when this rest began and when it arrived in that world.
+  At a `pos` the engine moves the painter for the module's layers (`at()`), and the options are worked out from there
+  (the page's `optsAs` shifts `placement()` by `posShift`, so `room`, portals, floors and targets are the scene seen from
+  there; `plainOpts` shifts `room`); worlds behind, things and the objects tab's objects stay where they are in the scene. Its rest is drawn by the objects tab's live scene with nothing in it (the form's own
   rest: `loops` = the live loop's length), or by the portal's "live" / "beyondOpen" while a portal is open. Its beats are
   `since + n · R` (R: the blob's loop, the figure's live loop, the world's loop).
 - A **segment** `{ at, len, kind, mod, o, hub0, hub1, label }` plays one tab's animation with that tab's options:
-  "once" (actions, electricity, clock), "enter" / "loop" (rep ∞ until something else is asked) / "exit" (loops),
+  "once" (actions, electricity, clock), "move" (the action « Se déplacer »: from its rest here to its rest at `to`, the hub
+  after it with the new `pos`), "enter" / "loop" (rep ∞ until something else is asked) / "exit" (loops),
   "transform" / "revert", "open" / "close" / "cross" / "reopen" / "return" (portal), "appear" / "remove" (objects).
   It starts on a beat of hub0 and ends on hub1's first beat.
 - `want(L, req, now)`: a loop going on is closed after its current turn (its exit appended), then `plan()` lists the steps
@@ -55,7 +59,7 @@ itself, `S.life` keeps the settings, the last hub and the things.
 `prog(o, t, T)` (an animation's progress with its lead-in and a lead-out never shorter than a drop of light lives),
 `presence(a, r)`, `NEUTRAL` + `settle(m, k)` (modifiers drawn back to rest by an intensity), and `phases(part, T, lead, pose)`:
 the timetable of a loop's entry or exit (intensity k, and when the pose must change, a melt into light with `swap` at its
-middle and `s` for where the light gathers).
+middle and `s` for where the light gathers; `meltAt` the melt itself).
 
 ## Loops in three parts (ice-blob-loops.js)
 
@@ -64,15 +68,19 @@ middle and `s` for where the light gathers).
 adds its pose keys (`legs`, `arms`, `seat`) once `swap`, and while the pose changes sets `morph` (the melt) and, on its
 legs, `anchor` (`formAnchor()`: where the frame and the middle of the body are in each pose) so the light doesn't jump;
 `layer()` fades the activity's drawing by k. In the figure (`build()`), `m.anchor` gathers the frame and the blob's part as
-it melts, and the light under its feet goes with its feet (`F.k`).
+it melts, and the light under its feet goes with its feet (`F.k`); the side-on limbs and the hair thin away as it melts.
+Walking and running bring their own parts (`act.parts()` → `gaitParts()`): no melt but a quarter turn (`m.turn`), and their
+steps on a `gaitLine` from standing still to the loop's pace (entry) or back (exit); `gaitLoops()` gives their entry and exit
+the loops they need.
 
 ## The blob and its modifiers
 
 `ice-blob-idle.js` draws the blob from `state(o, t, M)`:
 - its rest motion (bob, sway, noise wander), squash/stretch from its velocity, breath;
 - an optional **modifier function** `M(t)` returning overrides, merged over `NONE`:
-  `dx, dy, rot, sx, sy, grow, morph, shape, shut, happy, vis, halo, glow, lookX, lookY, quiet, eyeScale, tw`
-  (`tw` = the blob's own clock, used by the freeze action; `quiet` hides drops born at that time).
+  `dx, dy, ax, ay, rot, sx, sy, grow, morph, shape, shut, happy, vis, halo, glow, lookX, lookY, quiet, eyeScale, tw`
+  (`tw` = the blob's own clock, used by the freeze action; `quiet` hides drops born at that time; `ax, ay` move the whole
+  creature, its light on the ground, drops and motes included: at rest there it is its rest drawn there, pixel for pixel).
 
 Every module that draws the creature supplies only `M` plus its own extra drawing (`back`/`front` hooks) and draws it
 through `bodyBack` / `bodyFront` / `bodyAmbient` (ice-blob-transform.js), which are the idle's `blobBack` / `blobFront` /
@@ -93,6 +101,15 @@ draw the Transformation's figure, fully formed (c = 1), through the same `build(
   into a scale round the floor under it; `morph`/`shape` blend the figure into the blob's shape (`k = 1 - morph`).
 - figure-only modifiers: `armUp`, `armOpen`, `hold`, `reach` + `reachK` (arm angles blended in `posed()`), `legs` / `arms`
   (pose overrides), `seat` (on its legs: sits cross-legged on its floor), `gait` (on its legs: walks or runs, see below).
+- **a gait whose pace changes** (`m.gait.line`, `m.gait.t`): `gaitLine()` gives its pace s(t) in eased pieces, its cadence
+  (slowing to `alpha` as it stops, so steps shorten as well as slow), strides c(t), the way gone d(t), and each step's length
+  (`rho`); in `gaitPose()` every foot lands ahead of the hips by as much as its step and then stays where it came down (`step()`,
+  `down()`), the hips held by the leg(s) down, the swinging foot lifted by how far it goes; arms, lean (into a start, back as it
+  stops) and hair follow the pace. Joined to a loop (`cs`, `csInv`) the line is that loop's clock wherever it goes at its pace.
+  On the spot the floor goes back by d(t); carried by `ax` along its floor (the move) the floor stays and the prints stay on it.
+- **turning** (`m.turn` with `m.gait`): the figure facing us (narrowed as it turns away, `narrow()`) and the one side on
+  (`moveFig()` into its space) are both built and their fields blend (`tb`), the side-on limbs growing out of the body, the eyes
+  sliding round, the floor's glints and prints dimmed at the half-way switch of its footing: a quarter turn, never a melt.
 - **walking and running** (`m.gait`): `strider()` draws the figure side on, posed by `gaitPose()`: a person's gait at that speed
   (`gaitK()`: stance share, knee bend over the stance, foot pitch, swing lift, lean, arm swing), the foot rolling heel → flat →
   ball while the ground carries it back at the stride's speed, where it lands worked out by `gaitSolve()` so the hips ride
@@ -112,9 +129,9 @@ always come from `S.transform` (merged in `effOpts()`).
 
 | File | Tab | Shape of an entry |
 |---|---|---|
-| ice-blob-actions.js | Actions | `A.name = (o) => ({ mods(t), back?(p,C,t,st), front?(p,C,t,st), copies?(t), palette?(t) })` |
+| ice-blob-actions.js | Actions | `A.name = (o) => ({ mods(t), back?(p,C,t,st), front?(p,C,t,st), copies?(t), palette?(t) })`; `total(o)`; `move` ends elsewhere (`moveOf(o)`: where, inside `o.room`; `{ ax, ay }` once there; on its legs `walkTo()`: turn, `gaitLine`, turn back) |
 | ice-life.js | Vivre | the life engine (see « The life »): `createLife(cfg)`, `want`, `can`, `status`, `snapshot`, `CATALOG`, `plainOpts`; `drawBack/draw` with `o.life` (or `o.script`) |
-| ice-blob-loops.js | Boucles | `L.name = (o) => ({ mods(t), back?, front? })`, phase via `phase(o, t)` (the activity's period `loopLen`); `o.part` loop / enter / exit, `total(o)` the part's length; `walk`/`run` (`gaitLoop`) pass `m.gait` from `gaitPlan()` with the scene's tile, on the spot |
+| ice-blob-loops.js | Boucles | `L.name = (o) => ({ mods(t), back?, front?, parts?(part, T) })`, phase via `phase(o, t)` (the activity's period `loopLen`); `o.part` loop / enter / exit, `total(o)` the part's length; `walk`/`run` (`gaitLoop`) pass `m.gait` from `gaitPlan()` with the scene's tile, on the spot, with a `gaitLine` (their own clock), and their own entry and exit (`parts`) |
 | ice-scene-objects.js | Objets | `objects[]` list; `mode` live / appear / remove; `appearing()` / `removing()` per style |
 | ice-blob-electric.js | Électricité | `L.name = (o) => ({ mods(t), charge(t), back?(p,C,V,t,st), front? })`; `V` = electricity colours, `charge` tints the blob; bolts via `zap()` reseeded `flick()` times a loop. Runs as an action: time is `prog()`, `presence()` fades it in/out and `settle()` brings every modifier back to neutral |
 | ice-blob-portal.js | Portail | `mode` open / live / close / cross / beyond / reopen / beyondOpen / return (`wayOf()` gives the way in and out, so the crossing runs both ways); `crossing()` + `crossMods()` + `reflect()` (the mirror image, drawn into a scratch frame and copied flipped inside the portal) for the way through; `opening()`/`closing()` give the portal's shape over progress, `drawPortal()` draws the world inside (via `renderWorld`), the inner lip, the rim and its flames, `castFx()` the ray and flashes. `total(o)`: live = the world's period |
@@ -192,6 +209,10 @@ An action, a loop or an electric animation: add it to its module (and its list) 
 - **A thing** (`new-thing.md`): an object shape is a solid in `SOLIDS` + `SHAPES` (+ `SHAPE_OPTS`); a companion is a new `kind` of
   thing with its own module (rest loop, its animations from rest back to rest), drawn by `thingsOn()`, planned by `plan()` /
   `segment()`, saved by `snapshot()`, with the same `place` / `linked` rule.
+- **An animation that ends somewhere else** (like the move): its module says where (`moveOf`) and how long (`total`), its last
+  frames are its rest drawn there (`ax`/`ay`, a pure translation), its CATALOG kind is "move" and `segment()` gives the hub after
+  it the new `pos`. Anything drawn of the creature must stay a pure translation of itself (no dither or hash reading an absolute
+  column: read it from `room[0]`).
 - **A new kind of step in the life** (a state such as sitting, holding a thing, a portal kept open...): a hub field if it is a
   rest of its own (with its rest drawing in `rest()` and its beats in `restLen()`), its transitions in `plan()` (the steps that
   reach it) and `segment()` (which module plays them, the hub after), `whyNot()` / `can()` reasons in French, a scenario in the

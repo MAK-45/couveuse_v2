@@ -5,6 +5,9 @@ entry and an exit (like Boucles), and wait for the answer. Ask in French. A loop
 Then load the `pixelfx` skill (`anthropic-skills:pixelfx`) and use its render → look → refine loop.
 
 The blob leaves its rest, does the action, and is back at rest exactly (first/last frames = the idle's).
+(An action that takes it somewhere else and leaves it there, like `A.move`, is the one exception: its last frames are its rest
+drawn there, `{ ax, ay }` whole pixels, its progress doesn't wrap, its CATALOG kind is "move" and the life's hub after it gets
+the new `pos`; see docs/ARCHITECTURE.md « Extension points ». Test its last frame against the rest drawn there.)
 
 1. Read docs/SEAMLESS.md and look at two existing entries in `pixelfx/src/fx/creature/ice-blob-actions.js` (e.g. `A.jump`, `A.freeze`).
 2. Add `A.<id> = (o) => ({ mods(t), back?, front? })` using `prog(o, t)`; all modifiers neutral at 0 and 1; set `quiet: 1` while active.

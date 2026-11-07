@@ -15,7 +15,9 @@ Then load the `pixelfx` skill (`anthropic-skills:pixelfx`) and use its render â†
 4c. Its entry and exit come from its intensity by themselves (`settle()`, the drawing faded): look at them (`--opts
    '{"part":"enter"}'`, `'{"part":"exit"}'`, in every form). A pose (`seat`, `legs`, `arms`) switches under a melt into
    light by itself. If the art needs its own entry or exit, give the activity `enter` / `exit` drawing that uses the
-   intensity (and keep the joins exact). If it truly can't have one yet, list it in `PART_FIT` with the reason in French.
+   intensity (and keep the joins exact), or its own `parts(part, T)` like walking and running (`gaitParts()`: a quarter turn
+   instead of a melt, steps on a `gaitLine` joined to the loop's clock). If it truly can't have one yet, list it in `PART_FIT`
+   with the reason in French.
 5. `npm run build && npm test` (its loop, entry and exit joins are tested from `LOOPS` in every form). It is in
    Vivre by itself (its card and its âš™ come from `LOOP_LIST`): try it there, stop it, in every form.
 

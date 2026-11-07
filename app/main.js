@@ -138,6 +138,7 @@ const ANIMS = {
   },
 };
 const ACTION_LIST = [
+  ["move", "Se déplacer", "va jusqu’à la croix et y reste"],
   ["walk", "Balade", "se promène et revient"],
   ["jump", "Saut", "bondit, saltos possibles"],
   ["aura", "Halo de lumière", "se charge de lumière"],
@@ -159,12 +160,18 @@ const ACTION_LIST = [
   ["portal", "Portails", "passe d’un portail bleu à un orange"],
 ];
 // how long each action lasts by default, in loops of the blob's rest
-const LOOPS_DEF = { portal: 4, walk: 4, comet: 3, freeze: 3, drop: 3, melt: 3, scared: 3, curious: 3 };
+const LOOPS_DEF = { move: 1, portal: 4, walk: 4, comet: 3, freeze: 3, drop: 3, melt: 3, scared: 3, curious: 3 };
 // where a portal is set: the side it opens towards (degrees, y down)
 const PORTAL_FACES = [["270", "Le sol (s’ouvre vers le haut)"], ["90", "Le plafond (s’ouvre vers le bas)"], ["0", "Un mur à gauche (s’ouvre vers la droite)"],
   ["180", "Un mur à droite (s’ouvre vers la gauche)"], ["315", "Une pente, vers le haut à droite"], ["225", "Une pente, vers le haut à gauche"],
   ["45", "Un surplomb, vers le bas à droite"], ["135", "Un surplomb, vers le bas à gauche"]];
 const ACTION_PARAMS = {
+  // (the blob and the levitating figure glide there; on its legs it walks or runs there, along its floor)
+  move: [["moveTX", "Destination horizontale", 0, 100, 0.5, " %"], ["moveTY", "Destination verticale", 0, 100, 0.5, " %"],
+    ["moveSpeed", "Vitesse", 0.5, 8, 0.1, "× sa taille / s"], ["moveArc", "Trajet en courbe", 0, 1.5, 0.05, ""], ["moveLook", "Regarde où il va", 0, 2, 0.05, ""],
+    ["moveHops", "Petits bonds en chemin", 0, 8, 1, ""], ["moveHop", "Hauteur des bonds", 0, 16, 0.5, " px"],
+    ["moveGait", "Sur ses jambes, il", { select: [["walk", "Y va en marchant"], ["run", "Y va en courant"]] }],
+    ["moveWalk", "Vitesse de marche", 1.5, 7.5, 0.1, " km/h"], ["moveRun", "Vitesse de course", 6, 20, 0.5, " km/h"]],
   walk: [["walkRoute", "Trajet", { button: "Autre trajet" }],
     ["walkStops", "Nombre d’étapes", 1, 10, 1, ""], ["walkZoneW", "Largeur de la zone parcourue", 10, 100, 1, " % de la largeur"], ["walkZoneH", "Hauteur de la zone parcourue", 10, 100, 1, " % de la hauteur"],
     ["walkPause", "Temps passé aux arrêts", 0, 0.8, 0.01, " part"], ["walkCurve", "Trajets en courbe", 0, 1.5, 0.05, ""],
@@ -221,7 +228,7 @@ function actionGroups() {
   const cur = ACTION_LIST.find((a) => a[0] === V.action) || ACTION_LIST[0];
   return [
     { title: "Action", hint: "choisis ce qu’il fait", picker: true, rows: [
-      ["loops_" + cur[0], "Durée de l’action", 1, 8, 1, ""],
+      ["loops_" + cur[0], cur[0] === "move" ? "Durée de l’action (au moins : il prend le temps d’y aller)" : "Durée de l’action", 1, 8, 1, ""],
       ["lead", "Repos avant et après", 0, 0.3, 0.01, ""],
     ]},
     { title: cur[1], hint: "réglages de l’action", key: "actparams", rows: ACTION_PARAMS[cur[0]] },
@@ -236,7 +243,7 @@ const BLOB_KEYS = new Set(Object.keys(PFX.blob.meta.options));
 const ACTION_KEYS = new Set(Object.keys(PFX.actions.meta.options).filter((k) => !BLOB_KEYS.has(k) && k !== "form"));
 // distances an action covers are set on the scene (points in %, lengths in % of the scene's height) and turned
 // into the effect's own pixels when drawn, so the blob can reach any corner whatever the scene's size
-const SCENE_ACTION_DEF = { walkZoneW: 90, walkZoneH: 70, tpTX: 85, tpTY: 25, jumpHeight: 30, splitDistance: 14, burstRadius: 28, auraRise: 5, spinRise: 5,
+const SCENE_ACTION_DEF = { moveTX: 78, moveTY: 42, walkZoneW: 90, walkZoneH: 70, tpTX: 85, tpTY: 25, jumpHeight: 30, splitDistance: 14, burstRadius: 28, auraRise: 5, spinRise: 5,
   danceAmp: 5, scareRetreat: 18, dropFloor: 92, cometRadius: 30, meltDrop: 10, curiousPeek: 8,
   portalATX: 30, portalATY: 86, portalBTX: 90, portalBTY: 40 };
 for (const [id] of ACTION_LIST)
@@ -246,7 +253,7 @@ const SCENE_LENGTHS = ["jumpHeight", "splitDistance", "burstRadius", "auraRise",
 for (const k of Object.keys(SCENE_ACTION_DEF)) ACTION_KEYS.add(k);
 const actionDef = () => ({ ...Object.fromEntries([...ACTION_KEYS].filter((k) => k in PFX.actions.meta.options).map((k) => [k, PFX.actions.meta.options[k]])), ...SCENE_ACTION_DEF });
 // where an action wants to go, as a scene point, if it has one
-const TARGETS = { teleport: ["tpTX", "tpTY"], portal: [["portalATX", "portalATY"], ["portalBTX", "portalBTY"]] };
+const TARGETS = { move: ["moveTX", "moveTY"], teleport: ["tpTX", "tpTY"], portal: [["portalATX", "portalATY"], ["portalBTX", "portalBTY"]] };
 // an action's targets as a list of key pairs (one or more)
 const targetKeys = (a) => { const t = TARGETS[a]; return !t ? [] : Array.isArray(t[0]) ? t : [t]; };
 // ---- the objects tab: things the blob makes in its scene, which stay and float with it
@@ -1005,7 +1012,11 @@ function formMarkup(rows) {
     : `L’animation est faite par la ${cur === "grounded" ? "forme humaine au sol (sur ses jambes, avec la gravité, sur son sol de glace ou sur le sol d’une planète : elle marche, court, saute, s’accroupit, s’assoit)" : "forme humaine en lévitation"}, avec tous les réglages des formes humaines (silhouette, pose, cheveux${cur === "grounded" ? ", sol" : ""}, boucle de ${L} × ${(+V.duration).toFixed(1)} s). Partir du repos veut dire partir de sa « Forme en boucle » et y revenir.`}</p>`);
 }
 // settings a form on its legs has no use for (it keeps to its floor: no height to stroll in, nothing to rise by)
-const GROUNDED_IDLE = new Set(["walkZoneH", "walkCurve", "walkHop", "walkHops", "walkSquash", "auraRise", "magicRise", "medRise", "atomRise"]);
+const GROUNDED_IDLE = new Set(["walkZoneH", "walkCurve", "walkHop", "walkHops", "walkSquash", "auraRise", "magicRise", "medRise", "atomRise",
+  "moveTY", "moveSpeed", "moveArc", "moveHops", "moveHop", "moveLook"]);
+// and settings only a figure on its legs uses (walking somewhere), or that only the blob uses (hopping along)
+const GROUNDED_ONLY = new Set(["moveGait", "moveWalk", "moveRun"]), BLOB_ONLY = new Set(["moveHops", "moveHop"]);
+const rowShown = (k) => { const f = formNow(); return !(f === "grounded" && GROUNDED_IDLE.has(k)) && !(f !== "grounded" && GROUNDED_ONLY.has(k)) && !(f !== "blob" && BLOB_ONLY.has(k)); };
 const formGroup = () => ({ title: "Forme", hint: (BODY_FORMS.find((f) => f[0] === (S.shared.bodyForm || "blob")) || BODY_FORMS[0])[1].toLowerCase(), key: "bodyform", open: true, formPicker: true, rows: [] });
 const RENDER = { title: "Rendu", hint: "fond, export", render: true, rows: [
   ["zoom", "Zoom de l’aperçu", 0, 6, 1, "×"],
@@ -1055,7 +1066,8 @@ function sanitize(v) {
   s.life = { ...f.life, ...((v && v.life) || {}) };
   if (!s.worlds.list.some((w) => w.id === +s.life.world)) s.life.world = s.worlds.list[0].id;
   const lh = s.life.hub || {};
-  s.life.hub = { form: BODY_FORMS.some((x) => x[0] === lh.form) ? lh.form : "blob", place: lh.place === "home" || s.worlds.list.some((w) => w.id === lh.place) ? lh.place : "home", portal: null };
+  s.life.hub = { form: BODY_FORMS.some((x) => x[0] === lh.form) ? lh.form : "blob", place: lh.place === "home" || s.worlds.list.some((w) => w.id === lh.place) ? lh.place : "home", portal: null,
+    pos: Array.isArray(lh.pos) && lh.pos.length === 2 ? lh.pos.map((v) => Math.round(+v) || 0) : [0, 0] };
   if (lh.portal === "home" && s.life.hub.place !== "home") s.life.hub.portal = "home";
   else if (s.life.hub.place === "home" && s.worlds.list.some((w) => w.id === lh.portal)) s.life.hub.portal = lh.portal;
   s.life.things = (Array.isArray(s.life.things) ? s.life.things : []).filter((th) => th && th.ob && (th.place === "home" || s.worlds.list.some((w) => w.id === th.place)));
@@ -1202,7 +1214,8 @@ function buildControls() {
   for (const id of ["exAll", "exGif", "exPng", "exJson"]) $(id).hidden = life;
   if (life) { lifeControls(); sceneGroup(); renderGroup(); wire(); syncUI(); return; }
   controls.insertAdjacentHTML("beforeend", `<h2 class="pagetitle">${pageName()}</h2>`);
-  const intro = PAGE_INTRO[S.anim];
+  // (the move doesn't come back: it stays where it went)
+  const intro = S.anim === "actions" && V.action === "move" ? MOVE_INTRO : PAGE_INTRO[S.anim];
   if (intro) controls.insertAdjacentHTML("beforeend", `<p class="note intro">${intro}</p>`);
   settingsGroups();
   sceneGroup();
@@ -1324,7 +1337,7 @@ function settingsGroups() {
       }
       rows.appendChild(pr);
     }
-    for (const def of g.rows) if (!(formNow() === "grounded" && GROUNDED_IDLE.has(def[0]))) rowFor(rows, def);
+    for (const def of g.rows) if (rowShown(def[0])) rowFor(rows, def);
     if (g.gaitNote) rows.insertAdjacentHTML("beforeend", `<p class="note" id="gaitnote"></p>`);
     if (g.place) {
       const r = document.createElement("div");
@@ -1437,7 +1450,7 @@ function edgeFade(f, EF = 8) {
 let N = 120, B = 176, SW = 480, SH = 270, E = ANIMS[S.anim].fx;
 const view = $("view"), ctx = view.getContext("2d");
 let img = null;
-const loopsOf = () => (isWorldTab() ? Math.max(1, Math.round(V.wLoops || 1)) : S.anim === "transform" ? Math.max(1, Math.round(V["loops_" + V.mode] || 2)) : S.anim === "explore" ? Math.max(1, Math.round(V["loops_" + V.explore] || 2)) : S.anim === "portal" ? Math.max(1, Math.round(LOOPING_MODES.has(V.mode) ? worldById(V.pWorld).wLoops || 1 : V["loops_" + V.mode] || 2)) : S.anim === "elec" ? Math.max(1, Math.round(V["loops_" + V.elec] || 3)) : S.anim === "clock" ? Math.max(1, Math.round(V.loops || 3)) : S.anim === "loops" ? Math.max(1, Math.round(loopPart() === "enter" ? V.inLoops || 1 : loopPart() === "exit" ? V.outLoops || 1 : V["loops_" + V.loop] || 2)) : S.anim === "actions" ? Math.max(1, Math.round(V["loops_" + V.action] || 2)) : S.anim === "objects" ? Math.max(1, Math.round(V["loops_" + V.mode] || 1)) : 1);
+const loopsOf = () => (isWorldTab() ? Math.max(1, Math.round(V.wLoops || 1)) : S.anim === "transform" ? Math.max(1, Math.round(V["loops_" + V.mode] || 2)) : S.anim === "explore" ? Math.max(1, Math.round(V["loops_" + V.explore] || 2)) : S.anim === "portal" ? Math.max(1, Math.round(LOOPING_MODES.has(V.mode) ? worldById(V.pWorld).wLoops || 1 : V["loops_" + V.mode] || 2)) : S.anim === "elec" ? Math.max(1, Math.round(V["loops_" + V.elec] || 3)) : S.anim === "clock" ? Math.max(1, Math.round(V.loops || 3)) : S.anim === "loops" ? Math.max(1, Math.round(PFX.loops.total(OPTS) / V.duration)) : S.anim === "actions" ? Math.max(1, Math.round(V.action === "move" ? PFX.actions.total(OPTS) / V.duration : V["loops_" + V.action] || 2)) : S.anim === "objects" ? Math.max(1, Math.round(V["loops_" + V.mode] || 1)) : 1);
 const loopLen = () => V.duration * loopsOf();
 // an action is a whole number of the blob's loops, frame for frame
 const nFrames = () => Math.max(2, Math.round(V.duration * V.fps)) * loopsOf();
@@ -1507,6 +1520,9 @@ function effOpts(src = V) {
     const pl = placement(), k = V.scale, h = SH / k;
     o.loops = V["loops_" + V.action] || 2;
     o.tpX = ((V.tpTX / 100) * SW - pl.cx) / k; o.tpY = ((V.tpTY / 100) * SH - pl.cy) / k;
+    // the move: where it goes, and the scene it must stay in with all its body
+    o.moveX = ((V.moveTX / 100) * SW - pl.cx) / k; o.moveY = ((V.moveTY / 100) * SH - pl.cy) / k;
+    if (!o.room) { const g = grid(); o.room = [-g.ox, -g.oy, g.fw - g.ox, g.fh - g.oy]; }
     o.portalAX = ((V.portalATX / 100) * SW - pl.cx) / k; o.portalAY = ((V.portalATY / 100) * SH - pl.cy) / k;
     o.portalBX = ((V.portalBTX / 100) * SW - pl.cx) / k; o.portalBY = ((V.portalBTY / 100) * SH - pl.cy) / k;
     o.portalRoom = [-pl.cx / k, -pl.cy / k, (SW - pl.cx) / k, (SH - pl.cy) / k];
@@ -1531,8 +1547,9 @@ function effOpts(src = V) {
 let OPTS = effOpts();
 function bgValue() { return V.bg === "none" ? null : V.bg === "color" ? PFX.hex(V.bgColor) : PFX.hex("#000000"); }
 // where the creature sits: centred on the chosen point; its zone (for the birth) scaled by whole pixels
+let posShift = [0, 0];
 function placement() {
-  const D = B * V.scale, cx = Math.round((V.posX / 100) * SW), cy = Math.round((V.posY / 100) * SH);
+  const D = B * V.scale, cx = Math.round((V.posX / 100) * SW) + posShift[0], cy = Math.round((V.posY / 100) * SH) + posShift[1];
   return { D, cx, cy, x: cx - Math.floor(D / 2), y: cy - Math.floor(D / 2) };
 }
 // the coarse grid for scene-wide drawing, lined up so the creature's centre falls on the same scene pixel
@@ -1597,8 +1614,10 @@ function gaitNote() {
   if (!el) return;
   const lp = S.anim === "loops", act = lp ? V.loop : V.explore, g = lp ? PFX.loops.gaitOf(OPTS) : S.anim === "explore" ? PFX.explore.gaitOf(OPTS) : null, run = act === "run", fr = (x, d = 1) => x.toFixed(d).replace(".", ",");
   if (!g) { el.textContent = ""; return; }
-  const L = Math.max(1, Math.round(+V["loops_" + act] || 2)), P = L * V.duration;
-  el.innerHTML = `Vitesse réelle : <b>${fr(g.kmh)} km/h</b>, ${2 * g.N} ${run ? "foulées" : "pas"} par boucle de ${fr(P)} s (cadence : ${fr(g.rate * 120, 0)} ${run ? "foulées" : "pas"} par minute). ${lp ? "Il reste sur place : son sol de glace (reflets, empreintes) défile sous ses pieds exactement à la vitesse de ses pas, comme un tapis roulant." : "Le sol sous ses pieds défile exactement à la vitesse de ses pas."} La vitesse et la cadence sont arrondies pour que la boucle soit parfaite (un nombre entier de foulées et d’écrans par boucle)${lp ? "" : " ; une boucle plus longue s’approche mieux de la vitesse demandée et donne plus de profondeur au décor"}.`;
+  const L = Math.max(1, Math.round(+V["loops_" + act] || 2)), P = L * V.duration, part = lp ? loopPart() : "loop", dur = part !== "loop" ? PFX.loops.total(OPTS) : 0;
+  const how = part === "enter" ? `<b>Entrée</b> (${fr(dur)} s, il lui faut ce temps pour ses premiers pas) : face à nous, il se tourne de profil d’un quart de tour, puis ses ${run ? "foulées" : "pas"} grandissent jusqu’à cette allure, penché pour démarrer, et son sol se met à défiler. `
+    : part === "exit" ? `<b>Sortie</b> (${fr(dur)} s) : ses ${run ? "foulées" : "pas"} raccourcissent, il se penche en arrière pour freiner, s’arrête et se retourne vers nous, au repos. ` : "";
+  el.innerHTML = how + `Vitesse réelle : <b>${fr(g.kmh)} km/h</b>, ${2 * g.N} ${run ? "foulées" : "pas"} par boucle de ${fr(P)} s (cadence : ${fr(g.rate * 120, 0)} ${run ? "foulées" : "pas"} par minute). ${lp ? "Il reste sur place : son sol de glace (reflets, empreintes) défile sous ses pieds exactement à la vitesse de ses pas, comme un tapis roulant." : "Le sol sous ses pieds défile exactement à la vitesse de ses pas."} La vitesse et la cadence sont arrondies pour que la boucle soit parfaite (un nombre entier de foulées et d’écrans par boucle)${lp ? "" : " ; une boucle plus longue s’approche mieux de la vitesse demandée et donne plus de profondeur au décor"}.`;
 }
 function rebuild() {
   E = ANIMS[S.anim].fx; SW = V.sceneW; SH = V.sceneH; B = V.canvas; OPTS = effOpts(); N = nFrames();
@@ -1611,14 +1630,21 @@ function rebuild() {
   $("wrap").classList.toggle("checker", V.bg === "none");
   $("scrub").hidden = S.anim === "life";
   if (S.anim === "life") {
-    const sig = [SW, SH, V.posX, V.posY, V.scale, V.duration, V.light, JSON.stringify(V.palette)].join();
+    const sig = [SW, SH, V.posX, V.posY, V.scale, V.duration, V.light, JSON.stringify(V.palette)].join(), ps = [SW, SH, V.posX, V.posY, V.scale].join();
+    // (its home spot moved, or the scene changed: it is at home again in it)
+    if (placeSig && ps !== placeSig && S.life.hub) S.life.hub.pos = [0, 0];
+    placeSig = ps;
     if (!LIFE || sig !== lifeSig) { lifeSig = sig; lifeStart(); }
   } else { LIFE = null; lifeSig = ""; }
 }
 let pending = false;
 function changed() { pending = true; persist(); accent(); }
 // recompose only: moving the creature doesn't redraw it
-function moved() { if (S.anim !== "birth" && S.anim !== "blob") OPTS = effOpts(); sceneCache = []; shown = -1; persist(); }
+function moved() {
+  if (S.anim !== "birth" && S.anim !== "blob") OPTS = effOpts();
+  if (S.anim !== "life") { N = nFrames(); $("scrub").max = N - 1; }
+  sceneCache = []; shown = -1; persist();
+}
 
 // ---- guides drawn over the preview only, never exported
 function drawGuides() {
@@ -1807,17 +1833,19 @@ view.addEventListener("keydown", (ev) => {
 const FORM_NAMES = { blob: "le blob né", human: "la forme humaine en lévitation", grounded: "la forme humaine au sol" };
 const SHAPE_NAMES = Object.fromEntries(SHAPE_OPTS);
 const LIFE_KIND = { enter: " (il s’y met)", exit: " (il s’arrête)", loop: " (en boucle)" };
-let LIFE = null, lifeBase = 0, lifeAt = 0, lifePaused = false, lifeLast = 0, lifeSig = "", lifeDice = 1, lifeOpts = null;
+let LIFE = null, lifeBase = 0, lifeAt = 0, lifePaused = false, lifeLast = 0, lifeSig = "", lifeDice = 1, lifeOpts = null, placeSig = "";
 // a tab's options for its effect, as that tab builds them, for the creature in a given form (the life engine asks)
 function optsAs(tab, pick, hub) {
-  const keep = { anim: S.anim, V, SW, SH, B, form: S.shared.bodyForm };
+  const keep = { anim: S.anim, V, SW, SH, B, form: S.shared.bodyForm, shift: posShift };
   try {
     S.anim = tab; S.shared.bodyForm = hub.form;
     refreshV(); Object.assign(V, pick);
     if (tab === "clock") V.clkSource = "now";
     SW = V.sceneW; SH = V.sceneH; B = V.canvas;
+    // (where it stands now: its options are worked out from there, the scene seen from there)
+    posShift = Array.isArray(hub.pos) ? [Math.round(hub.pos[0]) * V.scale, Math.round(hub.pos[1]) * V.scale] : [0, 0];
     return effOpts();
-  } finally { S.anim = keep.anim; V = keep.V; SW = keep.SW; SH = keep.SH; B = keep.B; S.shared.bodyForm = keep.form; }
+  } finally { S.anim = keep.anim; V = keep.V; SW = keep.SW; SH = keep.SH; B = keep.B; S.shared.bodyForm = keep.form; posShift = keep.shift; }
 }
 const lifeNow = () => (lifePaused ? lifeAt : lifeAt + ((performance.now() - lifeBase) / 1000) * (+V.speed || 1));
 function lifeStart() {
@@ -1875,7 +1903,9 @@ function lifeAuto(t) {
   const pool = PFX.life.CATALOG.filter((c) => c.family !== "clock" && PFX.life.can(LIFE, { id: c.id }).ok);
   if (!pool.length) return;
   const r = PFX.rng(4242, lifeDice++), c = pool[Math.floor(r.range(0, pool.length)) % pool.length];
-  PFX.life.want(LIFE, { id: c.id, label: lifeName(c), reps: c.kind === "loop" ? 1 + Math.floor(r.range(0, 3)) : undefined }, t);
+  // (going somewhere: a place it picks in the scene, away from its edges)
+  const pl = placement(), k = V.scale, to = c.kind === "move" ? [Math.round((r.range(0.14, 0.86) * SW - pl.cx) / k), Math.round((r.range(0.28, 0.78) * SH - pl.cy) / k)] : undefined;
+  PFX.life.want(LIFE, { id: c.id, label: lifeName(c), reps: c.kind === "loop" ? 1 + Math.floor(r.range(0, 3)) : undefined, to }, t);
   lifeStatus();
 }
 const LIFE_LISTS = () => ({ actions: ACTION_LIST, loops: LOOP_LIST, elec: ELEC_LIST });
@@ -1918,6 +1948,11 @@ function lifeLinks(rows, links) {
   for (const [text, fn] of links) { const b = document.createElement("button"); b.type = "button"; b.textContent = text; b.onclick = fn; r.appendChild(b); }
   rows.appendChild(r);
 }
+// the cross (the point clicked in the scene), in px from the creature's home spot: where the next thing appears, where it goes
+function lifeCross() {
+  const pl = placement(), k = V.scale;
+  return [Math.round(((S.life.spotX / 100) * SW - pl.cx) / k), Math.round(((S.life.spotY / 100) * SH - pl.cy) / k)];
+}
 function lifeControls() {
   controls.insertAdjacentHTML("beforeend", `<p class="note intro">Il <b>vit</b>, sans fin et sans jamais sauter d’image. Clique sur ce qu’il doit faire : il le fait à son tour, en partant de son repos et en y revenant, et prend de lui-même les étapes nécessaires. Les boucles durent jusqu’à ce que tu demandes autre chose. ⚙ ouvre les réglages d’une chose, avec son aperçu et son export en GIF.</p>`);
   {
@@ -1925,13 +1960,17 @@ function lifeControls() {
     rows.insertAdjacentHTML("beforeend", `<div class="lifenow" id="lifeNow" aria-live="polite"></div><div class="inline"><button type="button" id="lifeStop">Arrêter la boucle</button><button type="button" id="lifeClear">Vider la file</button></div>`);
     controls.appendChild(d);
   }
-  const fam = (title, hint, key, list, family, open) => {
+  const fam = (title, hint, key, list, family, open, note) => {
     const [d, rows] = group({ title, hint }, "life-" + key, open), grid = lifeGrid(rows, title);
-    for (const [id, name, desc] of list) lifeButton(grid, { id: family === "clock" ? "clock" : `${family}:${id}` }, name, desc, null,
+    if (note) rows.insertAdjacentHTML("afterbegin", `<p class="note">${note}</p>`);
+    for (const [id, name, desc] of list) lifeButton(grid, { id: family === "clock" ? "clock" : `${family}:${id}` }, name, desc,
+      // (the move goes to the cross)
+      family === "actions" && id === "move" ? () => lifeAsk({ id: "actions:move", to: lifeCross(), label: name }) : null,
       [family, family === "actions" ? { action: id } : family === "loops" ? { loop: id } : family === "elec" ? { elec: id } : {}]);
     controls.appendChild(d);
   };
-  fam("Actions", "une fois, du repos au repos", "actions", ACTION_LIST, "actions", true);
+  fam("Actions", "une fois, du repos au repos", "actions", ACTION_LIST, "actions", true,
+    "« Se déplacer » l’emmène jusqu’à la croix (clique dans la scène pour la placer) : il y reste, et fait la suite là-bas. Sous forme humaine au sol, il y va en marchant, de côté, le long de son sol.");
   fam("En boucle", "il s’y met, continue, s’arrête", "loops", LOOP_LIST, "loops", true);
   fam("Électricité", "une fois, du repos au repos", "elec", ELEC_LIST, "elec", false);
   fam("Heure", "il affiche l’heure qu’il est", "clock", [["clock", "Afficher l’heure", "l’heure qu’il est, puis repos"]], "clock", false);
@@ -1960,7 +1999,7 @@ function lifeControls() {
       ["obLayer", "Plan", { select: [["back", "Derrière lui"], ["front", "Devant lui"]] }],
       ["linked", "Où il reste", { select: [["1", "Lié à ce monde : il y reste quand le blob part"], ["0", "Il suit le blob d’un monde à l’autre"]] }],
       ["appearStyle", "Il apparaît en", { select: OBJ_APPEAR }], ["removeStyle", "Il disparaît en", { select: OBJ_REMOVE }]]) rowFor(rows, def);
-    rows.insertAdjacentHTML("beforeend", `<p class="note">Clique dans la scène pour choisir où le prochain objet apparaît (la croix).</p>`);
+    rows.insertAdjacentHTML("beforeend", `<p class="note">Clique dans la scène pour choisir où le prochain objet apparaît (la croix ; « Se déplacer » y va aussi).</p>`);
     const grid = lifeGrid(rows, "Faire apparaître");
     lifeButton(grid, { id: "appear" }, "Faire apparaître", "à la croix", () => {
       const pl = placement(), k = V.scale, id = (LIFE ? LIFE.nextId : 1);
@@ -2006,11 +2045,12 @@ function lifeControls() {
 const COMPACT_PICK = new Set(["actions", "loops", "elec", "explore"]);
 const PAGE_NAMES = { blob: "Apparence", birth: "Naissance", actions: "Action", loops: "En boucle", elec: "Électricité", clock: "Heure",
   objects: "Apparition des objets", portal: "Portail", explore: "Explorer un monde", transform: "Formes humaines", worlds: "Monde", surface: "Surface de planète" };
+const MOVE_INTRO = "Il part de son repos et va ailleurs dans la scène, où il reste : son repos est là-bas maintenant, et dans sa vie tout ce qu’il fait ensuite se fait là-bas. Le blob y glisse, la forme humaine en lévitation y vole, la forme humaine au sol y marche (ou y court), de côté, le long de son sol. Glisse la destination dans l’aperçu ; dans sa vie, il va jusqu’à la croix. L’aperçu le montre en boucle (il revient alors d’un coup à son départ) ; le GIF va du repos ici au repos là-bas.";
 const PAGE_INTRO = {
   blob: "Son apparence : la taille et la forme de son corps, ses mouvements au repos, ses yeux, sa lumière, ses couleurs. Toutes ses animations la gardent.",
   birth: "Sa naissance, avant qu’il vive : une forme sans membres qui se forme dans son halo. Elle ne fait pas partie de sa vie ; l’aperçu la montre en boucle.",
   actions: "Cette action part du repos et y revient : dans sa vie, elle s’enchaîne avec tout le reste. L’aperçu la montre en boucle ; tu peux l’exporter en GIF, en planche PNG ou en JSON.",
-  loops: "Une activité en trois morceaux : l’entrée depuis le repos, la boucle, la sortie vers le repos (choisis le morceau à voir). Quand la forme humaine doit changer de posture, elle fond en lumière et reprend forme dans la nouvelle.",
+  loops: "Une activité en trois morceaux : l’entrée depuis le repos, la boucle, la sortie vers le repos (choisis le morceau à voir). Quand la forme humaine doit s’asseoir ou croiser les jambes, elle fond en lumière et reprend forme dans la nouvelle posture ; pour marcher ou courir, elle se tourne de profil d’un quart de tour.",
   elec: "Il part du repos, joue avec l’électricité et y revient. Les couleurs de l’électricité se règlent dans « L’électricité ».",
   clock: "Il affiche une heure puis revient au repos. Dans sa vie, il montre l’heure qu’il est.",
   objects: "Comment les objets apparaissent et disparaissent. L’aperçu le montre sur des objets d’essai ; dans sa vie, ce sont tes objets, qui restent dans le décor.",

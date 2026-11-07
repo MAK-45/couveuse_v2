@@ -22,6 +22,11 @@ réglages** (la ⚙ de son bouton) : on y règle ses curseurs, on la voit en bou
     redescend.
 - **La fonte en lumière.** Quand la forme humaine doit changer de posture (s’asseoir en tailleur, croiser les jambes, baisser
   les bras), elle fond en lumière, change de pose pendant qu’il ne reste rien de sa silhouette, puis reprend forme.
+- **Le quart de tour.** Pour marcher ou courir, la forme humaine au sol ne fond pas : elle se tourne de profil d’un quart de
+  tour (épaules, hanches et pieds se resserrent, les yeux glissent), reste elle-même tout du long, puis se retourne vers nous
+  quand elle s’arrête.
+- **Sa place dans la scène.** « Se déplacer » l’emmène ailleurs (jusqu’à la croix) et elle y reste : son repos est là-bas,
+  et tout ce qu’elle fait ensuite se fait là-bas (les objets, les portails et les mondes restent où ils sont dans la scène).
 - **Les étapes toutes seules.** S’il faut d’abord fermer un portail, redevenir blob avant de prendre l’autre forme humaine, ou
   rouvrir le chemin du retour pour rentrer, il le fait de lui-même avant ce qu’on a demandé.
 - **Les formes.** Tout ce qu’il fait se fait dans chaque forme (blob né, forme humaine en lévitation, forme humaine au sol). Ce
@@ -48,7 +53,7 @@ les réglages que tu aimerais avoir. Claude te demandera d’abord : **« une fo
 - **Un objet** : « Ajoute une forme d’objet : une étoile à cinq branches. »
 - **Un compagnon** : « Ajoute un compagnon : une petite luciole qui le suit d’un monde à l’autre. »
 - **Le reste de la vie** : « Mets l’exploration des mondes dans sa vie » (« Explorer un monde », avec son entrée et sa sortie),
-  « Fais démarrer et s’arrêter la marche », « Permets de refermer le chemin du retour depuis l’autre monde », « Enregistre un
+  « Permets de refermer le chemin du retour depuis l’autre monde », « Enregistre un
   moment de sa vie en GIF ».
 
 Les commandes prêtes (dans Claude Code) font la même chose avec la bonne recette : `/new-anim`, `/new-action`, `/new-loop`,
@@ -81,12 +86,15 @@ Les commandes prêtes (dans Claude Code) font la même chose avec la bonne recet
 
 ## Ce qui reste à faire (idées, dans un ordre conseillé)
 
-1. **L’exploration dans la vie** (Action monde) : une entrée (le monde accélère) et une sortie (il ralentit et s’arrête).
-2. **Marcher et courir dans la vie** : le premier pas et le dernier pas.
-3. **S’asseoir pour de vrai** : une posture assise où les genoux plient, que le sommeil et la méditation utiliseront.
-4. **Les compagnons** : un animal de lumière qui a son propre repos et ses animations, lié à un monde ou suivant le blob.
-5. **Construire des objets** : il assemble un objet pièce par pièce et le laisse dans le décor.
-6. **Refermer le chemin du retour** depuis l’autre monde, et **enregistrer un moment de sa vie** en GIF.
+1. **L’exploration dans la vie** (Action monde) : une entrée (le monde accélère) et une sortie (il ralentit et s’arrête). La
+   marche et la course d’Action monde pourront reprendre les premiers et derniers pas des Boucles (`gaitLine`).
+2. **S’asseoir pour de vrai** : une posture assise où les genoux plient, que le sommeil et la méditation utiliseront (au lieu de
+   la fonte en lumière, comme le quart de tour l’a fait pour la marche).
+3. **Les compagnons** : un animal de lumière qui a son propre repos et ses animations, lié à un monde ou suivant le blob.
+4. **Construire des objets** : il assemble un objet pièce par pièce et le laisse dans le décor.
+5. **Refermer le chemin du retour** depuis l’autre monde, et **enregistrer un moment de sa vie** en GIF.
+6. **Se déplacer en profondeur** : aller vers le fond ou vers nous (il rapetisse ou grandit), et sur ses jambes changer de
+   hauteur dans la scène (aujourd’hui il ne va que de côté, le long de son sol).
 
 ## Petit lexique
 
@@ -94,5 +102,7 @@ Les commandes prêtes (dans Claude Code) font la même chose avec la bonne recet
 - **Battement** : un tour de sa boucle de repos ; tout commence au début d’un battement.
 - **Entrée / boucle / sortie** : les trois morceaux d’une activité en boucle.
 - **Fonte en lumière** : la façon dont la forme humaine change de posture sans à-coup.
+- **Quart de tour** : la façon dont la forme humaine au sol se met de profil pour marcher, et se retourne vers nous.
+- **La croix** : le point cliqué dans la scène ; le prochain objet y apparaît, « Se déplacer » y va.
 - **Lié au monde / le suit** : où reste un objet (ou un compagnon) quand le blob change de monde.
 - **Page de réglages** : la page d’une chose, ouverte par sa ⚙, avec son aperçu en boucle et ses exports.

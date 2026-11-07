@@ -25,7 +25,10 @@ inside a tab), **ask the author** which kind they want, and wait for the answer 
 Ask in French, e.g. « Tu la veux une seule fois (elle part du repos et y revient), ou en boucle (elle s’y met, continue
 autant que tu veux, puis s’arrête et revient au repos) ? »
 Only backdrops (Mondes, Surface planète) loop freely; Action monde's loops are free too and not yet playable in Vivre
-(their entry and exit, the world speeding up and slowing down, are still to do), as are walking and running.
+(their entry and exit, the world speeding up and slowing down, are still to do). Walking and running on the spot (Boucles)
+do have their entry and exit: the first steps and the last.
+An animation can also take it **somewhere else** (the action « Se déplacer »): its first frame is its rest where it was,
+its last its rest where it went (`hub.pos` in the life), and everything after is drawn there.
 
 **Every new animation must be made for every transformation**, not only for the blob: today the levitating human
 form and the human form on its legs, and every form added later to the Transformation tab. Draw the creature with
@@ -98,24 +101,36 @@ thing (the page has no tab bar). "Tab Actions" = the settings page of an action,
   - `pixelfx/src/fx/spawn/ice-spirit-gestation.js` — tab **Naissance** (birth, box-drawn)
   - `pixelfx/src/fx/creature/ice-life.js` — tab **Vivre**, the life engine: a score of segments laid end to end, each one a
     tab's animation played with that tab's options (`cfg.optsFor(tab, pick, hub)`, the page's `optsAs()`), starting on a
-    beat of the rest it leaves (a hub: `form`, `place` home or a world's id, `portal`) and lasting whole loops. `CATALOG`
+    beat of the rest it leaves (a hub: `form`, `place` home or a world's id, `portal`, `pos` where it stands in the scene, whole
+    px from its home spot) and lasting whole loops; at a `pos` every module draws with the painter moved there and its options
+    worked out from there (`optsAs` shifts `placement()` by `posShift`; `plainOpts` shifts `room`), things and worlds stay
+    pinned to the scene. `CATALOG`
     (from the modules' lists), `want(L, req, now)` (plans the steps it needs: close a portal, revert, transform, reopen,
-    return... then the animation; a loop's `enter` → `loop` (rep ∞ until asked otherwise) → `exit`), `can()` (why not),
+    return... then the animation; a loop's `enter` → `loop` (rep ∞ until asked otherwise) → `exit`; the move,
+    `{ id: "actions:move", to: [x, y] }`, a step of kind "move" whose hub after has the new `pos`), `can()` (why not),
     `status()`, `clearQueue()`, `trim()`, `snapshot()` (hub + things to keep), `plainOpts()` (tests, render tool,
     `--opts '{"script":[...]}'`). Things: `{ id, ob, place, linked, born, dying }`, drawn by the engine (fading while it
     crosses to another world) except while the objects tab makes or takes one away. In another world it paints the world
     behind (clock `t - wt0`) and its near part last; portal modes paint their own.
   - `pixelfx/src/fx/creature/ice-time.js` — the time every animation shares: `prog(o, t, T)`, `presence`, `NEUTRAL` +
     `settle(m, k)` (modifiers back to rest by an intensity), `phases(part, T, lead, pose)` (an entry's or exit's timetable:
-    k, the melt into light when the pose changes, `swap`, `s` for the anchor)
-  - `pixelfx/src/fx/creature/ice-blob-idle.js` — tab **Blob né**; the blob itself (exports `blobBack`, `blobFront`, `state`, `ambient`, `NONE`)
-  - `pixelfx/src/fx/creature/ice-blob-actions.js` — tab **Actions** (19 actions; exports `hsl`, `fromHsl`, `walkRoute`, `portalSpots`)
+    k, the melt into light when the pose changes, `swap`, `s` for the anchor), `meltAt`
+  - `pixelfx/src/fx/creature/ice-blob-idle.js` — tab **Blob né**; the blob itself (exports `blobBack`, `blobFront`, `state`, `ambient`, `NONE`;
+    modifiers `ax`, `ay` move the whole creature, its light on the ground included: drawn there at rest it is its rest drawn there)
+  - `pixelfx/src/fx/creature/ice-blob-actions.js` — tab **Actions** (20 actions; exports `hsl`, `fromHsl`, `walkRoute`, `portalSpots`,
+    `total(o)`, `moveOf(o)`). `move` (« Se déplacer », first in `ACTIONS`): it goes to `moveTo` (a life's) or `moveX`/`moveY` and
+    stays (its progress doesn't wrap round: `{ ax, ay }` after it arrives); the blob glides there on an arc (`moveArc`, hops
+    `moveHops`), the levitating figure flies there, the figure on its legs walks or runs there (`walkTo()`: a quarter turn
+    `turn`, a `gaitLine` up to its pace and down, the body carried by `ax`, prints left on the ground, a quarter turn back);
+    `moveOf()` keeps its whole body in `o.room`, only x on its legs; its length is what its way takes (`moveLoops()`, `total()`)
   - `pixelfx/src/fx/creature/ice-scene-objects.js` — tab **Objets** (solids, appear/remove; exports `drawObject`)
   - `pixelfx/src/fx/creature/ice-blob-loops.js` — tab **Boucles** (20 endless activities; `walk`/`run` = `gaitLoop()`: the figure on
     its legs walks or runs on the spot, its floor of ice going by under its feet like a treadmill, same `m.gait` and `ga` keys as Action monde).
     Each loop has three parts (`o.part`: "loop", "enter" from rest, "exit" back to rest; `inLoops` / `outLoops`, `meltTime`;
-    `total(o)` is the part's length, `loopLen` the activity's period): `planOf()` / `modsOf()` / `layer()` at the end of the file;
-    walking and running have no entry or exit yet (`PART_FIT`)
+    `total(o)` is the part's length, `loopLen` the activity's period): `planOf()` / `modsOf()` / `layer()` at the end of the file.
+    Walking and running have their own (`gaitParts()`, `gaitTimes()`): a quarter turn from facing us to side on (`m.turn`), the
+    steps growing to the loop's pace on a `gaitLine` joined to the loop's clock (`cs`), long enough at its pace that its prints
+    are the loop's; on the way out it slows down, stops and turns back; their entry and exit take the loops they need (`gaitLoops()`)
   - `pixelfx/src/fx/creature/ice-blob-clock.js` — tab **Heure** (shows the time)
   - `pixelfx/src/fx/creature/ice-blob-electric.js` — tab **Électricité** (8 electric animations, rest → electricity → rest like actions; own colours `elCore`/`elColor`/`elGlow`)
   - `pixelfx/src/fx/creature/ice-blob-portal.js` — tab **Portail** (the blob opens a portal onto a world: `open` from rest, `live` portal open, `close` back to rest; `cross` from `live` through the portal, with its mirror image, out of a mirrored portal into `beyond` = its rest in the other world; then `reopen` (a portal home, our void inside) → `beyondOpen` (loop) → `return` back through to the Blob né's rest, or to `live` with `returnKeep`; 3 open + 3 close styles, 5 shapes)
@@ -139,7 +154,8 @@ thing (the page has no tab bar). "Tab Actions" = the settings page of an action,
     `chore(o, c, style)` gives the change at c (0 blob .. 1 new form), exactly neutral at both ends; the figure's clock is
     `t - T` in `transform`; reuses the idle's eyes, sparks and drops via `drawEyes`/`drawSparks`/`drawDrips`; keys start with `tf`, `rv`, `hu`.
     It is also the **form engine** of every other tab: `bodyBack`/`bodyFront`/`bodyAmbient` draw the creature in `o.form`
-    (`build(o, t, ext)` with c = 1 and the tab's modifiers), `figClock`, `walking()` for the legs, `FORM_DEFAULTS`, `formExtent`, `formCentre`, `formMask`, `floorFor`.
+    (`build(o, t, ext)` with c = 1 and the tab's modifiers), `figClock`, `walking()` for the legs, `FORM_DEFAULTS`, `formExtent`, `formCentre`, `formMask`, `floorFor`;
+    `ax`/`ay` carry the whole figure (on its legs along its floor, feet and light on the floor included).
     **Walking and running** (`m.gait = { kind, ph, cyc, S, v, rate, N, dir, ...settings }`, from Action monde): `strider()` turns the
     figure side on; `gaitK()` holds a person's gait at v m/s (stance share, knee bend curve over the stance, foot pitch at contact
     and toe-off, swing lift, lean, arm swing); `gaitSolve()` (cached) rolls the foot (heel round, flat, ball round where the toes
@@ -147,7 +163,14 @@ thing (the page has no tab bar). "Tab Actions" = the settings page of an action,
     legs (two bones from the hips, the knee forward), the swinging foot on a Hermite path between toe-off and landing, the ankle
     lifting the toes clear of the ground. Near leg in the body field, near arm in front (`As`), far arm and leg behind and darker
     (`Fs`, `limbs()`), three-quarter eyes; `gaitFx()` lays prints of light carried back by the ground; the ice floor's glints go by
-    with it; `grNoFloor` (a planet's ground) keeps only its light on the ground)
+    with it; `grNoFloor` (a planet's ground) keeps only its light on the ground. **A gait whose pace changes** (it sets off, slows
+    down, stops): `m.gait.line` = `gaitLine({ S, rate, pieces, cs, csInv })` and `m.gait.t`: its pace s(t) in eased pieces, its
+    cadence slowing to `alpha` as it stops, the strides c(t), the way gone d(t), each step's length `rho`; every foot stays where it
+    came down (`step()` / `down()` in `gaitPose()`), the floor goes back by d(t) (or the figure is carried by `ax`), arms, lean and
+    hair follow the pace, it leans into a start and back as it stops; a gait at its own pace makes its own line (`lineOf()`).
+    `gaitFree()` a gait going somewhere (no loop to fit). **Turning** (`m.turn` 0 facing us .. 1 side on, with `m.gait`): the figure
+    facing us, narrowed (`narrow()`), and the one side on (`moveFig()` into its space) are both built and their fields blend, the
+    side-on limbs growing out of the body, the eyes sliding round: it turns as one body, never melting)
   - `pixelfx/src/fx/creature/ice-worlds.js` — tab **Mondes** (backdrops seen only through portals; `renderWorld()` draws a window of a world in depth layers with a camera; type `space` for now; two states, `wState` "still" (lives in place) or "moving" (travels at `wDrift`); every world key starts with `w`)
   - `pixelfx/src/fx/creature/ice-surface.js` — tab **Surface planète** (planet surfaces seen from the ground; type `plain` for now:
     banded sky, sun/moon, clouds, ridged mountains with snow, hills, three meadows at depths 0.45/0.7/1 with lake, ponds, trees,
@@ -190,7 +213,10 @@ Read the relevant doc before a non-trivial change; don't load every file.
 6. GIFs get **one palette per frame** computed from that frame only: identical frames encode identically, so
    chained GIFs join exactly. Don't go back to a global palette.
 7. Walking/running: whole strides a loop and whole tiles of the ground under its feet a loop (`gaitPlan()`), the stance foot
-   going back at exactly that speed; prints and sparks are aged in strides since each landing.
+   going back at exactly that speed; prints and sparks are aged in strides since each landing. When its pace changes it follows
+   a `gaitLine`: a foot down never slides (it stays where it came down, the ground or the figure moving by d(t)); joined to a
+   loop, the line is the loop's own clock wherever it goes at its pace, and the entry stays at its pace for as long as a print
+   lives, the exit starts slowing only once the steps on their way are set down.
 8. In a **new form** "rest" is the Transformation's `live` loop: a tab passes its length `T` to `bodyBack`/`bodyFront`, and
    `figClock` nudges the figure's own clock (period `liveLoops · D`) mid-way so it lands back on that loop at the end, slope 1
    near both ends (drops). Every form modifier is applied as `x * 1` / `x + 0` at rest, so at rest a tab draws exactly the
@@ -199,12 +225,15 @@ Read the relevant doc before a non-trivial change; don't load every file.
    goes on from the loop's end; the intensity never wraps (before an entry it is 0, after it 1); k = 1 for the last 1.7 s of
    an entry and the last 1.7 s of an exit are rest (drops). A **pose** (sitting, legs crossed, arms down) can't be faded: the
    figure melts into light (`morph` exactly 1 on a plateau), the pose switches while nothing of it shows, on its legs its
-   frame gathering at `anchor`. Never switch a pose while any of the figure shows.
+   frame gathering at `anchor`. Never switch a pose while any of the figure shows. Turning side on to walk is not a melt: the
+   two figures blend continuously (`m.turn`), so the human form never turns back into a ball of light.
 10. **The life (Vivre)**: a segment starts on a beat of the rest it leaves (`since + n · R`: the blob's loop, the figure's live
    loop, the world's loop while a portal is open) and lasts whole loops; nothing new starts sooner than `now + MARGIN`, so
    the frame on screen never changes. Drawing order, the same in every segment: [world behind] [module back] [things back]
    [module front] [things front] [world's near part]. In another world the world's clock is `t - wt0` (`wt0`: arrival); a
-   portal "reopen" starts its world at `wClock0`.
+   portal "reopen" starts its world at `wClock0`. Where it stands (`pos`, whole px) moves the painter for the module's layers
+   only; an action that takes it elsewhere ends on its rest drawn there (`ax`/`ay` = the painter moved: every drawing of the
+   creature must stay a pure translation of itself, e.g. dithers on the floor read the column from `room[0]`).
 
 If `npm test` reports a FAIL, fix the effect — never loosen the test.
 
@@ -245,7 +274,12 @@ If `npm test` reports a FAIL, fix the effect — never loosen the test.
   (`formMarkup`, `setBodyForm`); picking a human form there sets `S.transform.form`, and the Transformation tab's form choice
   carries over while a human form is in use. `effOpts()` merges the figure settings from `S.transform` (floor % → px, `room`),
   and uses `formExtent()` to keep strolls, falls and flights inside the scene. `fixFit()` moves a choice a form can't do.
-  `GROUNDED_IDLE` hides settings a figure on its legs has no use for.
+  `GROUNDED_IDLE` hides settings a figure on its legs has no use for, `GROUNDED_ONLY` / `BLOB_ONLY` those only it (or only the
+  blob) uses (`rowShown()`).
+- UI, Vivre: a click in the scene places the cross (`spotX`/`spotY`); the next object appears there and « Se déplacer » goes
+  there (`lifeCross()`, px from the home spot). Where it stands is `S.life.hub.pos`, kept for next time and back to [0, 0] when
+  its home spot or the scene changes (`placeSig`). Lengths that depend on the options (a move, walking's entry and exit) come
+  from the module's `total()` in `loopsOf()`.
 
 ## Conventions
 

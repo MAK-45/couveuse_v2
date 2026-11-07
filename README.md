@@ -5,9 +5,10 @@ l’éditeur web qui règle chacune de ses animations et l’exporte en GIF, pla
 
 La page s’ouvre sur **Vivre** : il vit, on lui demande quoi faire, il l’enchaîne de lui-même, et ce qu’il fait apparaître reste
 dans le décor, lié à un monde ou le suivant. Chaque chose se règle depuis là (⚙), dans sa page de réglages, qui la montre en
-boucle et l’exporte : **Naissance**, **Apparence** (le blob né, son repos), **Actions** (19, il revient
-toujours au repos), **Objets** (il crée et retire des formes qui flottent dans la scène), **Boucles** (20 activités, chacune
-avec son entrée depuis le repos et sa sortie vers le repos), **Heure** (il affiche l’heure), **Électricité**, **Portail**,
+boucle et l’exporte : **Naissance**, **Apparence** (le blob né, son repos), **Actions** (20 : il revient au repos, ou, avec
+« Se déplacer », il va ailleurs dans la scène et y reste), **Objets** (il crée et retire des formes qui flottent dans la scène),
+**Boucles** (20 activités, chacune avec son entrée depuis le repos et sa sortie vers le repos, la marche et la course comprises),
+**Heure** (il affiche l’heure), **Électricité**, **Portail**,
 **Action monde**, **Transformation** (il prend une forme humaine, en lévitation ou debout sur un sol de glace avec la
 gravité, et redevient blob), **Mondes** et **Surface planète**.
 
