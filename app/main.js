@@ -437,10 +437,16 @@ const loopsDef = () => {
   return d;
 };
 for (const k of Object.keys(loopsDef())) LOOP_KEYS.add(k);
+const LOOP_PARTS = [["loop", "La boucle"], ["enter", "Entrée : depuis le repos"], ["exit", "Sortie : retour au repos"]];
+// the part shown: walking and running have no entry or exit yet (they play as a loop only)
+const loopPart = (src = V) => (PFX.loops.hasParts(src.loop) && (src.part === "enter" || src.part === "exit") ? src.part : "loop");
 function loopGroups() {
-  const cur = LOOP_LIST.find((a) => a[0] === V.loop) || LOOP_LIST[0];
+  const cur = LOOP_LIST.find((a) => a[0] === V.loop) || LOOP_LIST[0], parts = PFX.loops.hasParts(cur[0]);
   return [
-    { title: "Boucle", hint: "ce qu’il fait", pickerList: LOOP_LIST, pickerKey: "loop", rows: [["loops_" + cur[0], "Durée de la boucle", 1, 8, 1, ""]] },
+    { title: "Boucle", hint: "ce qu’il fait", pickerList: LOOP_LIST, pickerKey: "loop", rows: [
+      ...(parts ? [["part", "Morceau", { select: LOOP_PARTS }]] : []),
+      ["loops_" + cur[0], "Durée de la boucle", 1, 8, 1, ""],
+      ...(parts ? [["inLoops", "Durée de l’entrée", 1, 4, 1, ""], ["outLoops", "Durée de la sortie", 1, 4, 1, ""]] : [])] },
     { title: cur[1], hint: "réglages", key: "loopparams", gaitNote: cur[0] === "walk" || cur[0] === "run", rows: LOOP_PARAMS[cur[0]] },
     { ...PLACE, rows: PLACE.rows.filter((r) => r[0] !== "canvas"), hint: "la même que le blob né" },
   ];
@@ -1118,7 +1124,7 @@ const fmtRow = (k, v, step, unit) => {
   if (k === "exSurge") return +v === 0 ? "vitesse constante" : `± ${Math.round(v * 100)} %`;
   if (k === "wDrift" || k === "pDrift") return `${v} × la scène par boucle du monde`;
   if (k === "wLoops") return `${v} × ${(+V.duration).toFixed(1)} s = ${(v * V.duration).toFixed(1)} s`;
-  if (k.startsWith("loops_")) return `${v} × ${(+V.duration).toFixed(1)} s = ${(v * V.duration).toFixed(1)} s`;
+  if (k.startsWith("loops_") || k === "inLoops" || k === "outLoops") return `${v} × ${(+V.duration).toFixed(1)} s = ${(v * V.duration).toFixed(1)} s`;
   if (unit === " part") return `${Math.round(v * 100)} %`;
   if (unit === " % de la largeur") return `${Math.round(v)} % · ${Math.round((v / 100) * V.sceneW)} px`;
   if (unit === " % de la hauteur") return `${Math.round(v)} % · ${Math.round((v / 100) * V.sceneH)} px`;
@@ -1147,7 +1153,7 @@ function rowFor(rows, def) {
     } else if (spec.select) {
       r.innerHTML = `<label for="in-${k}"><span>${label}</span></label><div class="inline"><select id="in-${k}">${spec.select.map(([v, t]) => `<option value="${v}">${t}</option>`).join("")}</select></div>`;
       const sel = r.querySelector("select");
-      sel.onchange = () => { setV(k, sel.value); if (k === "clkSource" || k === "clkPos" || k === "wState" || k === "pWorldState" || k === "tfStyle" || k === "rvStyle" || k === "grArms") buildControls(); changed(); };
+      sel.onchange = () => { setV(k, sel.value); if (k === "part" || k === "clkSource" || k === "clkPos" || k === "wState" || k === "pWorldState" || k === "tfStyle" || k === "rvStyle" || k === "grArms") buildControls(); changed(); };
       inputs[k] = { kind: "select", inp: sel };
     } else {
       r.innerHTML = `<label for="in-${k}"><span>${label}</span><output id="out-${k}"></output></label><div class="inline"><input type="color" id="in-${k}"></div>`;
@@ -1183,7 +1189,7 @@ function buildControls() {
       <div class="row"><label for="in-bg"><span>Fond de la scène</span></label><div class="inline"><select id="in-bg"><option value="black">Noir complet</option><option value="none">Transparent</option><option value="color">Couleur</option></select><input type="color" id="in-bgc" aria-label="Couleur du fond"></div><p class="note" id="bgnote"></p></div>`;
     controls.appendChild(d);
   }
-  if (S.anim === "loops") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence et la place de l’onglet Blob né. Chaque boucle part de là où il se trouve et tourne sans fin, sans raccord visible.</p>`);
+  if (S.anim === "loops") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence et la place de l’onglet Blob né. Chaque boucle tourne sans fin, sans raccord visible, et a une <b>entrée</b> qui part du repos du blob né et une <b>sortie</b> qui y revient (choisis le morceau) : repos → entrée → boucle autant de fois qu’on veut → sortie → repos. Quand la forme humaine doit changer de posture (s’asseoir, croiser les jambes), elle fond en lumière et reprend forme dans la nouvelle.</p>`);
   if (S.anim === "elec") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence et la place de l’onglet Blob né. Il part de son repos, découvre l’électricité et joue avec, puis revient exactement à son repos : la première et la dernière image sont celles de la boucle du blob né. Mets les GIF bout à bout, ils s’enchaînent. Les couleurs de l’électricité se règlent à part, dans « L’électricité ».</p>`);
   if (S.anim === "clock") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence et la place de l’onglet Blob né. Il part de sa position de repos, affiche l’heure, puis revient exactement à son repos : la première et la dernière image sont celles de la boucle du blob né.</p>`);
   if (S.anim === "portal") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence et la place de l’onglet Blob né. Il ouvre un portail vers un autre monde, qu’on ne voit qu’à travers lui. Glisse le portail dans l’aperçu pour le placer, et sa poignée carrée pour changer sa taille. Les mondes se créent et se règlent dans les onglets Mondes et Surface planète.</p>`);
@@ -1392,7 +1398,7 @@ function edgeFade(f, EF = 8) {
 let N = 120, B = 176, SW = 480, SH = 270, E = ANIMS[S.anim].fx;
 const view = $("view"), ctx = view.getContext("2d");
 let img = null;
-const loopsOf = () => (isWorldTab() ? Math.max(1, Math.round(V.wLoops || 1)) : S.anim === "transform" ? Math.max(1, Math.round(V["loops_" + V.mode] || 2)) : S.anim === "explore" ? Math.max(1, Math.round(V["loops_" + V.explore] || 2)) : S.anim === "portal" ? Math.max(1, Math.round(LOOPING_MODES.has(V.mode) ? worldById(V.pWorld).wLoops || 1 : V["loops_" + V.mode] || 2)) : S.anim === "elec" ? Math.max(1, Math.round(V["loops_" + V.elec] || 3)) : S.anim === "clock" ? Math.max(1, Math.round(V.loops || 3)) : S.anim === "loops" ? Math.max(1, Math.round(V["loops_" + V.loop] || 2)) : S.anim === "actions" ? Math.max(1, Math.round(V["loops_" + V.action] || 2)) : S.anim === "objects" ? Math.max(1, Math.round(V["loops_" + V.mode] || 1)) : 1);
+const loopsOf = () => (isWorldTab() ? Math.max(1, Math.round(V.wLoops || 1)) : S.anim === "transform" ? Math.max(1, Math.round(V["loops_" + V.mode] || 2)) : S.anim === "explore" ? Math.max(1, Math.round(V["loops_" + V.explore] || 2)) : S.anim === "portal" ? Math.max(1, Math.round(LOOPING_MODES.has(V.mode) ? worldById(V.pWorld).wLoops || 1 : V["loops_" + V.mode] || 2)) : S.anim === "elec" ? Math.max(1, Math.round(V["loops_" + V.elec] || 3)) : S.anim === "clock" ? Math.max(1, Math.round(V.loops || 3)) : S.anim === "loops" ? Math.max(1, Math.round(loopPart() === "enter" ? V.inLoops || 1 : loopPart() === "exit" ? V.outLoops || 1 : V["loops_" + V.loop] || 2)) : S.anim === "actions" ? Math.max(1, Math.round(V["loops_" + V.action] || 2)) : S.anim === "objects" ? Math.max(1, Math.round(V["loops_" + V.mode] || 1)) : 1);
 const loopLen = () => V.duration * loopsOf();
 // an action is a whole number of the blob's loops, frame for frame
 const nFrames = () => Math.max(2, Math.round(V.duration * V.fps)) * loopsOf();
@@ -1443,7 +1449,8 @@ function effOpts(src = V) {
   }
   if (S.anim === "loops" && src === V) {
     const pl = placement(), k = V.scale, m = ext ? Math.max(...ext.map(Math.abs)) * k : V.size * k * 1.3;
-    o.loops = loopsOf();
+    // the activity's own period; the part played (its entry and exit have their own lengths)
+    o.loops = Math.max(1, Math.round(V["loops_" + V.loop] || 2)); o.part = loopPart();
     // the round stays inside the scene
     const room = V.orbitSide === "left" ? pl.cx : SW - pl.cx, roomX = o.orbitPath === "circle" ? room : Math.min(pl.cx, SW - pl.cx);
     o.orbitRX = Math.max(0, Math.min((V.orbitRX / 100) * SW, roomX - m) / k);
@@ -1772,7 +1779,7 @@ const objName = () => { const so = selObj(); return V.mode === "live" || !so ? "
 const clockName = () => { const o = OPTS; return "heure-" + String(o.clkH).padStart(2, "0") + String(o.clkM).padStart(2, "0"); };
 const portalName = () => { const w = worldById(V.pWorld); return `portail-${{ open: "creation", live: "ouvert", close: "fermeture", cross: "traversee", beyond: "autre-monde", reopen: "ouverture-retour", beyondOpen: "autre-monde-portail-ouvert", return: "retour" }[V.mode]}-${slug(w.name)}`; };
 const tfName = () => `${{ transform: "transformation", live: "forme", revert: "retour" }[V.mode]}-${{ human: "humaine", grounded: "humaine-au-sol" }[V.form] || V.form}${V.mode === "live" ? "-boucle" : ""}`;
-const base = () => isWorldTab() ? `${S.anim === "surface" ? "surface" : "monde"}-${slug(selWorld().name)}-${selWorld().wSeed}` : `creature-glace-${S.anim === "explore" ? `monde-${V.explore}${V.explore === "move" ? "-" + V.exStyle : ""}-${slug(worldById(V.exWorld).name)}` : S.anim === "portal" ? portalName() : S.anim === "transform" ? tfName() : S.anim === "clock" ? clockName() : S.anim === "loops" ? "boucle-" + V.loop : S.anim === "elec" ? "electricite-" + V.elec : S.anim === "actions" ? "action-" + V.action : S.anim === "objects" ? objName() : ANIMS[S.anim].file}${{ human: "-humaine", grounded: "-humaine-au-sol" }[formNow()] || ""}-${V.seed}` + (V.exportWhat === "creature" ? "-seule" : "-scene");
+const base = () => isWorldTab() ? `${S.anim === "surface" ? "surface" : "monde"}-${slug(selWorld().name)}-${selWorld().wSeed}` : `creature-glace-${S.anim === "explore" ? `monde-${V.explore}${V.explore === "move" ? "-" + V.exStyle : ""}-${slug(worldById(V.exWorld).name)}` : S.anim === "portal" ? portalName() : S.anim === "transform" ? tfName() : S.anim === "clock" ? clockName() : S.anim === "loops" ? "boucle-" + V.loop + { loop: "", enter: "-entree", exit: "-sortie" }[loopPart()] : S.anim === "elec" ? "electricite-" + V.elec : S.anim === "actions" ? "action-" + V.action : S.anim === "objects" ? objName() : ANIMS[S.anim].file}${{ human: "-humaine", grounded: "-humaine-au-sol" }[formNow()] || ""}-${V.seed}` + (V.exportWhat === "creature" ? "-seule" : "-scene");
 function frameSize() { return V.exportWhat === "creature" && ANIMS[S.anim].mode === "box" ? [B * V.scale, B * V.scale] : [SW, SH]; }
 async function allFrames(label) {
   const out = [], alone = V.exportWhat === "creature", box = ANIMS[S.anim].mode === "box";
@@ -1826,7 +1833,8 @@ function makeJson() {
     size: { w: cols * fw, h: rows * fh }, scale: "1", frameTags: [{ name, from: 0, to: N - 1, direction: "forward" }],
     pixelfx: { id: ANIMS[S.anim].id, name: ANIMS[S.anim].fx.meta.name, animation: S.anim, content: alone ? "creature" : "scene",
       fps: +(N / (loopLen() / V.speed)).toFixed(3), loop: true, frames: N, frameSize: [fw, fh],
-      ...(S.anim === "loops" ? { activity: V.loop, restLoops: loopsOf(), seamless: true } : {}),
+      ...(S.anim === "loops" ? { activity: V.loop, part: loopPart(), restLoops: loopsOf(), seamless: true,
+        ...(loopPart() === "enter" ? { firstFrameIs: "rest", lastFrameIs: "the loop's last frame (the loop comes next)" } : loopPart() === "exit" ? { firstFrameIs: "the loop's first frame", lastFrameIs: "rest" } : {}) } : {}),
       ...(isWorldTab() ? { world: selWorld(), seamless: true, worldLoops: loopsOf() } : {}),
       ...(S.anim === "explore" ? { worldAction: V.explore, speed: { value: V.exSpeed, heading: V.exDir, style: V.exStyle, surges: V.exSurges }, world: worldById(V.exWorld), restLoops: loopsOf(), seamless: true, freeLoop: true } : {}),
       ...(S.anim === "portal" ? { portal: { animation: V.mode, ...portalInfo() }, world: worldById(V.pWorld) } : {}),

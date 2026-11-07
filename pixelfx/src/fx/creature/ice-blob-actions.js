@@ -8,6 +8,7 @@
 // (FORM_FIT says which and why).
 import { fit, clamp, lerp, seg, bump, ease, noise2, rng, TAU, WHITE, hex, toHex } from "../../core/index.js";
 import { meta as idleMeta, state as idleState } from "./ice-blob-idle.js";
+import { prog as progAt } from "./ice-time.js";
 import { bodyBack, bodyFront, bodyAmbient } from "./ice-blob-transform.js";
 
 export const ACTIONS = ["walk", "jump", "aura", "morph", "spin", "split", "burst", "teleport", "nap", "inflate", "dance", "scared", "freeze", "drop", "rainbow", "comet", "melt", "curious", "portal"];
@@ -67,7 +68,7 @@ const total = (o) => o.duration * Math.max(1, Math.round(o.loops));
 // the action's own progress: 0 before the lead-in, 1 after the lead-out, eased edges belong to each action
 // the lead-out is never shorter than a drop of light lives (1.7 s): every drop alive on the last frame was
 // shed by the resting blob, as on the idle's frames, so the seam between GIFs is exact
-const prog = (o, t) => { const T = total(o); return seg(((t / T) % 1 + 1) % 1, o.lead, 1 - Math.max(o.lead, Math.min(0.45, 1.7 / T))); };
+const prog = (o, t) => progAt(o, t, total(o));
 // rise, hold, fall: 0 at both ends
 const plateau = (a, hold) => {
   const r = (1 - hold) / 2;

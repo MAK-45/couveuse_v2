@@ -2,7 +2,7 @@
 //   blob idle            frame 0 == frame at t = D (its own loop)
 //   actions / clock / electricity   first and last frames == the idle's first and last frames (chain with the idle GIF)
 //   objects              appear: first == live without, last == live with; remove: the reverse
-//   loops                frame at t == frame at t + T (its own loop)
+//   loops                frame at t == frame at t + T (its own loop); in three parts: entry from rest -> loop -> exit to rest
 //   portal               open: first == idle, last == live; live loops on itself; close: first == live, last == idle
 //                        cross: first == live, last == beyond (the blob at rest in the other world); beyond loops on itself
 //   worlds               a world loops on itself (its own period, whole blob loops)
@@ -68,6 +68,26 @@ for (const [ap, vn] of clock.APPEAR.map((a, i) => [a, clock.VANISH[i]])) {
 for (const name of loops.LOOPS) {
   const o = { ...loops.meta.options, loop: name }, T = o.duration * o.loops;
   report(`loop ${name}`, diff(render(loops, o, 0), render(loops, o, T)), diff(render(loops, o, -1 / 30), render(loops, o, T - 1 / 30)));
+}
+
+// loops in three parts, in every form: rest -> entry -> the loop -> exit -> rest. The entry starts on the rest's first
+// frame and its last frame is the loop's last (so the loop's first comes next as if it had looped); the exit starts on the
+// loop's first frame and ends on the rest's last. In a new form "rest" is its live loop (a pose change melts through light)
+{
+  const room = [-160, -115, 160, 85], dt = D / Ni;
+  for (const [F, tag] of [[{}, ""], [{ form: "human" }, " human"], [{ form: "grounded" }, " ground"], [{ form: "human", huLegs: "legs", liveLoops: 1 }, " legs L1"],
+    [{ form: "grounded", grArms: "hips", liveLoops: 3 }, " ground L3"]]) {
+    const live = { ...transform.meta.options, ...F, room, mode: "live" }, P = transform.total(live);
+    const r0 = F.form ? render(transform, live, 0) : id0, rL = F.form ? render(transform, live, P - dt) : idL;
+    for (const name of loops.LOOPS) {
+      if (!loops.hasParts(name) || !loops.fitsForm({ ...F }, name)) continue;
+      const base = { ...loops.meta.options, ...F, room, loop: name, loops: F.liveLoops === 3 ? 3 : 2, ...(name === "sleep" ? { inLoops: 2, outLoops: 2 } : {}) };
+      const lp = { ...base, part: "loop" }, en = { ...base, part: "enter" }, ex = { ...base, part: "exit" };
+      const TL = loops.total(lp), Ti = loops.total(en), To = loops.total(ex);
+      report(`parts ${name}${tag}`, diff(render(loops, en, 0), r0), diff(render(loops, en, Ti - dt), render(loops, lp, TL - dt)),
+        diff(render(loops, ex, 0), render(loops, lp, 0)), diff(render(loops, ex, To - dt), rL));
+    }
+  }
 }
 
 // electricity: rest -> electricity -> rest, every animation and the variants with other timings or sides

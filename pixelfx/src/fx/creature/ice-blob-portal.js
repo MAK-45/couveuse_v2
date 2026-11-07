@@ -21,6 +21,7 @@
 // starts on it at 0. The blob's part goes neutral at both ends (prog/castMods, as for the objects).
 import { fit, clamp, lerp, seg, bump, ease, noise2, rng, cycle, TAU, WHITE, hex, mix, createFrame, clearFrame, painterFor } from "../../core/index.js";
 import { meta as idleMeta, state } from "./ice-blob-idle.js";
+import { prog as progAt } from "./ice-time.js";
 import { bodyBack, bodyFront, bodyAmbient, floorFor } from "./ice-blob-transform.js";
 import { hsl, fromHsl } from "./ice-blob-actions.js";
 import { renderWorld, worldOf, worldPeriod, worldTile, paintWorld, isSurface } from "./ice-worlds.js";
@@ -65,7 +66,7 @@ const worldIn = (o) => worldOf(o.world);
 const LOOPING = new Set(["live", "beyond", "beyondOpen"]);
 export const total = (o) => (LOOPING.has(o.mode) ? worldPeriod(o.duration, worldIn(o)) : o.duration * Math.max(1, Math.round(o.loops)));
 // as for the actions: the lead-out outlasts a drop of light, so the last frame is the rest's
-const prog = (o, t) => { const T = total(o); return seg(((t / T) % 1 + 1) % 1, o.lead, 1 - Math.max(o.lead, Math.min(0.45, 1.7 / T))); };
+const prog = (o, t) => progAt(o, t, total(o));
 // the world's clock: in "open" it reaches 0 on the last frame, where "live" begins. In "cross" it starts at 0 (from
 // "live") and must be back at 0 at the end (where "beyond" begins): it runs a little faster or slower in the middle
 // of the animation, by the smallest shift that does it, and at its own pace near both ends

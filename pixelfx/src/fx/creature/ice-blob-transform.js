@@ -22,6 +22,7 @@
 // frame is the live loop's last frame. Everything the change adds is zero at both ends (seg, bump, ease).
 import { fit, clamp, lerp, seg, bump, ease, noise2, rng, cycle, TAU, WHITE } from "../../core/index.js";
 import { meta as idleMeta, blobBack, blobFront, ambient, state, shapeOf, drawEyes, drawSparks, drawDrips } from "./ice-blob-idle.js";
+import { prog as progAt, leadOut } from "./ice-time.js";
 
 export const FORMS = ["human", "grounded"];
 export const MODES = ["transform", "live", "revert"];
@@ -65,8 +66,7 @@ export const livePeriod = (o) => o.duration * whole(o.liveLoops, 1);
 export const total = (o) => (o.mode === "live" ? livePeriod(o) : o.duration * whole(o.loops, 1));
 // as for the actions: the lead-out outlasts a drop of light, so every drop alive on the last frame fell from the
 // resting form, as on the frames it chains with
-const leadOut = (o, T) => 1 - Math.max(o.lead, Math.min(0.45, 1.7 / T));
-const prog = (o, t) => { const T = total(o); return seg((((t / T) % 1) + 1) % 1, o.lead, leadOut(o, T)); };
+const prog = (o, t) => progAt(o, t, total(o));
 // c: how far the change has gone (0 the blob, 1 the new form); h: the new form's own clock
 function phaseOf(o, t) {
   if (o.mode === "live") return { c: 1, h: t };
@@ -760,6 +760,10 @@ function build(o, t, ext = null) {
       tilt += (m.rot - TAU * Math.round(m.rot / TAU)) * X.air;
     }
   }
+  // a pose another tab changes under a melt into light (m.anchor = [x, y] of the frame, [x, y] of the middle, see
+  // ice-blob-loops.js): the frame gathers to that point as it melts, so neither the pose it leaves nor the one it takes
+  // shows while it switches (at morph 1 nothing of the figure is left)
+  if (ext && G && m.anchor && m.morph > 0) { ox = lerp(ox, m.anchor[0], m.morph); oy = lerp(oy, m.anchor[1], m.morph); }
   // its arms, as another tab asks (raised, spread, holding, one reaching for a point given in the scene)
   let Q = null;
   if (ext && (m.armUp > 0 || m.armOpen > 0 || m.hold > 0 || (m.reach && m.reachK > 0))) {
@@ -777,8 +781,10 @@ function build(o, t, ext = null) {
   // middle, its bottom never under the floor
   let bs = st;
   if (ext && G && k < 1) {
-    const [mx, my] = toScreen(0, (fig.chest + fig.hips) / 2);
-    bs = { ...st, x: mx, y: Math.min(my + Math.max(0, m.dy), G.FY - S * st.sy * 0.98), tilt: m.rot };
+    let [mx, my] = toScreen(0, (fig.chest + fig.hips) / 2);
+    my += Math.max(0, m.dy);
+    if (m.anchor && m.morph > 0) { mx = lerp(mx, m.anchor[2], m.morph); my = lerp(my, m.anchor[3], m.morph); }
+    bs = { ...st, x: mx, y: Math.min(my, G.FY - S * st.sy * 0.98), tilt: m.rot };
   }
   const cb = Math.cos(-bs.tilt), sb = Math.sin(-bs.tilt);
   Object.assign(F, { fig, U, fsx, fsy, tilt, toScreen, ox, oy, X, bs });
@@ -1055,7 +1061,7 @@ function floorFx(p, C, o, F, part = 0) {
     // on a planet's ground (another tab's world): no floor of ice to lay, only its light on the ground round its feet
     if (part) return;
     p.glow(wx, FY, U * 2.2, C[4], 0.12 * Lt * G.fl);
-    if (G.plant && F.fig && !F.hidden) for (const [tx, ty] of F.fig.tips) { const [x, y] = F.toScreen(tx, ty); p.glow(x, FY, U * 0.45, C[6], 0.3 * Lt * clamp(1 - (FY - y) / (U * 0.3))); }
+    if (G.plant && F.fig && !F.hidden) for (const [tx, ty] of F.fig.tips) { const [x, y] = F.toScreen(tx, ty); p.glow(x, FY, U * 0.45, C[6], 0.3 * Lt * clamp(1 - (FY - y) / (U * 0.3)) * (F.k ?? 1)); }
     return;
   }
   // the reflection: the body seen upside down in the ice, darker, in lines that thin out with depth
@@ -1101,7 +1107,7 @@ function floorFx(p, C, o, F, part = 0) {
   // its light on the floor, and under its feet once it stands on it
   p.glow(wx, FY, U * 2.2, C[4], 0.16 * Lt * G.fl);
   if (grow) p.glow(reach, FY, 5, WHITE, 0.4 * G.fl), p.glow(-reach, FY, 5, WHITE, 0.4 * G.fl);
-  if (G.plant && F.fig) for (const [tx, ty] of F.fig.tips) { const [x, y] = F.toScreen(tx, ty); p.glow(x, FY, U * 0.45, C[6], 0.3 * Lt * clamp(1 - (FY - y) / (U * 0.3))); }
+  if (G.plant && F.fig) for (const [tx, ty] of F.fig.tips) { const [x, y] = F.toScreen(tx, ty); p.glow(x, FY, U * 0.45, C[6], 0.3 * Lt * clamp(1 - (FY - y) / (U * 0.3)) * (F.k ?? 1)); }
   // glints running on the ice (carried back with the floor while it walks or runs over it: a whole number of tiles a loop)
   const n = whole(o.grGlints) * whole(o.liveLoops, 1), Wk = F.X && F.X.gait, Tt = Math.max(16, Math.ceil(Math.max(room[2] - room[0], room[3] - room[1])));
   const slide = Wk ? (Wk.dir < 0 ? -1 : 1) * gaitSolve(G.Lw, Wk).S * (Wk.cyc ?? Wk.ph) : 0;
@@ -1389,6 +1395,14 @@ export function formCentre(o) {
   if (!isForm(o)) return [0, 0];
   const F = formFrame(withForm(o), 0, null, 0);
   return F.toScreen(0, (F.fig.chest + F.fig.hips) / 2);
+}
+/** Where its frame is and where the middle of its body is, at rest or posed by M: [x, y, middle x, middle y] in local px. */
+export function formAnchor(o, M = null) {
+  if (!isForm(o)) return [0, 0, 0, 0];
+  const F = formFrame(withForm(o), 0, M, 0);
+  if (F.blob) return [F.st.x, F.st.y, F.st.x, F.st.y];
+  const [mx, my] = F.toScreen(0, (F.fig.chest + F.fig.hips) / 2);
+  return [F.ox, F.oy, mx, my];
 }
 /** Where its body reaches at rest, in local px round its spot: [left, top, right, bottom] (the blob's for the blob). */
 export function formExtent(o) {

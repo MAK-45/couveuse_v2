@@ -10,6 +10,7 @@
 // comes to and leaves from its hands, it holds the plasma ball, reaches for the spark, throws the chain bolt.
 import { fit, clamp, lerp, seg, bump, ease, noise2, rng, cycle, TAU, WHITE, hex, mix, bolt, forks } from "../../core/index.js";
 import { meta as idleMeta } from "./ice-blob-idle.js";
+import { prog as progAt, presence as presenceAt, settle as settleBy } from "./ice-time.js";
 import { bodyBack, bodyFront, bodyAmbient } from "./ice-blob-transform.js";
 import { drawObject } from "./ice-scene-objects.js";
 
@@ -53,24 +54,14 @@ export const meta = {
 const E = ease.inOutSine;
 const total = (o) => o.duration * Math.max(1, Math.round(o.loops));
 // the action's progress, 0..1: 0 during the lead-in, 1 after the lead-out (never shorter than a drop's life, 1.7 s)
-const prog = (o, t) => { const T = total(o); return seg((((t / T) % 1) + 1) % 1, o.lead, 1 - Math.max(o.lead, Math.min(0.45, 1.7 / T))); };
+const prog = (o, t) => progAt(o, t, total(o));
 // every animation reads its time through this: the action's progress
 const phase = prog;
 // how present the electricity is: 0 at rest (start and end), rising and dying away over elRamp of the action
-const presence = (o, t) => {
-  const a = prog(o, t), r = clamp(o.elRamp ?? 0.12, 0.02, 0.45);
-  return a <= 0 || a >= 1 ? 0 : E(seg(a, 0, r)) * (1 - E(seg(a, 1 - r, 1)));
-};
+const presence = (o, t) => presenceAt(prog(o, t), clamp(o.elRamp ?? 0.12, 0.02, 0.45));
 // an animation's modifiers, drawn back to exactly neutral as the electricity leaves
-const NEUTRAL = { dx: 0, dy: 0, rot: 0, sx: 1, sy: 1, grow: 1, shut: 0, halo: 1, glow: 0, lookX: 0, lookY: 0, eyeScale: 1, armUp: 0, armOpen: 0, hold: 0, reachK: 0 };
-function settle(m, e, a) {
-  const out = { quiet: a > 0 && a < 1 ? 1 : 0 };
-  if (e <= 0) return out;
-  for (const k in NEUTRAL) if (k in m) out[k] = NEUTRAL[k] + (m[k] - NEUTRAL[k]) * e;
-  if (m.happy && e > 0.6) out.happy = m.happy;
-  if (m.reach) out.reach = m.reach;
-  return out;
-}
+// (drops hidden while it plays)
+const settle = (m, e, a) => ({ quiet: a > 0 && a < 1 ? 1 : 0, ...settleBy(m, e) });
 // a figure's hand nearest a point (null for the blob, which has none)
 const handNear = (st, x, y) => (st.hands && st.hands.length ? st.hands.reduce((b, h) => (Math.hypot(h[0] - x, h[1] - y) < Math.hypot(b[0] - x, b[1] - y) ? h : b)) : null);
 const wrap = (x) => ((x % 1) + 1) % 1;
