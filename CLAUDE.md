@@ -1,19 +1,25 @@
 # Couveuse
 
-Pixel-art creature of ice-light (a "blob") and a single-page web editor that tunes it and exports
-**seamless** GIF / PNG sprite sheets / JSON. The UI is in **French**; code and comments are in English.
+Pixel-art creature of ice-light (a "blob") that **lives** in a web page (tab **Vivre**: it plays all its animations one
+after the other, live, without ever a jump), and the single-page editor that tunes each animation in its own tab and
+exports **seamless** GIF / PNG sprite sheets / JSON. The UI is in **French**; code and comments are in English.
 
-## Always ask first: from rest, or free loop?
+## Always ask first: once, or a loop?
 
-Before building **any new animation** (a new tab, action, loop, effect or animation inside a tab), **ask the author**
-which kind they want, and wait for the answer — never pick for them:
-- **From the Blob né's rest and back** (chains): the first and last frames are exactly the Blob né's, like Actions,
-  Heure, Électricité and Transformation (there through the new form's loop), so GIFs placed end to end chain (rest → animation → rest). Test it against the idle's frames.
-- **Free endless loop**: it only has to loop on itself with no seam, like Boucles; it need not start or end on the
-  Blob né's frame. Test frame t against t + T.
+The creature lives: every animation starts from its rest and comes back to it, so it can be played at any time of its
+life (tab Vivre) with no jump. Before building **any new animation** (a new tab, action, loop, effect or animation
+inside a tab), **ask the author** which kind they want, and wait for the answer — never pick for them:
+- **Once** (une fois): rest → the animation → rest in one piece, like Actions, Électricité, Heure: its first and last
+  frames are exactly the rest's (the Blob né's, or a new form's live loop). Test it against the rest's frames.
+- **A loop** (en boucle): an **entry** from rest, a **loop** that repeats until something else is asked, an **exit** back to
+  rest, like Boucles (`o.part` "enter" / "loop" / "exit"). Write the loop; its entry and exit come from its intensity
+  (`phases()` + `settle()` in ice-time.js, the drawing faded by `p.fade`), unless the art needs its own. Test frame t
+  against t + T, and the joins rest → entry → loop → exit → rest.
 
-Ask in French, e.g. « Tu veux une boucle parfaite qui part du blob né et y revient (pour enchaîner les GIF), ou une
-animation en boucle libre qui n’a pas besoin de partir du blob né ? »
+Ask in French, e.g. « Tu la veux une seule fois (elle part du repos et y revient), ou en boucle (elle s’y met, continue
+autant que tu veux, puis s’arrête et revient au repos) ? »
+Only backdrops (Mondes, Surface planète) loop freely; Action monde's loops are free too and not yet playable in Vivre
+(their entry and exit, the world speeding up and slowing down, are still to do), as are walking and running.
 
 **Every new animation must be made for every transformation**, not only for the blob: today the levitating human
 form and the human form on its legs, and every form added later to the Transformation tab. Draw the creature with
@@ -22,6 +28,13 @@ look at it in each form, add it to the seam tests in each form, and when it real
 its legs...) list it in the module's `FORM_FIT` with the reason in French. The other way round too: **a new form added
 to the Transformation tab must play every existing animation** (or say in `FORM_FIT` why it can't).
 See « The new forms in every tab » below.
+
+**Every new animation must live in Vivre.** An action, a loop or an electric animation added to its module's list
+(`ACTIONS`, `LOOPS`, `ELEC`) and to the page's list (`ACTION_LIST`, `LOOP_LIST`, `ELEC_LIST`) is in Vivre by itself
+(`CATALOG` in ice-life.js is made from those lists, its options from that tab's own `effOpts()` via `optsAs()`). A new
+kind of thing (a new tab, a new state such as a portal or a world) needs its step in ice-life.js (`plan()`, `segment()`)
+and a scenario in the life block of `tests/seams.mjs`. Things the creature leaves in its scene (objects, later
+companions) have a `place` and are `linked` to that world or follow it.
 
 ## Use the pixelfx skill for every effect
 
@@ -41,10 +54,12 @@ the link in the reply. Keep the same artifact (same file path in this session; f
 
 ## What the author wants (full version: docs/VISION.md — read it before adding a feature)
 
-Bring a little creature of ice-light to life in a scene and produce all its animations from **one web
-interface**, as **perfect endless loops**, to reuse elsewhere (GIFs pasted end to end, sprite sheets + JSON).
-- **Perfect loops, always**; and anything the blob *does* (actions, clock, objects appearing/disappearing)
-  (electricity too) starts and ends exactly at its rest, so GIFs chain. Only the Boucles tab is free of the rest frame.
+Bring a little creature of ice-light to life: it **lives in a web page** (tab Vivre), on and on, doing what it is asked
+(or what it chooses by itself), and every animation is made and tuned from **one web interface**, as **perfect loops**.
+- **Never a jump**: life comes first. It may wait (even a minute) before doing what it is asked, but it never jumps:
+  everything it does starts and ends exactly at its rest; a loop has an entry and an exit.
+- **Its world grows**: what it makes stays in its scene until it is asked to take it away, each thing linked to the world
+  it was made in (it stays there when the creature leaves) or following it; other characters and pets will come.
 - **Everything is configurable**: every new action/effect comes with its own settings and good defaults.
 - **One scene** (16:9 by default, any size), reused and growing; actions use the whole scene; exports keep
   scene size and placements for what comes next.
@@ -69,11 +84,26 @@ After any change to an effect or to `app/`, run `npm run build && npm test`.
 - `pixelfx/` vendored pixelfx library (MIT, see `pixelfx/LICENSE`). Core in `pixelfx/src/core/`.
   Only our effects are ours:
   - `pixelfx/src/fx/spawn/ice-spirit-gestation.js` — tab **Naissance** (birth, box-drawn)
+  - `pixelfx/src/fx/creature/ice-life.js` — tab **Vivre**, the life engine: a score of segments laid end to end, each one a
+    tab's animation played with that tab's options (`cfg.optsFor(tab, pick, hub)`, the page's `optsAs()`), starting on a
+    beat of the rest it leaves (a hub: `form`, `place` home or a world's id, `portal`) and lasting whole loops. `CATALOG`
+    (from the modules' lists), `want(L, req, now)` (plans the steps it needs: close a portal, revert, transform, reopen,
+    return... then the animation; a loop's `enter` → `loop` (rep ∞ until asked otherwise) → `exit`), `can()` (why not),
+    `status()`, `clearQueue()`, `trim()`, `snapshot()` (hub + things to keep), `plainOpts()` (tests, render tool,
+    `--opts '{"script":[...]}'`). Things: `{ id, ob, place, linked, born, dying }`, drawn by the engine (fading while it
+    crosses to another world) except while the objects tab makes or takes one away. In another world it paints the world
+    behind (clock `t - wt0`) and its near part last; portal modes paint their own.
+  - `pixelfx/src/fx/creature/ice-time.js` — the time every animation shares: `prog(o, t, T)`, `presence`, `NEUTRAL` +
+    `settle(m, k)` (modifiers back to rest by an intensity), `phases(part, T, lead, pose)` (an entry's or exit's timetable:
+    k, the melt into light when the pose changes, `swap`, `s` for the anchor)
   - `pixelfx/src/fx/creature/ice-blob-idle.js` — tab **Blob né**; the blob itself (exports `blobBack`, `blobFront`, `state`, `ambient`, `NONE`)
   - `pixelfx/src/fx/creature/ice-blob-actions.js` — tab **Actions** (19 actions; exports `hsl`, `fromHsl`, `walkRoute`, `portalSpots`)
   - `pixelfx/src/fx/creature/ice-scene-objects.js` — tab **Objets** (solids, appear/remove; exports `drawObject`)
   - `pixelfx/src/fx/creature/ice-blob-loops.js` — tab **Boucles** (20 endless activities; `walk`/`run` = `gaitLoop()`: the figure on
-    its legs walks or runs on the spot, its floor of ice going by under its feet like a treadmill, same `m.gait` and `ga` keys as Action monde)
+    its legs walks or runs on the spot, its floor of ice going by under its feet like a treadmill, same `m.gait` and `ga` keys as Action monde).
+    Each loop has three parts (`o.part`: "loop", "enter" from rest, "exit" back to rest; `inLoops` / `outLoops`, `meltTime`;
+    `total(o)` is the part's length, `loopLen` the activity's period): `planOf()` / `modsOf()` / `layer()` at the end of the file;
+    walking and running have no entry or exit yet (`PART_FIT`)
   - `pixelfx/src/fx/creature/ice-blob-clock.js` — tab **Heure** (shows the time)
   - `pixelfx/src/fx/creature/ice-blob-electric.js` — tab **Électricité** (8 electric animations, rest → electricity → rest like actions; own colours `elCore`/`elColor`/`elGlow`)
   - `pixelfx/src/fx/creature/ice-blob-portal.js` — tab **Portail** (the blob opens a portal onto a world: `open` from rest, `live` portal open, `close` back to rest; `cross` from `live` through the portal, with its mirror image, out of a mirrored portal into `beyond` = its rest in the other world; then `reopen` (a portal home, our void inside) → `beyondOpen` (loop) → `return` back through to the Blob né's rest, or to `live` with `returnKeep`; 3 open + 3 close styles, 5 shapes)
@@ -115,6 +145,9 @@ After any change to an effect or to `app/`, run `npm run build && npm test`.
     us (trees, rocks, flowers, tall grass; only their shadows), part "front" draws only that, on transparency)
   - `ice-spirit-birth.js` is the first, abandoned birth version; ignore it.
 - `app/main.js` the whole UI (state, controls, render pipeline, GIF encoder, export). `app/index.template.html` HTML + CSS.
+  The Vivre tab is its own section (« the life tab »): `optsAs(tab, pick, hub)` builds any tab's options as that tab does,
+  `lifeTick()` draws the life live (time-based, `lifeNow()`), `lifeControls()` the buttons (greyed with `can()`'s reason),
+  `S.life` keeps its settings, where it is and what it made.
   `app/entry.js` lists what the page imports from pixelfx (global `PFX`). `app/build.mjs` inlines it all.
 - `tests/seams.mjs` seam tests. `tests/browser_export.py` optional end-to-end export test (Playwright).
 - `docs/VISION.md` the goals and requirements. `docs/ARCHITECTURE.md` how the UI and the effects fit together. `docs/SEAMLESS.md` the loop rules in detail.
@@ -143,6 +176,16 @@ Read the relevant doc before a non-trivial change; don't load every file.
    `figClock` nudges the figure's own clock (period `liveLoops · D`) mid-way so it lands back on that loop at the end, slope 1
    near both ends (drops). Every form modifier is applied as `x * 1` / `x + 0` at rest, so at rest a tab draws exactly the
    `live` frame; never compute the rest pose another way.
+9. **Loops in three parts**: the entry's activity clock is `t - T` (0 on its last frame, where the loop starts), the exit's
+   goes on from the loop's end; the intensity never wraps (before an entry it is 0, after it 1); k = 1 for the last 1.7 s of
+   an entry and the last 1.7 s of an exit are rest (drops). A **pose** (sitting, legs crossed, arms down) can't be faded: the
+   figure melts into light (`morph` exactly 1 on a plateau), the pose switches while nothing of it shows, on its legs its
+   frame gathering at `anchor`. Never switch a pose while any of the figure shows.
+10. **The life (Vivre)**: a segment starts on a beat of the rest it leaves (`since + n · R`: the blob's loop, the figure's live
+   loop, the world's loop while a portal is open) and lasts whole loops; nothing new starts sooner than `now + MARGIN`, so
+   the frame on screen never changes. Drawing order, the same in every segment: [world behind] [module back] [things back]
+   [module front] [things front] [world's near part]. In another world the world's clock is `t - wt0` (`wt0`: arrival); a
+   portal "reopen" starts its world at `wClock0`.
 
 If `npm test` reports a FAIL, fix the effect — never loosen the test.
 
@@ -155,7 +198,7 @@ If `npm test` reports a FAIL, fix the effect — never loosen the test.
 - Bodies are drawn pixel by pixel in body space (`toBody`/`toScreen`); keep loops bounded to the body's extent.
 - UI: tabs Mondes and Surface planète share `S.worlds.list` (portals and Action monde pick from all of it); each tab shows its
   own types (`tabOfType()`), has its own selection (`sel` / `selSurf`, via `selKey()`) and `isWorldTab()` covers both.
-- UI: `setV(k, v)` routes a key to the right store (`S.shared`, `S.blob`, `S.actions`, `S.objects`, `S.loops`, `S.clock`, `S.elec`, `S.portal`, `S.explore`, `S.transform`, the selected world of `S.worlds`)
+- UI: `setV(k, v)` routes a key to the right store (`S.life`, `S.shared`, `S.blob`, `S.actions`, `S.objects`, `S.loops`, `S.clock`, `S.elec`, `S.portal`, `S.explore`, `S.transform`, the selected world of `S.worlds`)
   per tab; add new keys to the tab's `*_KEYS` set or they land in `S.blob`.
 - UI: controls may be missing on some tabs — wire them with `on(id, event, fn)`, never `$(id).onclick =` directly.
 - UI: distances the user sets in **% of the scene** are converted to effect pixels in `effOpts()`.
@@ -196,9 +239,11 @@ If `npm test` reports a FAIL, fix the effect — never loosen the test.
 
 ## Adding things (recipes in .claude/commands/)
 
-First ask: from rest and back, or free loop? (see « Always ask first » above). Load the `pixelfx` skill.
-When done: build, test, publish the artifact and give the link.
+First ask: once, or a loop? (see « Always ask first » above). Load the `pixelfx` skill. Make it for every form, and
+check it lives in Vivre (its button there, the joins in the seam tests). When done: build, test, publish the artifact and
+give the link.
 
-- `/new-action` an action that leaves and comes back to rest.
-- `/new-loop` an endless activity.
+- `/new-anim` any new animation: asks once or loop, then follows the right recipe.
+- `/new-action` an action played once, from rest back to rest.
+- `/new-loop` an activity in a loop, with its entry and exit.
 - `/check` build + seam tests + fx checks, then report.

@@ -1,7 +1,7 @@
-Add a new endless activity to the **Boucles** tab: $ARGUMENTS
+Add a new activity in a loop to the **Boucles** tab, with its entry from rest and its exit back to rest: $ARGUMENTS
 
-Before anything: ask the author whether they want it to start and end on the Blob né's rest (chains, like Actions)
-or to be a free endless loop (like Boucles), and wait for the answer. Ask in French.
+Before anything: ask the author whether they want it once (from rest back to rest, like Actions) or as a loop with an
+entry and an exit (like Boucles), and wait for the answer. Ask in French. Once: follow new-action.md instead.
 Then load the `pixelfx` skill (`anthropic-skills:pixelfx`) and use its render → look → refine loop.
 
 1. Read docs/SEAMLESS.md and two entries in `pixelfx/src/fx/creature/ice-blob-loops.js` (e.g. `L.sing`, `L.firefly`).
@@ -12,6 +12,11 @@ Then load the `pixelfx` skill (`anthropic-skills:pixelfx`) and use its render �
    (`armUp`, `armOpen`, `hold`, `reach` + `reachK`), take effects from `st.hands` / `st.head` when they exist, keep it on its
    floor when `o.form === "grounded"` (no floating up: `dy: 0`), or, if it truly can't be done in a form, add it to `FORM_FIT`
    with the reason in French. Render it with `--opts '{"form":"human"}'` and `'{"form":"grounded"}'` and look.
-5. `npm run build && npm test`.
+4c. Its entry and exit come from its intensity by themselves (`settle()`, the drawing faded): look at them (`--opts
+   '{"part":"enter"}'`, `'{"part":"exit"}'`, in every form). A pose (`seat`, `legs`, `arms`) switches under a melt into
+   light by itself. If the art needs its own entry or exit, give the activity `enter` / `exit` drawing that uses the
+   intensity (and keep the joins exact). If it truly can't have one yet, list it in `PART_FIT` with the reason in French.
+5. `npm run build && npm test` (its loop, entry and exit joins are tested from `LOOPS` in every form). It is in the
+   Vivre tab by itself (its button comes from `LOOP_LIST`): try it there, stop it, in every form.
 
 Last step: publish `dist/couveuse.html` as the artifact (same link, `downloads` capability) and give the author the link to test it live.

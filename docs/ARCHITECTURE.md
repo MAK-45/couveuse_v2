@@ -10,6 +10,57 @@
 them and exports them. `app/build.mjs` bundles `app/entry.js` (the effects + core helpers) into a global `PFX`
 and inlines everything into `dist/couveuse.html`.
 
+## The life (tab Vivre)
+
+`ice-life.js` makes the creature live: a **score** of segments laid end to end, a frame being a pure function of (t, score).
+
+- A **hub** is a rest: `{ form, place, portal, since, wt0 }` — its form (blob, human, grounded), where it is ("home" or a
+  world's id), the portal open there (null; at home the world it opens onto; in another world "home"), when this rest began
+  and when it arrived in that world. Its rest is drawn by the objects tab's live scene with nothing in it (the form's own
+  rest: `loops` = the live loop's length), or by the portal's "live" / "beyondOpen" while a portal is open. Its beats are
+  `since + n · R` (R: the blob's loop, the figure's live loop, the world's loop).
+- A **segment** `{ at, len, kind, mod, o, hub0, hub1, label }` plays one tab's animation with that tab's options:
+  "once" (actions, electricity, clock), "enter" / "loop" (rep ∞ until something else is asked) / "exit" (loops),
+  "transform" / "revert", "open" / "close" / "cross" / "reopen" / "return" (portal), "appear" / "remove" (objects).
+  It starts on a beat of hub0 and ends on hub1's first beat.
+- `want(L, req, now)`: a loop going on is closed after its current turn (its exit appended), then `plan()` lists the steps
+  the request needs from the last hub (close a portal, revert then transform, reopen then return, open then cross...) and
+  `segment()` builds each one, from the next beat after `now + MARGIN`. `can()` says why something can't be done (in
+  French), `status()` what it does and what follows, `snapshot()` what to keep (the last hub, the things), `trim()`
+  forgets what ended long ago.
+- `CATALOG` is made from the modules' own lists (`ACTIONS`, `LOOPS`, `ELEC`, the clock); `whyNot()` reads their `FORM_FIT`
+  and the loops' `PART_FIT`. Adding an action or a loop to its module puts it in Vivre.
+- **Things** (objects; companions later): `{ id, ob, place, linked, born, dying }`. Present from the end of their "appear" to
+  the start of their "remove", seen where the creature is if `linked` to that place, everywhere if not. The engine draws
+  them after the module's back and front layers (`drawObject`), fading those of the world it leaves and of the one it
+  reaches while it crosses; during "appear" / "remove" the objects tab draws them all (same order: by id).
+- **Worlds**: in another world the engine paints the world behind (clock `t - wt0`, the portal tab's world and view) and its
+  near part last (a figure on its legs on a planet: `grNoFloor`, trees and tall grass in front); the portal's own modes
+  paint theirs (`frontLater` leaves the near part to the engine, `wClock0` starts "reopen" where the world is).
+- **Options**: `cfg.optsFor(tab, pick, hub)`. The page's is `optsAs()`: it switches the page to that tab for a moment
+  (`S.anim`, `V` with `pick`, the form in `S.shared.bodyForm`) and calls the tab's own `effOpts()`, so a life plays
+  exactly what each tab shows. Tests and the render tool use `plainOpts()` (each module's defaults).
+
+In the page, `lifeTick()` draws the frame of the time it is (`lifeNow()`: real time × speed, paused with Pause), the
+buttons call `lifeAsk(req)`, `lifeStatus()` shows what it does and greys what it can't do, `lifeAuto()` lets it choose by
+itself, `S.life` keeps the settings, the last hub and the things.
+
+## Shared time (ice-time.js)
+
+`prog(o, t, T)` (an animation's progress with its lead-in and a lead-out never shorter than a drop of light lives),
+`presence(a, r)`, `NEUTRAL` + `settle(m, k)` (modifiers drawn back to rest by an intensity), and `phases(part, T, lead, pose)`:
+the timetable of a loop's entry or exit (intensity k, and when the pose must change, a melt into light with `swap` at its
+middle and `s` for where the light gathers).
+
+## Loops in three parts (ice-blob-loops.js)
+
+`o.part` "loop" (the activity itself), "enter" (from rest; the activity's clock is `t - T`, 0 on its last frame) or "exit"
+(back to rest; its clock goes on from the loop's end). `modsOf()` lays the activity's modifiers over rest by k (`settle`),
+adds its pose keys (`legs`, `arms`, `seat`) once `swap`, and while the pose changes sets `morph` (the melt) and, on its
+legs, `anchor` (`formAnchor()`: where the frame and the middle of the body are in each pose) so the light doesn't jump;
+`layer()` fades the activity's drawing by k. In the figure (`build()`), `m.anchor` gathers the frame and the blob's part as
+it melts, and the light under its feet goes with its feet (`F.k`).
+
 ## The blob and its modifiers
 
 `ice-blob-idle.js` draws the blob from `state(o, t, M)`:
@@ -56,7 +107,8 @@ always come from `S.transform` (merged in `effOpts()`).
 | File | Tab | Shape of an entry |
 |---|---|---|
 | ice-blob-actions.js | Actions | `A.name = (o) => ({ mods(t), back?(p,C,t,st), front?(p,C,t,st), copies?(t), palette?(t) })` |
-| ice-blob-loops.js | Boucles | `L.name = (o) => ({ mods(t), back?, front? })`, phase via `phase(o, t)`; `walk`/`run` (`gaitLoop`) pass `m.gait` from `gaitPlan()` with the scene's tile, on the spot |
+| ice-life.js | Vivre | the life engine (see « The life »): `createLife(cfg)`, `want`, `can`, `status`, `snapshot`, `CATALOG`, `plainOpts`; `drawBack/draw` with `o.life` (or `o.script`) |
+| ice-blob-loops.js | Boucles | `L.name = (o) => ({ mods(t), back?, front? })`, phase via `phase(o, t)` (the activity's period `loopLen`); `o.part` loop / enter / exit, `total(o)` the part's length; `walk`/`run` (`gaitLoop`) pass `m.gait` from `gaitPlan()` with the scene's tile, on the spot |
 | ice-scene-objects.js | Objets | `objects[]` list; `mode` live / appear / remove; `appearing()` / `removing()` per style |
 | ice-blob-electric.js | Électricité | `L.name = (o) => ({ mods(t), charge(t), back?(p,C,V,t,st), front? })`; `V` = electricity colours, `charge` tints the blob; bolts via `zap()` reseeded `flick()` times a loop. Runs as an action: time is `prog()`, `presence()` fades it in/out and `settle()` brings every modifier back to neutral |
 | ice-blob-portal.js | Portail | `mode` open / live / close / cross / beyond / reopen / beyondOpen / return (`wayOf()` gives the way in and out, so the crossing runs both ways); `crossing()` + `crossMods()` + `reflect()` (the mirror image, drawn into a scratch frame and copied flipped inside the portal) for the way through; `opening()`/`closing()` give the portal's shape over progress, `drawPortal()` draws the world inside (via `renderWorld`), the inner lip, the rim and its flames, `castFx()` the ray and flashes. `total(o)`: live = the world's period |
@@ -94,6 +146,11 @@ Sections, in order (search for `// ----`):
    placement, chain info, settings), `makeGif()` (own encoder: median cut + LZW, **local palette per frame**).
    Saving goes through `window.claude.use("downloads")` when hosted on claude.ai, else a plain download link.
 
+## Adding an animation
+
+An action, a loop or an electric animation: add it to its module (and its list) and to the page's list with its settings
+(see .claude/commands): it plays in its tab and in Vivre, in every form, with no other change.
+
 ## Adding a tab (outline)
 
 1. Effect file in `pixelfx/src/fx/creature/`, export it in `app/entry.js`.
@@ -101,3 +158,5 @@ Sections, in order (search for `// ----`):
    `refreshV()`/`setV()`, a `xGroups()` builder, branches in `buildControls()`, `loopsOf()`, `effOpts()`, `base()`.
 3. Tab button in `app/index.template.html`.
 4. Seam test in `tests/seams.mjs`.
+5. For Vivre: its step(s) in `ice-life.js` (`plan()`, `segment()`), its buttons in `lifeControls()`, a scenario in the life
+   block of the seam tests.
