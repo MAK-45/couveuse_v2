@@ -1,4 +1,4 @@
-Add a new activity in a loop to the **Boucles** tab, with its entry from rest and its exit back to rest: $ARGUMENTS
+Add a new activity in a loop, with its entry from rest and its exit back to rest (a card in Vivre › En boucle, its ⚙ the loop's settings page): $ARGUMENTS
 
 Before anything: ask the author whether they want it once (from rest back to rest, like Actions) or as a loop with an
 entry and an exit (like Boucles), and wait for the answer. Ask in French. Once: follow new-action.md instead.
@@ -16,7 +16,7 @@ Then load the `pixelfx` skill (`anthropic-skills:pixelfx`) and use its render �
    '{"part":"enter"}'`, `'{"part":"exit"}'`, in every form). A pose (`seat`, `legs`, `arms`) switches under a melt into
    light by itself. If the art needs its own entry or exit, give the activity `enter` / `exit` drawing that uses the
    intensity (and keep the joins exact). If it truly can't have one yet, list it in `PART_FIT` with the reason in French.
-5. `npm run build && npm test` (its loop, entry and exit joins are tested from `LOOPS` in every form). It is in the
-   Vivre tab by itself (its button comes from `LOOP_LIST`): try it there, stop it, in every form.
+5. `npm run build && npm test` (its loop, entry and exit joins are tested from `LOOPS` in every form). It is in
+   Vivre by itself (its card and its ⚙ come from `LOOP_LIST`): try it there, stop it, in every form.
 
 Last step: publish `dist/couveuse.html` as the artifact (same link, `downloads` capability) and give the author the link to test it live.

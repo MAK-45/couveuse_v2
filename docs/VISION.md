@@ -4,7 +4,7 @@ Ce que l’auteur veut, tel qu’il l’a demandé au fil du projet. À relire a
 
 ## Le but
 
-Faire **vivre une petite créature de lumière** (le « blob ») : elle vit **dans une page web** (onglet **Vivre**), sans
+Faire **vivre une petite créature de lumière** (le « blob ») : elle vit **dans une page web** (la page **Vivre**), sans
 fin, en faisant ce qu’on lui demande avec des boutons (ou ce qu’elle choisit seule), et **sans jamais sauter d’image**
 d’une animation à l’autre. Toutes ses animations se fabriquent et se règlent depuis **une seule interface web**, en
 **boucles parfaites**, et s’exportent aussi pour d’autres usages (GIF, planches PNG et JSON).
@@ -63,8 +63,8 @@ Portail (le blob ouvre un portail vers un autre monde, qu’on ne voit qu’à t
 portail ouvert en boucle, fermeture qui revient au repos ; traversée : le blob plonge dans le portail, son reflet en
 miroir vient à sa rencontre, et il ressort par un portail en miroir dans l’autre monde, où il reprend sa boucle de
 repos ; retour : dans l’autre monde il rouvre un portail vers chez lui et repasse, jusqu’au repos du blob né (ou
-au portail ouvert) ; place et taille choisies sur la scène) · Action monde (le blob explore un monde de l’onglet
-Mondes, en boucle libre. Première action, le mouvement : il reste sur place et le monde défile derrière lui ; une
+au portail ouvert) ; place et taille choisies sur la scène) · Action monde, dans Vivre « Explorer un monde » (le blob explore un des
+Mondes, en boucle libre ; pas encore dans sa vie : il lui faut une entrée et une sortie. Première action, le mouvement : il reste sur place et le monde défile derrière lui ; une
 seule vitesse règle à la fois le défilement du décor et la déformation du blob (goutte étirée, penchée, qui regarde
 devant elle), avec des accélérations réglables et cinq effets de vitesse : étoile filante (il se change en lumière),
 étirement, rémanences, onde de choc, flammes de glace ; puis regarder autour (émerveillé, la caméra glisse et des
@@ -91,7 +91,7 @@ Action monde et y passe par les portails).
 
 **Les formes partout.** Le blob peut aussi jouer toutes ses animations sous une forme de la Transformation : dans
 Actions, Objets, Boucles, Heure, Électricité, Portail et Action monde, un groupe « Forme » choisit le blob né, la forme
-humaine en lévitation ou la forme humaine au sol (avec les réglages de l’onglet Transformation). Les animations s’adaptent :
+humaine en lévitation ou la forme humaine au sol (avec les réglages des formes humaines). Les animations s’adaptent :
 la forme se sert de ses bras (bras levés, ouverts, livre tenu, main tendue d’où partent les éclairs et les rayons), et au sol
 elle reste sur son sol de glace (elle marche à petits pas, saute, plie les genoux, s’assoit en tailleur pour dormir ou
 méditer). Ce qui n’a pas de sens est désactivé et l’interface dit pourquoi (au sol : voler en comète, tourner comme une
@@ -105,8 +105,8 @@ phase de vol en course), en boucle libre ; le sol défile sous ses pieds exactem
 jamais), la vitesse est en km/h (arrondie pour que la boucle soit parfaite), et ses pas laissent des empreintes de lumière. Sur une
 **surface de planète**, elle marche sur le sol de la planète : pas de sol de glace, et ce qui est plus près de nous que ses pieds
 (arbres, rochers, hautes herbes) passe devant elle ; dans l’espace, elle garde son sol de glace, qui défile avec ses pas. Le blob né
-et la forme en lévitation ne marchent pas (pas de jambes, ou pas de sol sous les pieds) : grisé, avec la raison. Dans l’onglet
-Boucles, la marche et la course se font **sur place** : son sol de glace (reflets, empreintes) défile sous ses pieds comme un
+et la forme en lévitation ne marchent pas (pas de jambes, ou pas de sol sous les pieds) : grisé, avec la raison. Dans les Boucles,
+la marche et la course se font **sur place** : son sol de glace (reflets, empreintes) défile sous ses pieds comme un
 tapis roulant.
 
 **Règle pour la suite : chaque nouvelle animation est faite pour chaque transformation** (blob né, forme humaine en
@@ -114,7 +114,7 @@ lévitation, forme humaine au sol, et toute forme ajoutée plus tard), adaptée 
 dans une forme, elle y est désactivée et l’interface dit pourquoi. Et chaque nouvelle forme joue toutes les animations
 existantes.
 
-## La vie (onglet Vivre)
+## La vie (page Vivre)
 
 La créature vit sans fin. Des boutons lui demandent quoi faire : les 19 actions, les 18 activités en boucle (elle s’y met,
 continue jusqu’à ce qu’on lui demande autre chose ou « Arrêter la boucle », puis s’arrête), les 8 animations
@@ -123,7 +123,7 @@ monde, rentrer), et les objets. Elle fait chaque chose **à son tour**, en parta
 battement de sa boucle de repos ; si une étape est nécessaire, elle la prend d’elle-même (fermer le portail avant de
 sauter, redevenir blob avant de prendre l’autre forme humaine, rouvrir le chemin du retour pour rentrer…). On voit ce
 qu’elle fait et ce qui suit ; ce qu’elle ne peut pas faire est grisé avec la raison. Chaque animation garde les réglages de
-son onglet. Une **vie autonome** la laisse choisir seule quoi faire quand on ne lui demande rien.
+sa page de réglages (sa ⚙). Une **vie autonome** la laisse choisir seule quoi faire quand on ne lui demande rien.
 
 Quand la forme humaine doit changer de posture pour une activité (s’asseoir en tailleur pour dormir, croiser les jambes
 pour méditer), elle **fond en lumière**, change de pose pendant qu’il ne reste rien de sa silhouette, et reprend forme.
@@ -143,12 +143,11 @@ compagnons (animaux de compagnie) quand ils viendront.
   en GIF.
 - Toujours plus d’actions et d’activités, chacune paramétrable, avec plus de portée dans la scène.
 - La scène continuera d’évoluer : d’autres événements y auront lieu.
-- D’autres formes viendront dans l’onglet Transformation (la forme humaine en lévitation et au sol sont les premières),
-  chacune avec sa transformation, sa boucle et son retour, et chacune jouera les animations des autres onglets.
+- D’autres formes viendront (la forme humaine en lévitation et au sol sont les premières), chacune avec sa transformation,
+  sa boucle et son retour, et chacune jouera toutes les animations.
 - Le blob entrera dans le monde du portail et s’y déplacera : le décor suivra ses mouvements (la caméra des
   mondes et leurs couches en profondeur sont prévues pour ça). D’autres types de mondes viendront, chacun avec
-  ses réglages, dans l’onglet Mondes ; et d’autres surfaces de planète (monde volcanique avec de la lave…) dans
-  l’onglet Surface planète.
+  ses réglages ; et d’autres surfaces de planète (monde volcanique avec de la lave…).
 
 ## Toujours demander : une fois ou en boucle ?
 
@@ -157,12 +156,12 @@ Avant chaque nouvelle animation, demander à l’auteur ce qu’il veut :
   Heure, Électricité ;
 - ou **en boucle** : elle s’y met depuis le repos (entrée), continue autant qu’on veut (boucle), puis s’arrête et revient
   au repos (sortie), comme Boucles.
-Dans les deux cas elle se fait pour chaque forme, et elle vit dans l’onglet Vivre.
+Dans les deux cas elle se fait pour chaque forme, et elle vit dans Vivre.
 
 ## Pour juger une modification
 
 - Est-ce que `npm test` passe toujours (boucles et enchaînements exacts) ?
-- Est-ce qu’elle vit dans l’onglet Vivre, dans chaque forme, sans saut ?
+- Est-ce qu’elle vit dans Vivre, dans chaque forme, sans saut ?
 - Est-ce que c’est réglable dans l’interface, en français, avec de bonnes valeurs par défaut ?
 - Est-ce que ça reste dans le style de la créature ?
 - Est-ce que ça marche dans toute la scène, quelle que soit sa taille ?

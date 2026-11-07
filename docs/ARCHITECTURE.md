@@ -6,8 +6,8 @@
 `drawBack(p, t, o)` and `draw(p, t, o)` drawing with a pixelfx Painter `p` placed at the creature's spot
 (local coords, y down). They run in Node (tests, `pixelfx/tools/render.mjs`) and in the browser.
 
-**The page** (`app/main.js`) holds the settings, builds the controls, renders frames with the effects, previews
-them and exports them. `app/build.mjs` bundles `app/entry.js` (the effects + core helpers) into a global `PFX`
+**The page** (`app/main.js`) holds the settings, builds the controls, makes the creature live (page Vivre, through the
+life engine `ice-life.js`), previews each animation on its settings page and exports it. `app/build.mjs` bundles `app/entry.js` (the effects + core helpers) into a global `PFX`
 and inlines everything into `dist/couveuse.html`.
 
 ## The life (tab Vivre)
@@ -74,8 +74,9 @@ it melts, and the light under its feet goes with its feet (`F.k`).
   `dx, dy, rot, sx, sy, grow, morph, shape, shut, happy, vis, halo, glow, lookX, lookY, quiet, eyeScale, tw`
   (`tw` = the blob's own clock, used by the freeze action; `quiet` hides drops born at that time).
 
-Actions, objects, loops and clock all draw the same blob with `blobBack(p, t, o, M)` / `blobFront(p, t, o, M)`
-and only supply `M` plus their own extra drawing (`back`/`front` hooks). `ambient()` draws the floating motes.
+Every module that draws the creature supplies only `M` plus its own extra drawing (`back`/`front` hooks) and draws it
+through `bodyBack` / `bodyFront` / `bodyAmbient` (ice-blob-transform.js), which are the idle's `blobBack` / `blobFront` /
+`ambient` for the blob form and the figure for the human forms (see below). `ambient()` draws the floating motes.
 
 ## The new forms (the creature in every tab)
 
@@ -123,30 +124,42 @@ always come from `S.transform` (merged in `effOpts()`).
 | ice-surface.js | Surface planète | `renderSurface(w, wt, P, T, X0, Y0, bw, bh, cam, dims)` → `{ col, lit }`, called by `renderWorld` for surface types (`plain`); `dims` = the scene's size in cells (horizon, sun, sizes in % of its height). Layers back to front: sky, stars, sun/moon, birds, clouds (wind = whole tiles a loop), mountains (0.12), hills (0.3), meadows (0.45, 0.7, 1) with their lake/ponds/flowers/rocks/trees, tall grass (1.35), motes. Only the sideways part of a heading moves it. `split` (someone standing at a row): "back" leaves out what stands up nearer to us (only its shadow), "front" draws only that on transparency; `groundDepthAt()` |
 | ice-blob-clock.js | Heure | 5x7 font, cells laid out by `layout()`, styles in `drawCells()`, timetable in `phases()` |
 
-`prog(o, t)` (actions, objects, clock) maps time to the action's progress 0..1 inside the lead-in/lead-out.
-`total(o) = duration * loops`.
+`prog(o, t)` in each module maps time to the action's progress 0..1 inside the lead-in/lead-out (the shared
+`prog(o, t, T)` of ice-time.js); `total(o)` is the animation's length, a whole number of the blob's loops (`duration * loops`,
+or the part's length for loops, the live loop or the world's loop for the looping modes).
 
 ## The page (app/main.js)
+
+There is no tab bar. The page opens on **Vivre** (`S.anim = "life"`); every other "tab" of the code is a **settings page**,
+opened from Vivre (`openPage(anim, pick)`: the ⚙ of a card, or a « Régler … » link) and left with « Revenir à la vie » in the
+header or Escape (`backToLife()`). `PAGE_NAMES` / `PAGE_INTRO` name and introduce each page; on a page a picker grid becomes
+a one-line select (`COMPACT_PICK`); `settingsGroups()` builds the page's own groups (the « Forme » group first for the pages
+that draw the creature, the place in the scene only on Apparence and Naissance), then `sceneGroup()` and `renderGroup()`,
+closed. The exports (GIF, PNG, JSON) are on the settings pages only.
 
 Sections, in order (search for `// ----`):
 
 1. Constants: palettes, ratios, `SHARED_DEF` (scene/export settings shared by all tabs), `PER_DEF`.
-2. `ANIMS` registry: `{ name, fx, file, id, mode: "box" | "scene", groups }`. Tabs: birth, blob, actions,
+2. `ANIMS` registry: `{ name, fx, file, id, mode: "box" | "scene", groups }`. Tabs: life (Vivre), birth, blob, actions,
    objects, loops, clock, elec, portal, explore, transform, worlds, surface (the worlds of `S.worlds` whose type is a planet surface). `mode: "box"` = drawn in its own square zone and blitted (birth only);
    `"scene"` = drawn across the whole scene at `1/scale` resolution and upscaled.
 3. Per-tab UI tables: `ACTION_LIST/ACTION_PARAMS`, `LOOP_LIST/LOOP_PARAMS`, `OBJ_ROWS`, `clockGroups()`…
    A row is `[key, label, min, max, step, unit]` (slider) or `[key, label, { select | color | button }]`.
    Units with special read-outs: `" % pos x"`, `" % pos y"`, `" % de la scène"`, `" % de la largeur"`,
    `" % de la hauteur"`, `" part"`, `" % (sol)"`.
-4. State `S = { anim, shared, birth, blob, actions, objects, loops, clock, elec, portal, worlds }`
+4. State `S = { anim, life, shared, birth, blob, actions, objects, loops, clock, elec, portal, explore, transform, worlds }`
+   (`life`: Vivre's settings, the hub it is in and the things it made, kept for next time)
    (`worlds = { list: [{ id, name, wType, w… }], sel, nextId }`; the portal picks one with `pWorld`) saved in `localStorage`
    (`couveuse-v3`), merged by `sanitize()`. `V` is the flat view the current tab reads (`refreshV()`);
    `setV()` writes back to the right store. Actions/objects/loops/clock borrow the blob's look from `S.blob`.
-5. Controls: `buildControls()` → `group()` + `rowFor()`; `wire()` hooks shared controls (guarded by `on()`).
+5. Controls: `buildControls()` → Vivre's `lifeControls()`, or a settings page (`settingsGroups()`); then `sceneGroup()`,
+   `renderGroup()`; `group()` + `rowFor()` make the rows; `wire()` hooks shared controls (guarded by `on()`).
 6. Rendering: `effOpts()` builds the effect's options from `V` (converts % of scene to effect pixels, clamps
    paths into the scene). `renderScene(anim, o, t, bg)` → RGBA scene buffer; `getScene(i)` caches frames.
    Placement grid (`grid()`) keeps the creature centre on the same scene pixel in every tab, so tabs chain.
-7. Guides (preview only), dragging (creature, action targets, objects), playback.
+7. Guides (preview only), dragging (creature, action targets, objects; in Vivre a click places the next object), the life
+   section (`optsAs`, `lifeStart`, `lifeAsk`, `lifeStatus`, `lifeAuto`, `lifeTick`, `lifeControls`), the navigation
+   (`openPage`, `backToLife`), playback (`tick()`: Vivre draws its live time, a settings page its cached loop).
 8. Export: `allFrames()`, `makePng()` (sprite sheet), `makeJson()` (Aseprite-style + `meta.pixelfx` with scene,
    placement, chain info, settings), `makeGif()` (own encoder: median cut + LZW, **local palette per frame**).
    Saving goes through `window.claude.use("downloads")` when hosted on claude.ai, else a plain download link.
@@ -156,12 +169,32 @@ Sections, in order (search for `// ----`):
 An action, a loop or an electric animation: add it to its module (and its list) and to the page's list with its settings
 (see .claude/commands): it plays in its tab and in Vivre, in every form, with no other change.
 
-## Adding a tab (outline)
+## Adding a settings page (a new kind of thing to tune)
 
-1. Effect file in `pixelfx/src/fx/creature/`, export it in `app/entry.js`.
+1. Effect file in `pixelfx/src/fx/creature/`, export it in `app/entry.js` (and add it to `check:fx` in package.json).
 2. In `main.js`: `ANIMS.x = {...}`, a `X_KEYS` set + `xDef()`, add to `fresh()`/`sanitize()`, routing in
-   `refreshV()`/`setV()`, a `xGroups()` builder, branches in `buildControls()`, `loopsOf()`, `effOpts()`, `base()`.
-3. Tab button in `app/index.template.html`.
-4. Seam test in `tests/seams.mjs`.
-5. For Vivre: its step(s) in `ice-life.js` (`plan()`, `segment()`), its buttons in `lifeControls()`, a scenario in the life
+   `refreshV()`/`setV()`, a `xGroups()` builder, branches in `settingsGroups()`, `loopsOf()`, `effOpts()`, `base()`;
+   `PAGE_NAMES.x` and `PAGE_INTRO.x`; its way in from Vivre (a section or a « Régler … » link in `lifeControls()` calling
+   `openPage("x", pick)`). There is no tab button any more.
+3. Seam test in `tests/seams.mjs`.
+4. For Vivre: its step(s) in `ice-life.js` (`plan()`, `segment()`), its buttons in `lifeControls()`, a scenario in the life
    block of the seam tests.
+
+## Extension points
+
+- **An action, a loop, an electric animation**: its module and list, the page's list and params (`.claude/commands/new-action.md`,
+  `new-loop.md`). It is in Vivre and on its settings page by itself.
+- **A form** (`new-form.md`): `FORMS`, a figure builder chosen in `build()`, `isForm()`, `FORM_FIT` in every module, `FORMS` in
+  ice-life.js, `TF_FORMS` / `BODY_FORMS` in the page. A **posture** of a form (a real sit) is a continuous pose parameter in its
+  builder; loops then blend to it instead of melting through light (`POSE_KEYS`, `poseChange()` in ice-blob-loops.js).
+- **A world** (`new-world.md`): `SURFACE_DEFAULTS` + `renderSurface()`, or `WORLD_TYPES` / `DEFAULTS` + `renderWorld()`; the page's
+  `worldTypeName()` and `worldGroups()`. Portals, crossing and the life there need nothing more.
+- **A thing** (`new-thing.md`): an object shape is a solid in `SOLIDS` + `SHAPES` (+ `SHAPE_OPTS`); a companion is a new `kind` of
+  thing with its own module (rest loop, its animations from rest back to rest), drawn by `thingsOn()`, planned by `plan()` /
+  `segment()`, saved by `snapshot()`, with the same `place` / `linked` rule.
+- **A new kind of step in the life** (a state such as sitting, holding a thing, a portal kept open...): a hub field if it is a
+  rest of its own (with its rest drawing in `rest()` and its beats in `restLen()`), its transitions in `plan()` (the steps that
+  reach it) and `segment()` (which module plays them, the hub after), `whyNot()` / `can()` reasons in French, a scenario in the
+  tests. Keep every join on a beat and the drawing order (world, module back, things back, module front, things front, world's near part).
+- **Exports of a stretch of life**: a frame is a pure function of (t, score), so any time window of a life can be rendered with
+  `renderScene("life", { life }, t, bg)` and encoded like a settings page's frames.

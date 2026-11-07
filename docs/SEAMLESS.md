@@ -1,6 +1,6 @@
 # Seamless loops and chains
 
-The promise to the user: the creature lives on (tab Vivre) without ever a jump, and any GIF loops forever with no visible
+The promise to the user: the creature lives on (page Vivre) without ever a jump, and any GIF loops forever with no visible
 jump, and GIFs placed end to end chain:
 
     rest (Blob né) → action → rest → clock → rest → electricity → rest …

@@ -19,8 +19,11 @@ npm run build      # crée dist/couveuse.html, à ouvrir dans un navigateur
 npm test           # vérifie au pixel près que toutes les boucles et tous les enchaînements sont exacts
 ```
 
+Pour continuer le projet (ajouter des animations, des formes, des mondes, des compagnons) : lis `docs/GUIDE.md`.
+
 Avec Claude Code : ouvre ce dossier, `CLAUDE.md` est lu automatiquement. Commandes prêtes :
-`/check`, `/new-anim <idée>` (demande d’abord : une fois ou en boucle ?), `/new-action <idée>`, `/new-loop <idée>`.
+`/check`, `/new-anim <idée>` (demande d’abord : une fois ou en boucle ?), `/new-action <idée>`, `/new-loop <idée>`,
+`/new-form <idée>`, `/new-world <idée>`, `/new-thing <idée>`.
 
 ## Licence
 

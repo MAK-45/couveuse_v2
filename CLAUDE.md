@@ -1,13 +1,19 @@
 # Couveuse
 
-Pixel-art creature of ice-light (a "blob") that **lives** in a web page (tab **Vivre**: it plays all its animations one
-after the other, live, without ever a jump), and the single-page editor that tunes each animation in its own tab and
-exports **seamless** GIF / PNG sprite sheets / JSON. The UI is in **French**; code and comments are in English.
+Pixel-art creature of ice-light (a "blob") that **lives** in a web page (page **Vivre**: it plays all its animations one
+after the other, live, without ever a jump), and the settings pages, opened from Vivre with ⚙, that tune each animation,
+show it in a loop and export it as **seamless** GIF / PNG sprite sheets / JSON. The UI is in **French**; code and comments
+are in English.
+
+**Start here**: docs/GUIDE.md explains the project in plain French (what to ask, what to check, what is left to do);
+docs/VISION.md says what the author wants; docs/ARCHITECTURE.md (« Extension points ») and docs/SEAMLESS.md say how it is
+built and why it never jumps; the recipes in .claude/commands/ (« Adding things » below) give the steps for each kind of
+addition. Keep all of them up to date with every change.
 
 ## Always ask first: once, or a loop?
 
 The creature lives: every animation starts from its rest and comes back to it, so it can be played at any time of its
-life (tab Vivre) with no jump. Before building **any new animation** (a new tab, action, loop, effect or animation
+life (page Vivre) with no jump. Before building **any new animation** (a new tab, action, loop, effect or animation
 inside a tab), **ask the author** which kind they want, and wait for the answer — never pick for them:
 - **Once** (une fois): rest → the animation → rest in one piece, like Actions, Électricité, Heure: its first and last
   frames are exactly the rest's (the Blob né's, or a new form's live loop). Test it against the rest's frames.
@@ -78,8 +84,14 @@ npm run render -- creature/ice-blob-loops --max 16 --zoom 2   # contact sheet in
 
 Open `dist/couveuse.html` directly in a browser to try it. There is no dev server.
 After any change to an effect or to `app/`, run `npm run build && npm test`.
+To look at the page yourself, Playwright and Chromium are installed (`require("playwright")`, `chromium.launch()`): load
+`file://<repo>/dist/couveuse.html` (it opens on Vivre), click a card (`.lifecard .act`; its ⚙ is `.gear`), `#toLife` goes back,
+`#lifeNow` says what it does; listen to `pageerror`, take screenshots and look at them. Keep such scripts out of the repo.
 
 ## Layout
+
+In the code and in these docs a "tab" (`S.anim`, `ANIMS`) is a page of the UI: Vivre ("life") or the settings page of one
+thing (the page has no tab bar). "Tab Actions" = the settings page of an action, and so on.
 
 - `pixelfx/` vendored pixelfx library (MIT, see `pixelfx/LICENSE`). Core in `pixelfx/src/core/`.
   Only our effects are ours:
@@ -155,7 +167,9 @@ After any change to an effect or to `app/`, run `npm run build && npm test`.
   `S.life` keeps its settings, where it is and what it made.
   `app/entry.js` lists what the page imports from pixelfx (global `PFX`). `app/build.mjs` inlines it all.
 - `tests/seams.mjs` seam tests. `tests/browser_export.py` optional end-to-end export test (Playwright).
-- `docs/VISION.md` the goals and requirements. `docs/ARCHITECTURE.md` how the UI and the effects fit together. `docs/SEAMLESS.md` the loop rules in detail.
+- `docs/GUIDE.md` the project for the author, in French (how it holds, how to ask for something new, how to check it,
+  what is left). `docs/VISION.md` the goals and requirements. `docs/ARCHITECTURE.md` how the UI, the life engine and the
+  effects fit together, and the extension points. `docs/SEAMLESS.md` the loop and join rules in detail.
 
 Read the relevant doc before a non-trivial change; don't load every file.
 
@@ -227,7 +241,7 @@ If `npm test` reports a FAIL, fix the effect — never loosen the test.
   for what only the figure on its legs can do, like walking) and `fitsForm(o)`;
   the effect then just rests, the UI greys the button and lists the reasons.
 - Seam tests: the "in a new form" block of `tests/seams.mjs` checks every tab in both forms against `live`'s frames.
-- UI: the form is `S.shared.bodyForm` ("blob", "human", "grounded"), picked in each `FORM_TABS` tab's « Forme » group
+- UI: the form is `S.shared.bodyForm` ("blob", "human", "grounded"), picked in each `FORM_TABS` settings page's « Forme » group
   (`formMarkup`, `setBodyForm`); picking a human form there sets `S.transform.form`, and the Transformation tab's form choice
   carries over while a human form is in use. `effOpts()` merges the figure settings from `S.transform` (floor % → px, `room`),
   and uses `formExtent()` to keep strolls, falls and flights inside the scene. `fixFit()` moves a choice a form can't do.
@@ -251,4 +265,10 @@ give the link.
 - `/new-anim` any new animation: asks once or loop, then follows the right recipe.
 - `/new-action` an action played once, from rest back to rest.
 - `/new-loop` an activity in a loop, with its entry and exit.
+- `/new-form` a new form of the creature (or a new posture of a form), played in every page and in its life.
+- `/new-world` a new kind of world (space or planet surface), reached through portals.
+- `/new-thing` a new kind of object, or a companion, that stays in its scene, linked to a world or following it.
 - `/check` build + seam tests + fx checks, then report.
+
+Whatever is added, update the docs in the same change: VISION « Ce qui existe » (and « Directions » when something planned is
+done), GUIDE « Ce qui reste à faire », ARCHITECTURE (modules table, extension points), this file's layout, the recipes.
