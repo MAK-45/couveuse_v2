@@ -21,9 +21,9 @@
 // starts on it at 0. The blob's part goes neutral at both ends (prog/castMods, as for the objects).
 import { fit, clamp, lerp, seg, bump, ease, noise2, rng, cycle, TAU, WHITE, hex, mix, createFrame, clearFrame, painterFor } from "../../core/index.js";
 import { meta as idleMeta, state } from "./ice-blob-idle.js";
-import { bodyBack, bodyFront, bodyAmbient } from "./ice-blob-transform.js";
+import { bodyBack, bodyFront, bodyAmbient, floorFor } from "./ice-blob-transform.js";
 import { hsl, fromHsl } from "./ice-blob-actions.js";
-import { renderWorld, worldOf, worldPeriod, worldTile, paintWorld } from "./ice-worlds.js";
+import { renderWorld, worldOf, worldPeriod, worldTile, paintWorld, isSurface } from "./ice-worlds.js";
 
 export const MODES = ["open", "live", "close", "cross", "beyond", "reopen", "beyondOpen", "return"];
 export const OPEN = ["tear", "spiral", "bloom"];
@@ -440,22 +440,35 @@ function plan(o, t) {
 }
 
 const crossy = (o) => o.mode === "cross" || o.mode === "return";
+// in the other world, when it is a planet's surface, a figure on its legs stands on the ground there: no floor of ice,
+// and what stands up nearer to us than its feet (trees, rocks, tall grass) passes in front of it
+const cutIn = (o, pl) => (pl.full && o.form === "grounded" && isSurface(worldIn(o)) ? floorFor(o) : null);
+const SOIL = new WeakMap();
+const bodyIn = (o, pl) => {
+  if (!pl.full || !isSurface(worldIn(o))) return o;
+  let b = SOIL.get(o);
+  if (!b) { b = { ...o, grNoFloor: 1 }; SOIL.set(o, b); }
+  return b;
+};
 export function drawBack(p, t, o) {
   const C = fit(o.palette, 8), pl = plan(o, t), Cp = paletteFor(o, o.pHue || 0), front = o.pLayer === "front" && !crossy(o);
-  if (pl.full) paintWorld(p, worldIn(o), pl.wt, pl.P, pl.room, pl.view);
+  const cut = cutIn(o, pl);
+  if (pl.full) paintWorld(p, worldIn(o), pl.wt, pl.P, pl.room, pl.view, cut === null ? null : { part: "back", y: cut });
   if (!front) drawPortal(p, o, Cp, pl.g, pl.wt, pl.P, pl.room);
   if (crossy(o) && pl.a > 0 && pl.a < X.shrink[1] && o.crossMirror > 0) reflect(p, o, t, pl.M, C, seg(pl.a, 0.03, 0.18), pl.room, pl.way.in);
   // (back home, a portal kept open sits on its own plane, as in "live")
   const backFront = o.mode === "return" && o.pLayer === "front";
   if (!backFront) drawPortal(p, o, Cp, pl.back, pl.wt, pl.P, pl.room);
-  bodyBack(p, t, o, pl.M, C, total(o));
+  bodyBack(p, t, bodyIn(o, pl), pl.M, C, total(o));
   bodyAmbient(p, t, o, false, C);
 }
 
 export function draw(p, t, o) {
   const C = fit(o.palette, 8), pl = plan(o, t), Cp = paletteFor(o, o.pHue || 0), front = o.pLayer === "front" && !crossy(o);
-  const st = bodyFront(p, t, o, pl.M, C, total(o));
+  const st = bodyFront(p, t, bodyIn(o, pl), pl.M, C, total(o));
   bodyAmbient(p, t, o, true, C);
+  const cut = cutIn(o, pl);
+  if (cut !== null) paintWorld(p, worldIn(o), pl.wt, pl.P, pl.room, pl.view, { part: "front", y: cut });
   if (front) drawPortal(p, o, Cp, pl.g, pl.wt, pl.P, pl.room);
   if (o.mode === "return" && o.pLayer === "front") drawPortal(p, o, Cp, pl.back, pl.wt, pl.P, pl.room);
   // (the light comes from a figure's hand)

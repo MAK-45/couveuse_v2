@@ -74,6 +74,19 @@ function fbm1(x, T, size, s, oct = 3, ridged = false) {
   return sum / n;
 }
 
+/**
+ * How deep the ground is at row y of a scene H rows high (y from the top), for something standing there: the meadow under
+ * it (0.45 far, 0.7 middle, 1 near), so a walker's steps can be matched to the speed that layer goes by. Above the horizon
+ * there is no ground: 1.
+ */
+export function groundDepthAt(w, y, H) {
+  const hY = (H * clamp(w.wHorizon, 15, 90)) / 100, G = H - hY, cy = (w.wCamY || 0) * Math.max(0, w.wParallax ?? 1);
+  if (y >= hY + 0.5 * G - cy) return 1;
+  if (y >= hY + 0.2 * G - 0.7 * cy) return 0.7;
+  if (y >= hY - 0.45 * cy) return 0.45;
+  return 1;
+}
+
 // everything placed on the world, scattered once per layout and kept
 const cache = new Map();
 function layoutOf(w, T, H) {
@@ -120,10 +133,12 @@ function layoutOf(w, T, H) {
 /**
  * The surface seen through a window of the scene: bw x bh cells whose top-left is scene cell (X0, Y0); dims the
  * scene's size in cells (W, H). wt is the world's clock (periodic over P), T the tile, cam the camera's offset.
- * Returns { col, lit } like renderWorld.
+ * split: someone stands on the ground at scene row split.y; what stands up from the ground nearer to us than that
+ * (trees, rocks, flowers, the tall grass) passes in front of them: part "back" leaves those out (only their shadows on
+ * the ground), part "front" draws only those, on transparency (col 0 = nothing). Returns { col, lit } like renderWorld.
  */
-export function renderSurface(w, wt, P, T, X0, Y0, bw, bh, cam = [0, 0], dims = [T, Math.round((T * 9) / 16)]) {
-  const n = bw * bh, col = new Uint32Array(n), lit = new Float32Array(n * 3);
+export function renderSurface(w, wt, P, T, X0, Y0, bw, bh, cam = [0, 0], dims = [T, Math.round((T * 9) / 16)], split = null) {
+  const n = bw * bh, col = new Uint32Array(n), lit = new Float32Array(n * 3), front = !!split && split.part === "front", cut = split ? split.y : Infinity;
   const H = Math.max(8, dims[1]), Wd = Math.max(8, dims[0]), u = (((wt / P) % 1) + 1) % 1, S = w.wSeed;
   const hY = (H * clamp(w.wHorizon, 15, 90)) / 100, G = H - hY, par = Math.max(0, w.wParallax);
   const dirX = Math.sign((DIRS[w.wDir] || DIRS.left)[0]), moving = w.wState === "moving" && w.wDrift > 0;
@@ -168,10 +183,10 @@ export function renderSurface(w, wt, P, T, X0, Y0, bw, bh, cam = [0, 0], dims = 
   // ---- the sky, in hard bands, dithered between them
   const steps = Math.max(2, whole(w.wSkySteps, 2)), dith = clamp(w.wSkyDither, 0, 1.5);
   const skyRow = (sy, x) => { const f = clamp(sy / Math.max(1, hY)), L = clamp(Math.floor(f * f * 0.5 * steps + f * 0.5 * steps + (bayer(wrap(x, 4), wrap(sy, 4)) - 0.5) * dith), 0, steps); return mix(skyTop, skyLow, L / steps); };
-  for (let y = 0; y < bh; y++) { const sy = Y0 + y; for (let x = 0; x < bw; x++) col[y * bw + x] = skyRow(sy, X0 + x); }
+  if (!front) for (let y = 0; y < bh; y++) { const sy = Y0 + y; for (let x = 0; x < bw; x++) col[y * bw + x] = skyRow(sy, X0 + x); }
 
   // stars, for night skies: fainter near the horizon
-  if (lay.stars.length) {
+  if (lay.stars.length && !front) {
     const sh = shift(0.02), tw = 2;
     for (const s of lay.stars) copies(s.x, sh, 2, (x) => {
       const y = Math.round(s.y) + sh[1] - Y0, v = s.b * 0.6 + 0.4 * (0.5 + 0.5 * Math.sin(TAU * (u * Math.max(1, Math.round(tw * (0.5 + s.k))) + s.ph))), fade = 1 - (s.y / hY) ** 2;
@@ -184,7 +199,7 @@ export function renderSurface(w, wt, P, T, X0, Y0, bw, bh, cam = [0, 0], dims = 
 
   // ---- sun or moon: pinned to the sky
   const sunR = Math.max(1.5, (H * w.wSunSize) / 100), scx = (Wd * w.wSunX) / 100 - X0, scy = (H * w.wSunY) / 100 - Y0, sunC = hex(w.wSunCol);
-  if (w.wSun !== "none") {
+  if (w.wSun !== "none" && !front) {
     const R = sunR, Rc = Math.ceil(R + 3);
     for (let dy = -Rc; dy <= Rc; dy++) for (let dx = -Rc; dx <= Rc; dx++) {
       const x = Math.floor(scx + dx), y = Math.floor(scy + dy), d = Math.hypot(x + 0.5 - scx, y + 0.5 - scy);
@@ -205,7 +220,7 @@ export function renderSurface(w, wt, P, T, X0, Y0, bw, bh, cam = [0, 0], dims = 
   }
 
   // ---- birds: little wing strokes crossing the sky, a few a loop
-  if (w.wBirds > 0) {
+  if (w.wBirds > 0 && !front) {
     const dark = mix(skyTop, hex("#000000"), 0.55), sh = [-Math.round(cam[0] * 0.2 * par), -Math.round(cam[1] * 0.2 * par)]; // they fly on their own: only the camera moves them
     cycle(wt, P, whole(w.wBirds), S * 13 + 5, (g) => g.range(0.35, 0.55) * P, (age, life, g) => {
       const k = age / life, way = g.next() < 0.5 ? -1 : 1, y0 = g.range(H * 0.08, hY * 0.6), span = Wd + 40;
@@ -223,7 +238,7 @@ export function renderSurface(w, wt, P, T, X0, Y0, bw, bh, cam = [0, 0], dims = 
 
   // ---- clouds: two layers, the wind pushes them by whole tiles a loop
   const cloudC = hex(w.wCloudCol), wind = Math.round(w.wCloudWind || 0), morph = whole(w.wCloudMorph);
-  lay.clouds.forEach((list, L) => {
+  if (!front) lay.clouds.forEach((list, L) => {
     const sh = shift(L ? 0.12 : 0.06, wind);
     const top = L ? cloudC : hz(cloudC, 0.3), mid = mix(top, skyTop, L ? 0.18 : 0.12), low = mix(top, skyTop, L ? 0.36 : 0.26);
     for (const c of list) {
@@ -245,7 +260,7 @@ export function renderSurface(w, wt, P, T, X0, Y0, bw, bh, cam = [0, 0], dims = 
   });
 
   // ---- far mountains: ridged noise, a lit and a shaded side, snow on the peaks
-  if (w.wMount > 0) {
+  if (w.wMount > 0 && !front) {
     const sh = shift(0.12), mh = H * 0.24 * w.wMount, base = hz(hex(w.wMountCol), 0.35), litC = hz(mix(hex(w.wMountCol), WHITE, 0.2), 0.3), shade = hz(mix(hex(w.wMountCol), skyTop, 0.4), 0.35);
     const snow = hz(hex(w.wSnowCol), 0.15), snowSh = mix(snow, shade, 0.5), snowLine = hY - mh * (1 - clamp(w.wSnow, 0, 1)) * 0.95;
     const top = (lx) => hY - mh * clamp(0.18 + 0.82 * (fbm1(lx, T, T / 3, S + 500, 4, true) * 0.5 + 0.5)) + 2;
@@ -271,7 +286,7 @@ export function renderSurface(w, wt, P, T, X0, Y0, bw, bh, cam = [0, 0], dims = 
   }
 
   // ---- hills: soft rolling line, a lit rim, little trees on the crest
-  if (w.wHills > 0) {
+  if (w.wHills > 0 && !front) {
     const sh = shift(0.3), hh = H * 0.085 * w.wHills, base = hz(GR[2], 0.78), rim = hz(GR[3], 0.7), dark = hz(GR[1], 0.78);
     const top = (lx) => hY - hh * (0.25 + 0.75 * (fbm1(lx, T, T / 4, S + 600, 3) * 0.5 + 0.5)) + 1;
     for (let x = 0; x < bw; x++) {
@@ -291,7 +306,7 @@ export function renderSurface(w, wt, P, T, X0, Y0, bw, bh, cam = [0, 0], dims = 
   for (let b = 0; b < 3; b++) {
     const B = BANDS[b], sh = shift(B.depth);
     // the ground: rows of short lighter and darker strokes, a lit edge on top and tufts poking out of it
-    for (let x = 0; x < bw; x++) {
+    if (!front) for (let x = 0; x < bw; x++) {
       const lx = wrap(X0 + x - sh[0], T), t = bandTop(b, lx) + sh[1], ti = Math.round(t), li = Math.floor(lx);
       const tuft = h01(li, S, 200 + b) < 0.22 * tex ? 1 + Math.floor(h01(li, S, 210 + b) * (b + 1.6)) : 0;
       for (let y = Math.max(0, ti - tuft - Y0); y < bh; y++) {
@@ -308,7 +323,7 @@ export function renderSurface(w, wt, P, T, X0, Y0, bw, bh, cam = [0, 0], dims = 
       }
     }
     // the lake along the horizon
-    if (b === 0 && w.wLake > 0) {
+    if (b === 0 && w.wLake > 0 && !front) {
       const th = 1 - 2 * clamp(w.wLake, 0, 1);
       for (let x = 0; x < bw; x++) {
         const lx = wrap(X0 + x - sh[0], T), v = fbm1(lx, T, T / 3, S + 700, 2) * 1.6;
@@ -332,16 +347,18 @@ export function renderSurface(w, wt, P, T, X0, Y0, bw, bh, cam = [0, 0], dims = 
     for (const p of lay.trees) if (p.band === b) items.push({ k: 3, y: bandAt(b, p.x, p.f), o: p });
     items.sort((a, c) => (a.k ? a.y : -1e6 + a.y) - (c.k ? c.y : -1e6 + c.y)); // ponds lie flat, under the rest
     for (const it of items) {
-      const o = it.o, by = it.y + sh[1] - Y0;
+      // (standing up from the ground nearer to us than the one standing there: in front of them)
+      const o = it.o, by = it.y + sh[1] - Y0, ahead = it.k >= 1 && it.y + sh[1] > cut, part = !ahead ? "all" : front ? "body" : "shadow";
+      if (front && !ahead) continue;
       if (it.k === 0) copies(o.x, sh, o.r + 3, (cx) => pond(cx, by, o, B));
-      else if (it.k === 1) copies(o.x, sh, 2, (cx) => {
+      else if (it.k === 1) { if (part !== "shadow") copies(o.x, sh, 2, (cx) => {
         const x = Math.round(cx + (b === 2 ? windAt(o.x, o.ph) * sway * 0.8 : 0)), y = Math.round(by), c = o.b ? flB : flA;
         if (b === 0) { put(x, y, hz(c, 0.4)); return; }
         put(x, y + 1, B.dark); put(x, y, c);
         if (b === 2) { put(x - 1, y, mix(c, B.dark, 0.3)); put(x + 1, y, mix(c, B.dark, 0.3)); put(x, y - 1, mix(c, WHITE, 0.3)); put(x, y + 2, B.dark); }
-      });
-      else if (it.k === 2) copies(o.x, sh, o.s + 3, (cx) => rock(cx, by, o, b));
-      else copies(o.x, sh, o.h * 0.6 + 3, (cx) => tree(cx, by, o, b));
+      }); }
+      else if (it.k === 2) copies(o.x, sh, o.s + 3, (cx) => rock(cx, by, o, b, part));
+      else copies(o.x, sh, o.h * 0.6 + 3, (cx) => tree(cx, by, o, b, part));
     }
   }
 
@@ -360,7 +377,7 @@ export function renderSurface(w, wt, P, T, X0, Y0, bw, bh, cam = [0, 0], dims = 
   }
 
   // ---- a rock: one or two lumps, flat underneath, lit top-left, a crack, moss on top, a shadow on the grass
-  function rock(cx, by, o, b) {
+  function rock(cx, by, o, b, part = "all") {
     const g = rng(o.seed, 3), s = o.s, rx = s * 0.55, ry = s * 0.38, bx = g.range(-0.3, 0.3) * s, brx = rx * g.range(0.45, 0.7), bry = ry * g.range(0.6, 0.9);
     const rc = hz(hex(w.wRockCol), [0.45, 0.15, 0][b]), rl = mix(rc, WHITE, 0.3), rd = mix(rc, hex("#10141c"), 0.38), rdd = mix(rc, hex("#10141c"), 0.6), moss = BANDS[b].light;
     const inside = (px, py) => {
@@ -368,7 +385,8 @@ export function renderSurface(w, wt, P, T, X0, Y0, bw, bh, cam = [0, 0], dims = 
       const a = (px - cx) / rx, c = (py - (by - ry * 0.85)) / ry, e = (px - cx - bx) / brx, f = (py - (by - ry * 0.95 - bry * 0.6)) / bry;
       return a * a + c * c < 1 || e * e + f * f < 1;
     };
-    for (let x = Math.floor(cx - rx * 1.25); x <= Math.ceil(cx + rx * 1.25); x++) { const k = (x + 0.5 - cx) / (rx * 1.25); if (Math.abs(k) < 1) put(x, Math.floor(by), mix(get(x, Math.floor(by)), rdd, 0.55)); }
+    if (part !== "body") for (let x = Math.floor(cx - rx * 1.25); x <= Math.ceil(cx + rx * 1.25); x++) { const k = (x + 0.5 - cx) / (rx * 1.25); if (Math.abs(k) < 1) put(x, Math.floor(by), mix(get(x, Math.floor(by)), rdd, 0.55)); }
+    if (part === "shadow") return;
     const crack = g.range(-0.4, 0.4) * rx, mossOn = o.moss < w.wMoss;
     for (let y = Math.floor(by - ry * 2.2); y <= Math.ceil(by); y++) for (let x = Math.floor(cx - rx - 2); x <= Math.ceil(cx + rx + 2); x++) {
       const px = x + 0.5, py = y + 0.5;
@@ -382,13 +400,14 @@ export function renderSurface(w, wt, P, T, X0, Y0, bw, bh, cam = [0, 0], dims = 
   }
 
   // ---- a tree: a trunk and a round crown of leaf clumps, or a pine in three tiers; the crown sways in the gusts
-  function tree(cx, by, o, b) {
+  function tree(cx, by, o, b, part = "all") {
     const h = o.h, g = rng(o.seed, 5), k = [0.5, 0.18, 0][b];
     const leaf = [hz(hex(w.wLeafDark), k), hz(mix(hex(w.wLeafDark), hex(w.wLeafLight), 0.5), k), hz(hex(w.wLeafLight), k)], lDeep = mix(leaf[0], hex("#000000"), 0.3);
     const tr = hz(hex(w.wTrunk), k), trL = mix(tr, WHITE, 0.2), trD = mix(tr, hex("#000000"), 0.35);
     const sw = (py) => windAt(o.x, o.ph) * sway * h * 0.035 * clamp((by - py) / h);
     // its shadow on the grass
-    for (let x = Math.floor(cx - h * 0.28); x <= Math.ceil(cx + h * 0.28); x++) { const yy = Math.floor(by); put(x, yy, mix(get(x, yy), lDeep, 0.5)); }
+    if (part !== "body") for (let x = Math.floor(cx - h * 0.28); x <= Math.ceil(cx + h * 0.28); x++) { const yy = Math.floor(by); put(x, yy, mix(get(x, yy), lDeep, 0.5)); }
+    if (part === "shadow") return;
     const tw = Math.max(1, Math.round(h * 0.07)), th = h * (o.pine ? 0.22 : 0.48);
     for (let y = Math.floor(by - th); y < Math.ceil(by); y++) for (let i = 0; i < tw; i++) put(Math.round(cx - tw / 2) + i, y, tw > 1 && i === 0 ? trL : i === tw - 1 && tw > 2 ? trD : tr);
     let inside, front, clumps;
@@ -429,7 +448,7 @@ export function renderSurface(w, wt, P, T, X0, Y0, bw, bh, cam = [0, 0], dims = 
   }
 
   // ---- tall grass in front, bending with the gusts
-  if (w.wBlades > 0 && w.wGrassH > 0) {
+  if (w.wBlades > 0 && w.wGrassH > 0 && (front || !split)) {
     const sh = shift(1.35), hb = (H * w.wGrassH) / 100, dens = clamp(w.wBlades, 0, 2);
     for (let x = -4; x < bw + 4; x++) {
       const lx = wrap(X0 + x - sh[0], T), li = Math.floor(lx), r = h01(li, S, 400);
@@ -444,7 +463,7 @@ export function renderSurface(w, wt, P, T, X0, Y0, bw, bh, cam = [0, 0], dims = 
   }
 
   // ---- floating motes: pollen by day, fireflies by night
-  if (lay.motes.length) {
+  if (lay.motes.length && !front) {
     const sh = shift(0.9), mc = hex(w.wMoteCol);
     for (const m of lay.motes) {
       const mx = m.x + m.ax * Math.sin(TAU * (u * m.kx + m.ph)), my = m.y + m.ay * Math.sin(TAU * (u * m.ky + m.ph2)), v = 0.55 + 0.45 * Math.sin(TAU * (u * m.kb * 2 + m.ph));

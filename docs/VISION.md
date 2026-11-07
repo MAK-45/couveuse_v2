@@ -90,6 +90,14 @@ roue ou une toupie, tomber et rebondir, voler d’un portail à l’autre, faire
 nager, slalomer ou collecter des étoiles en volant). Le repos devient la « Forme en boucle » : les GIF s’enchaînent toujours
 (blob né → transformation → animations de la forme… → retour au blob).
 
+**Marcher et courir.** Dans Action monde, la forme humaine au sol marche et court, vue de profil, avec un mouvement réaliste
+(talon, plante, pointe ; genoux qui amortissent ; bras qui balancent à l’opposé des jambes ; buste penché ; cheveux qui suivent ;
+phase de vol en course), en boucle libre ; le sol défile sous ses pieds exactement à la vitesse de ses pas (le pied posé ne glisse
+jamais), la vitesse est en km/h (arrondie pour que la boucle soit parfaite), et ses pas laissent des empreintes de lumière. Sur une
+**surface de planète**, elle marche sur le sol de la planète : pas de sol de glace, et ce qui est plus près de nous que ses pieds
+(arbres, rochers, hautes herbes) passe devant elle ; dans l’espace, elle garde son sol de glace, qui défile avec ses pas. Le blob né
+et la forme en lévitation ne marchent pas (pas de jambes, ou pas de sol sous les pieds) : grisé, avec la raison.
+
 **Règle pour la suite : chaque nouvelle animation est faite pour chaque transformation** (blob né, forme humaine en
 lévitation, forme humaine au sol, et toute forme ajoutée plus tard), adaptée à chacune ; si elle n’a vraiment pas de sens
 dans une forme, elle y est désactivée et l’interface dit pourquoi. Et chaque nouvelle forme joue toutes les animations

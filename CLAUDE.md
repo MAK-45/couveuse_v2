@@ -76,7 +76,13 @@ After any change to an effect or to `app/`, run `npm run build && npm test`.
   - `pixelfx/src/fx/creature/ice-blob-clock.js` — tab **Heure** (shows the time)
   - `pixelfx/src/fx/creature/ice-blob-electric.js` — tab **Électricité** (8 electric animations, rest → electricity → rest like actions; own colours `elCore`/`elColor`/`elGlow`)
   - `pixelfx/src/fx/creature/ice-blob-portal.js` — tab **Portail** (the blob opens a portal onto a world: `open` from rest, `live` portal open, `close` back to rest; `cross` from `live` through the portal, with its mirror image, out of a mirrored portal into `beyond` = its rest in the other world; then `reopen` (a portal home, our void inside) → `beyondOpen` (loop) → `return` back through to the Blob né's rest, or to `live` with `returnKeep`; 3 open + 3 close styles, 5 shapes)
-  - `pixelfx/src/fx/creature/ice-blob-explore.js` — tab **Action monde** (the blob explores a world, free endless loop: `move` = it stays on its spot while the world scrolls past (`worldFor()`, wDrift from `exSpeed`, `wAllMove`), one speed drives the world and the blob's deformation (`pace()`: surges warp the world's clock by a sine that integrates to zero over the loop); 5 speed styles `comet`/`stretch`/`ghosts`/`shock`/`flame`; also `look` (still world, camera glides on a figure of eight, stars bloom for it to stare at), `swim` (strokes: the world's clock warped by two zero-mean harmonics), `turns` (slalom: the camera sways across its way, `trFollow` shares the swing with the blob, trail as the world carried it) and `collect` (stars come with the world, it darts across and gulps them); shared helpers `travel`/`dropMods`/`speedLines`/`shedSparks`; keys start with `ex`, `lk`, `sw`, `tr`, `cl`)
+  - `pixelfx/src/fx/creature/ice-blob-explore.js` — tab **Action monde** (the blob explores a world, free endless loop: `move` = it stays on its spot while the world scrolls past (`worldFor()`, wDrift from `exSpeed`, `wAllMove`), one speed drives the world and the blob's deformation (`pace()`: surges warp the world's clock by a sine that integrates to zero over the loop); 5 speed styles `comet`/`stretch`/`ghosts`/`shock`/`flame`; also `look` (still world, camera glides on a figure of eight, stars bloom for it to stare at), `swim` (strokes: the world's clock warped by two zero-mean harmonics), `turns` (slalom: the camera sways across its way, `trFollow` shares the swing with the blob, trail as the world carried it) and `collect` (stars come with the world, it darts across and gulps them); shared helpers `travel`/`dropMods`/`speedLines`/`shedSparks`; keys start with `ex`, `lk`, `sw`, `tr`, `cl`.
+    `walk` and `run` (only the human form on its legs: `FORM_FIT.blob` / `.human` say why): `gaitAct()` asks the figure for a gait
+    (`m.gait`, see the transform module) and moves the world at exactly the speed of its steps: `gaitPlan()` gives whole tiles of the
+    ground a loop and whole strides a loop, the speed asked in km/h (`gaWalk`/`gaRun`, its legs a person's) rounded to fit;
+    `groundDepth()` picks the meadow under its feet so that layer goes by at the stride's speed (`wDrift = tiles / depth`, `wAllMove: 0`);
+    keys start with `ga`. On its legs on a planet's surface there is no floor of ice (`bodyOf` sets `grNoFloor`) and what stands
+    nearer to us than its feet passes in front of it (`cutOf`, `exFront`: `paintWorld` with a `split`))
   - `pixelfx/src/fx/creature/ice-blob-transform.js` — tab **Transformation** (the blob changes shape; `form: "human"`,
     a levitating human figure of the same ice-light, or `form: "grounded"`, the same figure on its legs on a floor of ice with
     gravity: it takes shape in the air (the change over c ∈ [0, 0.56], `formOf()`), the floor spreads, it falls for as long as
@@ -90,12 +96,22 @@ After any change to an effect or to `app/`, run `npm run build && npm test`.
     `chore(o, c, style)` gives the change at c (0 blob .. 1 new form), exactly neutral at both ends; the figure's clock is
     `t - T` in `transform`; reuses the idle's eyes, sparks and drops via `drawEyes`/`drawSparks`/`drawDrips`; keys start with `tf`, `rv`, `hu`.
     It is also the **form engine** of every other tab: `bodyBack`/`bodyFront`/`bodyAmbient` draw the creature in `o.form`
-    (`build(o, t, ext)` with c = 1 and the tab's modifiers), `figClock`, `walking()` for the legs, `FORM_DEFAULTS`, `formExtent`, `formCentre`, `formMask`, `floorFor`)
+    (`build(o, t, ext)` with c = 1 and the tab's modifiers), `figClock`, `walking()` for the legs, `FORM_DEFAULTS`, `formExtent`, `formCentre`, `formMask`, `floorFor`.
+    **Walking and running** (`m.gait = { kind, ph, cyc, S, v, rate, N, dir, ...settings }`, from Action monde): `strider()` turns the
+    figure side on; `gaitK()` holds a person's gait at v m/s (stance share, knee bend curve over the stance, foot pitch at contact
+    and toe-off, swing lift, lean, arm swing); `gaitSolve()` (cached) rolls the foot (heel round, flat, ball round where the toes
+    bend) back at the stride's speed and works out where it lands so the hips ride smoothly from leg to leg; `gaitPose()` solves the
+    legs (two bones from the hips, the knee forward), the swinging foot on a Hermite path between toe-off and landing, the ankle
+    lifting the toes clear of the ground. Near leg in the body field, near arm in front (`As`), far arm and leg behind and darker
+    (`Fs`, `limbs()`), three-quarter eyes; `gaitFx()` lays prints of light carried back by the ground; the ice floor's glints go by
+    with it; `grNoFloor` (a planet's ground) keeps only its light on the ground)
   - `pixelfx/src/fx/creature/ice-worlds.js` — tab **Mondes** (backdrops seen only through portals; `renderWorld()` draws a window of a world in depth layers with a camera; type `space` for now; two states, `wState` "still" (lives in place) or "moving" (travels at `wDrift`); every world key starts with `w`)
   - `pixelfx/src/fx/creature/ice-surface.js` — tab **Surface planète** (planet surfaces seen from the ground; type `plain` for now:
     banded sky, sun/moon, clouds, ridged mountains with snow, hills, three meadows at depths 0.45/0.7/1 with lake, ponds, trees,
     rocks, flowers, tall grass at 1.35 in front, motes, birds; `renderSurface()` has the same shape as `renderWorld()`, which
-    dispatches to it for surface types; only sideways travel; sizes in % of the scene's height; every hash reads `wrap(lx, T)`)
+    dispatches to it for surface types; only sideways travel; sizes in % of the scene's height; every hash reads `wrap(lx, T)`;
+    `groundDepthAt()` the meadow at a row; `split` = someone standing at a row: part "back" leaves out what stands up nearer to
+    us (trees, rocks, flowers, tall grass; only their shadows), part "front" draws only that, on transparency)
   - `ice-spirit-birth.js` is the first, abandoned birth version; ignore it.
 - `app/main.js` the whole UI (state, controls, render pipeline, GIF encoder, export). `app/index.template.html` HTML + CSS.
   `app/entry.js` lists what the page imports from pixelfx (global `PFX`). `app/build.mjs` inlines it all.
@@ -120,7 +136,9 @@ Read the relevant doc before a non-trivial change; don't load every file.
    where `beyond` starts. A still world never translates; only a moving one scrolls. The world is pinned to the scene (`o.room`).
 6. GIFs get **one palette per frame** computed from that frame only: identical frames encode identically, so
    chained GIFs join exactly. Don't go back to a global palette.
-7. In a **new form** "rest" is the Transformation's `live` loop: a tab passes its length `T` to `bodyBack`/`bodyFront`, and
+7. Walking/running: whole strides a loop and whole tiles of the ground under its feet a loop (`gaitPlan()`), the stance foot
+   going back at exactly that speed; prints and sparks are aged in strides since each landing.
+8. In a **new form** "rest" is the Transformation's `live` loop: a tab passes its length `T` to `bodyBack`/`bodyFront`, and
    `figClock` nudges the figure's own clock (period `liveLoops · D`) mid-way so it lands back on that loop at the end, slope 1
    near both ends (drops). Every form modifier is applied as `x * 1` / `x + 0` at rest, so at rest a tab draws exactly the
    `live` frame; never compute the rest pose another way.
@@ -154,8 +172,10 @@ If `npm test` reports a FAIL, fix the effect — never loosen the test.
   knees, `rot` = a lean over its hips (a flip in the air), `grow` round the floor under it. A tab sets `dy: 0` where the blob
   only floats up (aura, magic...). Extra modifiers for figures (ignored by the blob): `armUp`, `armOpen`, `hold` (0..1),
   `reach: [x, y]` + `reachK` (one arm points at a local point), `legs`/`arms` (pose override, e.g. "lotus"/"down"), `seat`
-  (on its legs: sits cross-legged on its floor). Electricity's `settle()` passes them through `NEUTRAL`.
-- What a form can't do: each module exports `FORM_FIT = { grounded: { name: "raison en français" } }` and `fitsForm(o)`;
+  (on its legs: sits cross-legged on its floor), `gait` (on its legs: walks or runs side on, on the spot; Action monde).
+  Electricity's `settle()` passes them through `NEUTRAL`.
+- What a form can't do: each module exports `FORM_FIT = { grounded: { name: "raison en français" } }` (also `blob`, `human`
+  for what only the figure on its legs can do, like walking) and `fitsForm(o)`;
   the effect then just rests, the UI greys the button and lists the reasons.
 - Seam tests: the "in a new form" block of `tests/seams.mjs` checks every tab in both forms against `live`'s frames.
 - UI: the form is `S.shared.bodyForm` ("blob", "human", "grounded"), picked in each `FORM_TABS` tab's « Forme » group

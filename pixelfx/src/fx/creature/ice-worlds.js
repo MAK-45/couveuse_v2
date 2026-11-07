@@ -11,7 +11,7 @@
 // tiles of the world, the nebula's warp turns round a circle of time, twinkles and shooting stars run whole
 // cycles. The world is anchored to the scene (o.room), not to the blob, so it stays put when the blob moves.
 import { clamp, mix, hex, red, green, blue, rng, cycle, hash, TAU, WHITE } from "../../core/index.js";
-import { renderSurface, SURFACE_DEFAULTS, SURFACE_TYPES, PLAIN } from "./ice-surface.js";
+import { renderSurface, groundDepthAt, SURFACE_DEFAULTS, SURFACE_TYPES, PLAIN } from "./ice-surface.js";
 
 // space worlds (tab Mondes) and planet surfaces (tab Surface planète, drawn by ice-surface.js)
 export const WORLD_TYPES = ["space", ...SURFACE_TYPES];
@@ -48,6 +48,10 @@ export const meta = {
 
 /** A world's settings, filled in from its type's defaults. */
 export const worldOf = (w) => ({ ...(DEFAULTS[(w && w.wType) || "space"] || SPACE), ...(w || {}) });
+/** A planet's surface (seen from its ground, which the creature can stand on), not space. */
+export const isSurface = (w) => !!(w && SURFACE_DEFAULTS[w.wType]);
+/** The depth of the ground a walker stands on at row y of a scene H rows high (1 in space: its own floor goes by with the near stars). */
+export const groundDepth = (w, y, H) => (isSurface(w) ? groundDepthAt(worldOf(w), y, H) : 1);
 /** How long a world takes to loop: a whole number of the blob's loops. */
 export const worldPeriod = (D, w) => D * Math.max(1, Math.round(w.wLoops || 1));
 /** The side of the square tile every layer wraps on: the scene's longer side, so it never repeats on screen. */
@@ -103,9 +107,11 @@ function along(stops, f) {
  * dims is the scene's size in cells (a surface needs it to place its horizon and sun).
  * Returns { col: Uint32Array of opaque colours, lit: Float32Array of added light (r, g, b per cell) }.
  */
-export function renderWorld(w0, wt, P, T, X0, Y0, bw, bh, cam = [0, 0], dims) {
-  if (w0 && SURFACE_DEFAULTS[w0.wType]) return renderSurface(worldOf(w0), wt, P, T, X0, Y0, bw, bh, cam, dims);
+export function renderWorld(w0, wt, P, T, X0, Y0, bw, bh, cam = [0, 0], dims, split = null) {
+  if (w0 && SURFACE_DEFAULTS[w0.wType]) return renderSurface(worldOf(w0), wt, P, T, X0, Y0, bw, bh, cam, dims, split);
   const w = worldOf(w0), n = bw * bh, col = new Uint32Array(n), lit = new Float32Array(n * 3);
+  // (space has nothing standing in front of anyone)
+  if (split && split.part === "front") return { col, lit };
   const u = (((wt / P) % 1) + 1) % 1, sky = hex(w.wSky), dir = DIRS[w.wDir] || DIRS.none, par = Math.max(0, w.wParallax);
   col.fill(sky);
   // a layer's shift on screen: whole tiles of voyage a loop (more for the nearer layers), plus the camera
@@ -229,13 +235,18 @@ export function renderWorld(w0, wt, P, T, X0, Y0, bw, bh, cam = [0, 0], dims) {
 
 // ---- the world on its own, filling the scene (tab Mondes)
 const roomOf = (o) => (Array.isArray(o.room) ? o.room : [-meta.origin[0], -meta.origin[1], meta.size[0] - meta.origin[0], meta.size[1] - meta.origin[1]]);
-/** Paint a world over the whole scene (room, local pixels), its view shifted by view (scene cells). */
-export function paintWorld(p, w, wt, P, room, view = [0, 0]) {
-  const bw = Math.ceil(room[2] - room[0]), bh = Math.ceil(room[3] - room[1]);
-  const { col, lit } = renderWorld(w, wt, P, worldTile(room), Math.round(view[0]), Math.round(view[1]), bw, bh, [w.wCamX || 0, w.wCamY || 0], [bw, bh]);
+/**
+ * Paint a world over the whole scene (room, local pixels), its view shifted by view (scene cells). split: someone
+ * stands on the ground at local y split.y: part "back" paints it all but what stands nearer to us than them, part
+ * "front" only that (on top of them, nothing elsewhere).
+ */
+export function paintWorld(p, w, wt, P, room, view = [0, 0], split = null) {
+  const bw = Math.ceil(room[2] - room[0]), bh = Math.ceil(room[3] - room[1]), sp = split ? { part: split.part, y: split.y - room[1] + Math.round(view[1]) } : null, front = !!sp && sp.part === "front";
+  const { col, lit } = renderWorld(w, wt, P, worldTile(room), Math.round(view[0]), Math.round(view[1]), bw, bh, [w.wCamX || 0, w.wCamY || 0], [bw, bh], sp);
   for (let y = 0; y < bh; y++)
     for (let x = 0; x < bw; x++) {
       const i = y * bw + x, lx = room[0] + x + 0.5, ly = room[1] + y + 0.5;
+      if (front && !col[i]) continue;
       p.px(lx, ly, col[i] || 0xff000000);
       const j = i * 3;
       if (lit[j] + lit[j + 1] + lit[j + 2] > 1) p.light(lx, ly, (255 << 24) | (Math.min(255, lit[j + 2]) << 16) | (Math.min(255, lit[j + 1]) << 8) | Math.min(255, lit[j]), 1);

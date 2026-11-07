@@ -9,21 +9,33 @@
 // turns (it slaloms through the world, the camera swaying with it, banking into each bend, a curved trail of light)
 // and collect (stars come at it with the world, it darts to each one and swallows it in a burst of light).
 //
+// On its legs (the transformation's human form on the ground) it can also walk and run: side on, it walks or runs on the
+// spot while the world goes by under its feet at exactly the speed of its steps (the foot on the ground stays planted on
+// the meadow it stands on, or on its floor of ice in space); on a planet's surface it has no floor of ice: the ground is there.
+//
 // A free endless loop (like the Boucles tab): it starts where the blob rests but needn't come back to the Blob né's
 // frame. It loops over a whole number of the blob's loops (P): the world scrolls whole tiles a loop (ice-worlds.js),
 // the speed surges a whole number of times a loop (the world's clock is warped by a sine that integrates to zero over
 // the loop, so the distance stays whole tiles), every ripple runs whole turns and every particle is on cycle(t, P).
 import { fit, clamp, lerp, ease, tileNoise, tileFbm, rng, cycle, TAU, WHITE, hex } from "../../core/index.js";
 import { meta as idleMeta, state, shapeOf } from "./ice-blob-idle.js";
-import { bodyBack, bodyFront, bodyAmbient, isForm, formMask } from "./ice-blob-transform.js";
+import { bodyBack, bodyFront, bodyAmbient, isForm, formMask, gaitPlan, floorFor } from "./ice-blob-transform.js";
 import { hsl, fromHsl } from "./ice-blob-actions.js";
-import { worldOf, worldTile, paintWorld } from "./ice-worlds.js";
+import { worldOf, worldTile, paintWorld, isSurface, groundDepth } from "./ice-worlds.js";
 
-export const EXPLORE = ["move", "look", "swim", "turns", "collect"];
+export const EXPLORE = ["move", "look", "swim", "turns", "collect", "walk", "run"];
 /** What a new form can't do, and why (the page shows it; the effect then just rests). In its levitating human form it
  * flies as the blob does (stretched a little, a comet's tail of light, arms reaching ahead); on its legs it can only
  * stand on its floor and look round the world. */
 export const FORM_FIT = {
+  blob: {
+    walk: "Il marche sur ses jambes : le blob né n’en a pas. Choisis la forme humaine au sol.",
+    run: "Il court sur ses jambes : le blob né n’en a pas. Choisis la forme humaine au sol.",
+  },
+  human: {
+    walk: "En lévitation, ses pieds ne touchent pas le sol : il ne peut pas marcher. Choisis la forme humaine au sol.",
+    run: "En lévitation, ses pieds ne touchent pas le sol : il ne peut pas courir. Choisis la forme humaine au sol.",
+  },
   grounded: {
     move: "Il file à travers le monde en volant : sur ses jambes, avec la gravité, il ne peut pas voler.",
     swim: "Il nage dans le vide du monde : au sol, la gravité le retient.",
@@ -68,6 +80,11 @@ export const meta = {
     trTurns: 2, trAmp: 45, trDepth: 0.15, trBank: 1, trTrail: 1, trFollow: 0.5,
     // collect: stars a loop, how far to the side they come, their size, hue, the gulp, the burst
     clCount: 4, clSpread: 40, clSize: 8, clHue: 200, clGulp: 1, clBurst: 1,
+    // walk and run (on its legs): speed (km/h, its legs a person's), its way, its strides (x a person's), the arms' swing,
+    // the lean, the knees giving (bounce), the heels kicked up, the knees driven forward, the hair, prints, sparks
+    gaWalk: 5, gaRun: 12, gaDir: "right", gaStride: 1, gaArms: 1, gaLean: 1, gaBounce: 1, gaHeel: 1, gaKnee: 1, gaHair: 1, gaPrints: 1, gaSparks: 1,
+    // on its legs on a planet's surface: what stands nearer to us than its feet (trees, rocks, flowers, tall grass) passes in front of it
+    exFront: 1,
   },
 };
 
@@ -597,6 +614,34 @@ X.collect = (o) => {
   };
 };
 
+// ---- walking and running (the human form on its legs): side on, it walks or runs on the spot while the world goes by
+// under its feet at exactly the speed of its steps, so the foot on the ground stays planted on it: on a planet's surface the
+// meadow it stands on (whichever of the three it is), in space its own floor of ice (with the near stars). Whole tiles of
+// that ground a loop and whole strides a loop: the speed and the cadence are the nearest to the ones asked for that loop
+const gaitAct = (kind) => (o) => {
+  const P = total(o), room = roomOf(o), T = worldTile(room), L = whole(o.loops, 1), dir = o.gaDir === "left" ? -1 : 1, w = worldOf(o.world);
+  const FY = floorFor(o) ?? 0, depth = groundDepth(w, FY - room[1], room[3] - room[1]);
+  const plan = gaitPlan(o, kind, P, T, kind === "run" ? o.gaRun : o.gaWalk, o.gaStride), ph0 = 0.1;
+  const gait = (t) => {
+    const c = (plan.N * t) / P + ph0;
+    return { kind, ph: c - Math.floor(c), cyc: c, S: plan.S, v: plan.v, rate: plan.rate, N: plan.N, dir, arms: o.gaArms, lean: o.gaLean,
+      bounce: o.gaBounce, heel: o.gaHeel, knee: o.gaKnee, hair: o.gaHair, prints: o.gaPrints, sparks: o.gaSparks };
+  };
+  return {
+    plan,
+    mods: (t) => ({ gait: gait(t), quiet: 1 }),
+    calm: true,
+    // (far layers go by at whole tiles a loop too: those too far to make one stay where they are)
+    world: (t) => ({ w: { ...w, wLoops: L, wState: "moving", wDrift: plan.tiles / depth, wDir: dir > 0 ? "left" : "right", wAllMove: 0 }, wt: t }),
+    back() {},
+    front() {},
+  };
+};
+X.walk = gaitAct("walk");
+X.run = gaitAct("run");
+/** Walking or running: how fast it really goes and its strides, for the page (null for the other actions). */
+export const gaitOf = (o) => (o.explore === "walk" || o.explore === "run") && fitsForm(o) ? actOf(o).plan : null;
+
 const cache = new WeakMap();
 // an action its form can't do: it just rests in that form, the world still round it
 const REST = (o) => ({ mods: () => ({}), calm: true, world: (t) => ({ w: { ...worldOf(o.world), wLoops: whole(o.loops, 1), wState: "still" }, wt: t }), back() {}, front() {} });
@@ -605,13 +650,17 @@ const actOf = (o) => {
   if (!x) { x = fitsForm(o) ? (X[o.explore] || X.move)(o) : REST(o); cache.set(o, x); }
   return x;
 };
-// the blob's own look, its light on the ground only if asked
-const BODY = new WeakMap(), bodyOf = (o) => { let b = BODY.get(o); if (!b) { b = { ...o, ground: o.ground * clamp(o.exGround, 0, 2) }; BODY.set(o, b); } return b; };
+// the blob's own look, its light on the ground only if asked; on a planet's surface, on its legs, it stands on the
+// ground itself: no floor of ice under its feet
+const BODY = new WeakMap(), bodyOf = (o) => { let b = BODY.get(o); if (!b) { b = { ...o, ground: o.ground * clamp(o.exGround, 0, 2), grNoFloor: isSurface(o.world) ? 1 : 0 }; BODY.set(o, b); } return b; };
 
+// on its legs on a planet's surface it stands at a depth of the meadows: what stands up nearer to us than its feet
+// passes in front of it (painted after it), the rest of the world behind it
+const cutOf = (o) => (o.form === "grounded" && isSurface(o.world) && +o.exFront !== 0 ? floorFor(o) : null);
 export function drawBack(p, t, o) {
-  const C = fit(o.palette, 8), Cf = shifted(C, o.exHue || 0), act = actOf(o), ob = bodyOf(o), M = (tt) => act.mods(tt), P = total(o);
+  const C = fit(o.palette, 8), Cf = shifted(C, o.exHue || 0), act = actOf(o), ob = bodyOf(o), M = (tt) => act.mods(tt), P = total(o), cut = cutOf(o);
   const { w, wt } = act.world(t);
-  paintWorld(p, w, ((wt % P) + P) % P, P, roomOf(o));
+  paintWorld(p, w, ((wt % P) + P) % P, P, roomOf(o), [0, 0], cut === null ? null : { part: "back", y: cut });
   const st = state(ob, t, M);
   act.back(p, C, Cf, t, st, M);
   bodyBack(p, t, ob, M, C, P);
@@ -619,8 +668,9 @@ export function drawBack(p, t, o) {
 }
 
 export function draw(p, t, o) {
-  const C = fit(o.palette, 8), Cf = shifted(C, o.exHue || 0), act = actOf(o), ob = bodyOf(o), M = (tt) => act.mods(tt);
-  const st = bodyFront(p, t, ob, M, C, total(o));
+  const C = fit(o.palette, 8), Cf = shifted(C, o.exHue || 0), act = actOf(o), ob = bodyOf(o), M = (tt) => act.mods(tt), P = total(o), cut = cutOf(o);
+  const st = bodyFront(p, t, ob, M, C, P);
   if (act.calm) bodyAmbient(p, t, ob, true, C);
+  if (cut !== null) { const { w, wt } = act.world(t); paintWorld(p, w, ((wt % P) + P) % P, P, roomOf(o), [0, 0], { part: "front", y: cut }); }
   act.front(p, C, Cf, t, st, M);
 }

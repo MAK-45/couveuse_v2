@@ -146,6 +146,29 @@ for (const [name, more] of elecCases) {
   }
 }
 
+// walking and running (the human form on its legs, tab Action monde): free loops, the ground going by at the speed of its
+// steps; on a planet's surface (no floor of ice: the meadow under its feet, whichever it is) or in space (its floor of ice,
+// glints and prints going by); both ways, slow and fast, long strides, every setting pushed; looking round on a plain
+{
+  const room = [-160, -115, 160, 85], G = { form: "grounded", room };
+  const cases = [[{ explore: "walk" }, "walk space"], [{ explore: "run" }, "run space"], [{ explore: "walk", world: { wType: "plain" } }, "walk plain"],
+    [{ explore: "run", world: { wType: "plain" }, gaDir: "left", loops: 3 }, "run plain left"],
+    [{ explore: "walk", world: { wType: "plain", wHorizon: 70, wCamY: 20 }, gaWalk: 2.5, gaStride: 1.35, gaDir: "left", loops: 4 }, "walk plain slow"],
+    [{ explore: "walk", world: { wType: "plain", wHorizon: 75 }, gaWalk: 7, gaArms: 2, gaLean: 3, gaHair: 2.5, gaPrints: 2, loops: 1 }, "walk mid meadow"],
+    [{ explore: "run", gaRun: 24, gaBounce: 2, gaHeel: 2, gaKnee: 2.5, gaArms: 2, gaLean: 2, gaPrints: 2, gaSparks: 2.5, gaStride: 0.75 }, "sprint"],
+    [{ explore: "run", world: { wType: "plain", wSun: "moon", wStars: 80 }, gaRun: 7, gaBounce: 0, gaHeel: 0, gaKnee: 0, gaArms: 0, gaLean: 0, gaPrints: 0, gaSparks: 0, huHairStrands: 0 }, "jog all off"],
+    [{ explore: "look", world: { wType: "plain" } }, "look plain"], [{ explore: "walk", world: { wType: "plain" }, exFront: 0 }, "walk plain all behind"]];
+  for (const [more, tag] of cases) {
+    const o = { ...explore.meta.options, ...G, ...more }, T = o.duration * o.loops;
+    report(`gait ${tag}`, diff(render(explore, o, 0), render(explore, o, T)), diff(render(explore, o, T / 3 - 1 / 30), render(explore, o, T + T / 3 - 1 / 30)));
+  }
+  // through a portal onto a planet's surface: there it stands on the ground (no floor of ice), and the crossing chains
+  const pl = { ...portal.meta.options, ...G, world: { ...worlds.PLAIN }, mode: "live" }, Pp = portal.total(pl), Mp = Math.round(Pp / D) * Ni;
+  const by = { ...pl, mode: "beyond" }, cr = { ...pl, mode: "cross", loops: 3 }, T3 = D * 3, N3 = Ni * 3;
+  report("portal cross ground plain", diff(render(portal, cr, 0), render(portal, pl, 0)), diff(render(portal, cr, (N3 - 1) * T3 / N3), render(portal, by, (Mp - 1) * Pp / Mp)));
+  report("portal beyond ground plain", diff(render(portal, by, 0), render(portal, by, Pp)), 0);
+}
+
 // the transformation: rest -> transform -> the new form's loop -> revert -> rest, every style, pose and timing
 {
   const cases = [[{}, 2, ""], [{ huLegs: "legs", huArms: "open", huHairStrands: 7 }, 2, " legs open"], [{ huLegs: "lotus", huArms: "down", liveLoops: 1 }, 3, " lotus"],

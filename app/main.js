@@ -786,7 +786,10 @@ function portalRect() {
 ANIMS.explore = { name: "Action monde", fx: PFX.explore, file: "action-monde", id: "creature/ice-blob-explore", mode: "scene", groups: null };
 const EXPLORE_LIST = [["move", "Mouvement", "il file à travers le monde"], ["look", "Regarder autour", "émerveillé, il découvre le monde"],
   ["swim", "Nager", "il ondule par poussées, comme un poisson"], ["turns", "Vol en virages", "il slalome, penché dans les virages"],
-  ["collect", "Collecter des étoiles", "il fonce sur les étoiles et les avale"]];
+  ["collect", "Collecter des étoiles", "il fonce sur les étoiles et les avale"],
+  ["walk", "Marcher", "sur ses jambes, le sol suit ses pas"], ["run", "Courir", "foulées, bras pliés, en vol entre deux pas"]];
+// walking and running: only to the left or the right (the ground goes by under its feet)
+const GAIT_DIRS = [["right", "Vers la droite"], ["left", "Vers la gauche"]];
 // each action's own settings
 const EXPLORE_PARAMS = {
   move: [],
@@ -800,23 +803,33 @@ const EXPLORE_PARAMS = {
     ["trBank", "S’incline dans les virages", 0, 2.5, 0.05, ""], ["trTrail", "Traînée de lumière", 0, 2.5, 0.05, ""], ["trFollow", "Bouge à l’écran (sinon la caméra le suit)", 0, 1, 0.01, ""]],
   collect: [["clCount", "Étoiles par boucle", 1, 10, 1, ""], ["clSpread", "Écart sur les côtés", 0, 100, 1, " px"], ["clSize", "Taille des étoiles", 3, 16, 0.5, " px"],
     ["clHue", "Teinte des étoiles", 0, 360, 1, "°"], ["clGulp", "Il gonfle en les avalant", 0, 2.5, 0.05, ""], ["clBurst", "Éclat de lumière", 0, 2.5, 0.05, ""]],
+  walk: [["gaWalk", "Vitesse de marche", 1.5, 7.5, 0.1, " km/h"], ["gaDir", "Il marche", { select: GAIT_DIRS }], ["gaStride", "Longueur des pas", 0.7, 1.4, 0.01, "×"],
+    ["gaArms", "Balancement des bras", 0, 2.5, 0.05, ""], ["gaLean", "Se penche en avant", 0, 3, 0.05, ""], ["gaHair", "Les cheveux suivent ses pas", 0, 2.5, 0.05, ""],
+    ["gaPrints", "Empreintes de lumière sur le sol", 0, 2, 0.05, ""]],
+  run: [["gaRun", "Vitesse de course", 6, 30, 0.5, " km/h"], ["gaDir", "Il court", { select: GAIT_DIRS }], ["gaStride", "Longueur des foulées", 0.7, 1.4, 0.01, "×"],
+    ["gaBounce", "Les genoux amortissent (rebond)", 0, 2, 0.05, ""], ["gaHeel", "Les talons remontent", 0, 2, 0.05, ""], ["gaKnee", "Les genoux montent", 0, 2.5, 0.05, ""],
+    ["gaArms", "Balancement des bras", 0, 2.5, 0.05, ""], ["gaLean", "Se penche en avant", 0, 3, 0.05, ""], ["gaHair", "Les cheveux suivent ses foulées", 0, 2.5, 0.05, ""],
+    ["gaPrints", "Empreintes de lumière sur le sol", 0, 2, 0.05, ""], ["gaSparks", "Éclats de lumière à chaque foulée", 0, 2.5, 0.05, ""]],
 };
 const EXPLORE_STYLES = [["comet", "Étoile filante", "il se change en lumière"], ["stretch", "Étirement", "une goutte fendue par le vent"],
   ["ghosts", "Rémanences", "des images de lui restent derrière"], ["shock", "Onde de choc", "un arc de lumière devant lui"], ["flame", "Flammes de glace", "un feu froid qui s’échappe"]];
 const exploreDef = () => {
   const d = Object.fromEntries(Object.entries(PFX.explore.meta.options).filter(([k]) => !(k in PFX.blob.meta.options) && !["world", "room", "loops", "form"].includes(k)));
-  return { ...d, exWorld: 1, ...Object.fromEntries(EXPLORE_LIST.map(([id]) => ["loops_" + id, 2])) };
+  // (walking: a longer loop, so the far meadows, the hills and the near grass each go by at their own speed)
+  return { ...d, exWorld: 1, ...Object.fromEntries(EXPLORE_LIST.map(([id]) => ["loops_" + id, id === "walk" ? 4 : 2])) };
 };
 const EXPLORE_KEYS = new Set(Object.keys(exploreDef()));
 const EXPLORE_DIRS = [["right", "Vers la droite"], ["left", "Vers la gauche"], ["up", "Vers le haut"], ["down", "Vers le bas"],
   ["upright", "En haut à droite"], ["upleft", "En haut à gauche"], ["downright", "En bas à droite"], ["downleft", "En bas à gauche"]];
 function exploreGroups() {
-  const cur = EXPLORE_LIST.find((a) => a[0] === V.explore) || EXPLORE_LIST[0], st = V.exStyle, act = cur[0], travels = act !== "look", move = act === "move";
+  const cur = EXPLORE_LIST.find((a) => a[0] === V.explore) || EXPLORE_LIST[0], st = V.exStyle, act = cur[0], gait = act === "walk" || act === "run", travels = act !== "look" && !gait, move = act === "move";
   const gs = [
     { title: "Action", hint: "ce qu’il fait dans le monde", key: "exact", open: true, pickerList: EXPLORE_LIST, pickerKey: "explore", rows: [
-      ["exWorld", "Monde exploré", { worlds: true }], ["loops_" + act, "Durée de la boucle", 1, 8, 1, ""]] },
+      ["exWorld", "Monde exploré", { worlds: true }], ["loops_" + act, "Durée de la boucle", 1, 8, 1, ""],
+      // on its legs on a planet's surface it stands among the meadows: what is nearer to us than its feet can hide it
+      ...(formNow() === "grounded" && SURFACE_TYPES.has(worldById(V.exWorld).wType) ? [["exFront", "Le décor plus proche que lui", { select: [["1", "Passe devant lui (arbres, rochers, hautes herbes)"], ["0", "Reste derrière lui"]] }]] : [])] },
   ];
-  if (EXPLORE_PARAMS[act].length) gs.push({ title: cur[1], hint: "réglages", key: "exparams", open: true, rows: EXPLORE_PARAMS[act] });
+  if (EXPLORE_PARAMS[act].length) gs.push({ title: cur[1], hint: gait ? "allure, foulées, lumière" : "réglages", key: "exparams", open: true, gaitNote: gait, rows: EXPLORE_PARAMS[act] });
   if (travels) gs.push({ title: "Vitesse", hint: "le décor et le blob ensemble", key: "exspeed", open: true, rows: [
     ["exSpeed", "Vitesse", 0, 10, 0.25, ""], ["exDir", "Il file", { select: EXPLORE_DIRS }],
     ...(move ? [["exSurge", "Accélérations", 0, 0.9, 0.01, ""], ["exSurges", "Accélérations par boucle", 0, 6, 1, ""]] : []),
@@ -833,7 +846,7 @@ function exploreGroups() {
   gs.push({ title: travels ? "Le corps à grande vitesse" : "Le corps", hint: travels ? "comment il se déforme" : "son regard", key: "exbody", rows: travels ? [
     ["exStretch", "S’étire", 0, 2, 0.05, ""], ["exTail", "Queue de la goutte", 0, 2, 0.05, ""], ["exLean", "Se penche en avant", 0, 2.5, 0.05, ""],
     ["exRipple", "Ondulations", 0, 2.5, 0.05, ""], ["exLook", "Regarde devant lui", 0, 2, 0.05, ""], ...(move ? [["exBack", "Repoussé par la vitesse", 0, 2, 0.05, ""]] : []),
-    ["exGround", "Sa lumière au sol", 0, 1, 0.05, ""]] : [["exLook", "Force du regard", 0, 2, 0.05, ""], ["exGround", "Sa lumière au sol", 0, 1, 0.05, ""]] });
+    ["exGround", "Sa lumière au sol", 0, 1, 0.05, ""]] : gait ? [["exGround", "Sa lumière au sol", 0, 1, 0.05, ""]] : [["exLook", "Force du regard", 0, 2, 0.05, ""], ["exGround", "Sa lumière au sol", 0, 1, 0.05, ""]] });
   gs.push({ ...PLACE, rows: PLACE.rows.filter((r) => r[0] !== "canvas"), hint: "la même que le blob né" });
   return gs;
 }
@@ -977,7 +990,7 @@ function formMarkup(rows) {
   rows.appendChild(grid);
   const L = Math.max(1, Math.round(+S.transform.loops_live || 2));
   rows.insertAdjacentHTML("beforeend", `<p class="note">${cur === "blob" ? "Le blob né, tel que réglé dans son onglet. Choisis une forme humaine pour que l’animation soit faite par la forme de l’onglet Transformation."
-    : `L’animation est faite par la ${cur === "grounded" ? "forme humaine au sol (sur ses jambes, sur son sol de glace, avec la gravité : elle marche, saute, s’accroupit, s’assoit)" : "forme humaine en lévitation"}, avec tous les réglages de l’onglet Transformation (silhouette, pose, cheveux${cur === "grounded" ? ", sol" : ""}, boucle de ${L} × ${(+V.duration).toFixed(1)} s). Partir du repos veut dire partir de sa « Forme en boucle » et y revenir : enchaîne blob né → transformation → ces animations… → retour au blob → blob né.`}</p>`);
+    : `L’animation est faite par la ${cur === "grounded" ? "forme humaine au sol (sur ses jambes, avec la gravité, sur son sol de glace ou sur le sol d’une planète : elle marche, court, saute, s’accroupit, s’assoit)" : "forme humaine en lévitation"}, avec tous les réglages de l’onglet Transformation (silhouette, pose, cheveux${cur === "grounded" ? ", sol" : ""}, boucle de ${L} × ${(+V.duration).toFixed(1)} s). Partir du repos veut dire partir de sa « Forme en boucle » et y revenir : enchaîne blob né → transformation → ces animations… → retour au blob → blob né.`}</p>`);
 }
 // settings a form on its legs has no use for (it keeps to its floor: no height to stroll in, nothing to rise by)
 const GROUNDED_IDLE = new Set(["walkZoneH", "walkCurve", "walkHop", "walkHops", "walkSquash", "auraRise", "magicRise", "medRise", "atomRise"]);
@@ -1171,7 +1184,7 @@ function buildControls() {
   if (S.anim === "clock") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence et la place de l’onglet Blob né. Il part de sa position de repos, affiche l’heure, puis revient exactement à son repos : la première et la dernière image sont celles de la boucle du blob né.</p>`);
   if (S.anim === "portal") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence et la place de l’onglet Blob né. Il ouvre un portail vers un autre monde, qu’on ne voit qu’à travers lui. Glisse le portail dans l’aperçu pour le placer, et sa poignée carrée pour changer sa taille. Les mondes se créent et se règlent dans les onglets Mondes et Surface planète.</p>`);
   if (S.anim === "transform") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence, les couleurs et la place de l’onglet Blob né, et change de forme : une forme humaine faite de la même lumière de glace, en lévitation, ou debout sur ses jambes sur un sol de glace, avec la gravité. Trois animations qui s’enchaînent image pour image : la transformation part du repos du blob né, la forme en boucle tourne sans fin, et le retour revient exactement au repos du blob né. Les autres onglets (Actions, Objets, Boucles, Heure, Électricité, Portail, Action monde) peuvent être joués par cette forme, avec ces réglages : choisis-la dans leur groupe « Forme ».</p>`);
-  if (S.anim === "explore") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence et la place de l’onglet Blob né, et explore un des mondes des onglets Mondes et Surface planète. En vrai il reste sur place : c’est le monde qui défile derrière lui, les étoiles proches plus vite que les lointaines. Une seule vitesse règle tout : plus il va vite, plus le décor défile et plus il se déforme. Boucle libre, sans raccord visible, qui n’a pas besoin de revenir au blob né.</p>`);
+  if (S.anim === "explore") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Le blob garde l’apparence et la place de l’onglet Blob né, et explore un des mondes des onglets Mondes et Surface planète. En vrai il reste sur place : c’est le monde qui défile derrière lui, les étoiles proches plus vite que les lointaines. Une seule vitesse règle tout : plus il va vite, plus le décor défile et plus il se déforme. Sous sa forme humaine au sol, il peut aussi marcher et courir, vu de profil : le sol défile sous ses pieds exactement à la vitesse de ses pas ; sur une surface de planète, il marche sur l’herbe, sans sol de glace. Boucle libre, sans raccord visible, qui n’a pas besoin de revenir au blob né.</p>`);
   if (S.anim === "surface") controls.insertAdjacentHTML("beforeend", `<p class="note intro">La surface d’une planète, vue du sol : pour l’instant une plaine, avec son ciel, ses montagnes, ses prairies, ses arbres, ses rochers et son eau. Elle est faite de couches à différentes profondeurs : immobile, elle vit sur place (vent dans l’herbe, nuages, reflets) ; en mouvement, l’herbe proche défile plus vite que les montagnes, en boucle parfaite. Le blob s’y promène dans l’onglet Action monde, ou y passe par un portail.</p>`);
   if (S.anim === "worlds") controls.insertAdjacentHTML("beforeend", `<p class="note intro">Les mondes qu’on voit à travers les portails. Crée-les, règle-les et garde-les ici ; l’aperçu montre le monde entier, en boucle sans fin. Il est fait de couches à différentes profondeurs : quand la caméra bouge, les étoiles proches défilent plus vite que les lointaines.</p>`);
   const groups0 = isWorldTab() ? worldGroups() : S.anim === "transform" ? transformGroups() : S.anim === "explore" ? exploreGroups() : S.anim === "portal" ? portalGroups() : S.anim === "elec" ? elecGroups() : S.anim === "clock" ? clockGroups() : S.anim === "loops" ? loopGroups() : S.anim === "objects" ? objectGroups() : S.anim === "actions" ? actionGroups() : ANIMS[S.anim].groups;
@@ -1221,7 +1234,7 @@ function buildControls() {
         grid.appendChild(b);
       }
       rows.appendChild(grid);
-      if (nope.length) rows.insertAdjacentHTML("beforeend", `<p class="note unfit">Pas adaptable à la ${formNow() === "grounded" ? "forme humaine au sol" : "forme humaine"} : ${nope.map(([n, w]) => `<b>${n}</b> — ${w.charAt(0).toLowerCase() + w.slice(1)}`).join(" ")}</p>`);
+      if (nope.length) rows.insertAdjacentHTML("beforeend", `<p class="note unfit">Pas adaptable ${{ blob: "au blob né", human: "à la forme humaine en lévitation", grounded: "à la forme humaine au sol" }[formNow()]} : ${nope.map(([n, w]) => `<b>${n}</b> — ${w.charAt(0).toLowerCase() + w.slice(1)}`).join(" ")}</p>`);
     }
     if (g.place) {
       const place = document.createElement("div");
@@ -1268,6 +1281,7 @@ function buildControls() {
       rows.appendChild(pr);
     }
     for (const def of g.rows) if (!(formNow() === "grounded" && GROUNDED_IDLE.has(def[0]))) rowFor(rows, def);
+    if (g.gaitNote) rows.insertAdjacentHTML("beforeend", `<p class="note" id="gaitnote"></p>`);
     if (g.place) {
       const r = document.createElement("div");
       r.className = "row";
@@ -1527,8 +1541,18 @@ function renderBoxAlone(t) {
 let sceneCache = [];
 const tAt = (i) => (i * loopLen()) / N;
 function getScene(i) { return sceneCache[i] || (sceneCache[i] = renderScene(S.anim, OPTS, tAt(i), bgValue())); }
+// walking or running: the speed it really goes and its strides (rounded so the loop is seamless)
+function gaitNote() {
+  const el = $("gaitnote");
+  if (!el) return;
+  const g = S.anim === "explore" ? PFX.explore.gaitOf(OPTS) : null, run = V.explore === "run", fr = (x, d = 1) => x.toFixed(d).replace(".", ",");
+  if (!g) { el.textContent = ""; return; }
+  const L = Math.max(1, Math.round(+V["loops_" + V.explore] || 2)), P = L * V.duration;
+  el.innerHTML = `Vitesse réelle : <b>${fr(g.kmh)} km/h</b>, ${2 * g.N} ${run ? "foulées" : "pas"} par boucle de ${fr(P)} s (cadence : ${fr(g.rate * 120, 0)} ${run ? "foulées" : "pas"} par minute). Le sol sous ses pieds défile exactement à la vitesse de ses pas, d’un nombre entier d’écrans par boucle : la vitesse et la cadence sont arrondies pour que la boucle soit parfaite. Une boucle plus longue s’approche mieux de la vitesse demandée et donne plus de profondeur au décor (les couches lointaines défilent moins vite).`;
+}
 function rebuild() {
   E = ANIMS[S.anim].fx; SW = V.sceneW; SH = V.sceneH; B = V.canvas; OPTS = effOpts(); N = nFrames();
+  gaitNote();
   if (view.width !== SW || view.height !== SH || !img) { view.width = SW; view.height = SH; img = ctx.createImageData(SW, SH); }
   sceneCache = [];
   $("scrub").max = N - 1;

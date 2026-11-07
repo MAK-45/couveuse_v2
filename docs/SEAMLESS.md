@@ -46,6 +46,14 @@ The promise to the user: any GIF loops forever with no visible jump, and GIFs pl
   `figClock` adds `sh · E(seg(t/T, 0.04, a1))` (sh ≥ 0, so `T + sh` is a whole number of P), flat near both ends (a1 ≤ 1 − 1.75/T,
   so drops alive on the first and last frames fell where the live loop drops them); the idle's own clock is untouched (T is a
   whole number of D). Steps on the floor are a function of `dx` only, so they are none at rest.
+- **Walking and running** (Action monde, the figure on its legs). A free loop P long: `gaitPlan()` makes the ground under its
+  feet go by a whole number of tiles a loop (`tiles · T / P` px a second: the speed asked, rounded) and the legs take a whole
+  number of strides N a loop (a person's cadence at that speed, rounded), so a stride is `S = tiles · T / N` and a foot on the
+  ground goes back at exactly the ground's speed. The stride's phase is `N · t / P` (whole turns a loop); everything of the gait
+  is a function of that phase. Prints and sparks are aged in strides since each landing, seeded by the landing's index mod N;
+  the ice floor's glints go by with it, wrapped on the tile. The world's layer under its feet is found by `groundDepth()` and
+  given `wDrift = tiles / depth`, so it makes exactly `tiles` a loop; other layers make their own whole number (`wAllMove: 0`:
+  one too far to make a whole tile stays still).
 - **Encoding.** GIF frames carry a palette computed from that frame alone, so two identical frames in two
   different GIFs produce identical pixels.
 
