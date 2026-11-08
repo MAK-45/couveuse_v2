@@ -1,13 +1,16 @@
 // The blob busy with something, forever: sleeping, casting magic, conjuring objects that come and go, juggling,
 // meditating, dancing, bouncing, flying a round, singing, blowing bubbles of light. Each runs over a whole number
 // of the blob's own loops with its rest going on underneath, every rhythm a whole number of beats a loop, every
-// particle on the loop's clock: the GIF loops with no seam. It starts where the blob rests.
+// particle on the loop's clock: the GIF loops with no seam.
+// Each also has an entry from the Blob né's rest and an exit back to it (o.part "enter" / "exit"), so it can be lived:
+// rest -> entry -> the loop, as many times as you like -> exit -> rest, every join exact (see the end of this file).
 // In one of the transformation's new forms (o.form "human" or "grounded") the figure does them, with its arms (raised
 // for magic, holding the book, on the rope of the swing...); on its legs it keeps to its floor (it sits down
 // cross-legged to sleep or meditate) and the two that need flying can't be done (FORM_FIT).
 import { fit, clamp, lerp, seg, bump, ease, noise2, rng, cycle, TAU, WHITE, hex } from "../../core/index.js";
 import { meta as idleMeta } from "./ice-blob-idle.js";
-import { bodyBack, bodyFront, bodyAmbient, formCentre, gaitPlan } from "./ice-blob-transform.js";
+import { bodyBack, bodyFront, bodyAmbient, formCentre, formAnchor, gaitPlan, gaitLine, isForm, FORM_DEFAULTS } from "./ice-blob-transform.js";
+import { phases, settle, DROP_LIFE } from "./ice-time.js";
 import { drawObject } from "./ice-scene-objects.js";
 import { hsl, fromHsl } from "./ice-blob-actions.js";
 
@@ -28,6 +31,12 @@ export const FORM_FIT = {
   },
 };
 export const fitsForm = (o, name = o.loop) => !(FORM_FIT[o.form] && FORM_FIT[o.form][name]);
+/** The three parts of a loop: the loop itself, its entry from rest, its exit back to rest. */
+export const PARTS = ["loop", "enter", "exit"];
+/** Loops that can't have an entry and an exit yet, and why (they play as a loop only). None now: walking and running
+ * start with their first steps and stop with their last (see gaitParts at the end of this file). */
+export const PART_FIT = {};
+export const hasParts = (name) => !PART_FIT[name];
 
 export const meta = {
   name: "Ice blob loops",
@@ -42,6 +51,9 @@ export const meta = {
   options: {
     ...idleMeta.options,
     form: "blob", loop: "sleep", loops: 2,
+    // the part: the loop, its entry from rest or its exit back to rest (each a whole number of the blob's loops), and how
+    // long the figure takes to melt into light and out again when the loop needs another pose (sitting, legs crossed)
+    part: "loop", inLoops: 1, outLoops: 1, lead: 0.08, meltTime: 1.1,
     sleepBreaths: 3, sleepDepth: 1, sleepSink: 8, sleepBubbles: 4, sleepDim: 0.5, sleepTwitch: 1,
     magicCircle: 34, magicTurns: 1, magicRunes: 8, magicPulses: 2, magicSparkles: 24, magicRise: 8, magicHue: 0, magicEyes: "closed",
     conjureCount: 3, conjureShape: "cycle", conjureRadius: 50, conjureSize: 10, conjureStyle: "halo", conjureHold: 0.55,
@@ -66,9 +78,19 @@ export const meta = {
 };
 
 const E = ease.inOutSine;
-const total = (o) => o.duration * Math.max(1, Math.round(o.loops));
+// the activity's own period, and the part being played
+const loopLen = (o) => o.duration * Math.max(1, Math.round(o.loops));
+const partOf = (o) => (o.part === "enter" || o.part === "exit" ? o.part : "loop");
+/** How long the animation lasts: the loop, or its entry or exit (each a whole number of the blob's loops; walking and
+ * running take at least what their first or last steps need). */
+export const total = (o) => {
+  const p = partOf(o);
+  if (p === "loop") return loopLen(o);
+  const n = Math.max(1, Math.round(p === "enter" ? o.inLoops : o.outLoops));
+  return o.duration * (isGait(o) ? gaitLoops(o, p, n) : n);
+};
 // the loop's phase, 0..1, at any time (negative too)
-const phase = (o, t) => (((t / total(o)) % 1) + 1) % 1;
+const phase = (o, t) => (((t / loopLen(o)) % 1) + 1) % 1;
 const whole = (v, lo = 1) => Math.max(lo, Math.round(v));
 const shifted = (C, hue) => (hue ? C.map((c) => { const [h, s, l] = hsl(c); return hex(fromHsl((((h + hue) % 360) + 360) % 360, s, l)); }) : C);
 // in a new form: where its head is (bubbles of sleep, notes, hiccups come from it) and what is under it
@@ -468,7 +490,7 @@ L.rain = (o) => {
     },
     drops(p, C, t, st) {
       const [cx, cy] = this.cloud(st, t), W = o.rainCloud;
-      cycle(t, total(o), Math.round(o.rainDrops), o.seed + 71, (g) => g.range(0.45, 0.7), (age, life, r) => {
+      cycle(t, loopLen(o), Math.round(o.rainDrops), o.seed + 71, (g) => g.range(0.45, 0.7), (age, life, r) => {
         // (on a figure, the drops land on its head and its arms)
         const x = cx + r.range(-W, W), k = age / life, y0 = cy + 3, top = st.top ? st.top[1] + Math.abs(x - st.top[0]) * 0.5 : st.y - o.size * 0.85, hit = st.top ? Math.abs(x - st.top[0]) < st.U * 0.45 : Math.abs(x - st.x) < o.size * 0.75;
         const yEnd = hit ? top : st.feet ? under(st) : st.y + o.size * 2.5, y = lerp(y0, yEnd, k);
@@ -614,17 +636,31 @@ L.firefly = (o) => {
 // ---- walking and running on the spot (the human form on its legs): side on, it walks or runs where it is and its floor
 // of ice goes by under its feet like a treadmill (glints and prints carried back at the speed of its steps). Whole strides
 // a loop, and the floor goes by whole tiles a loop (gaitPlan): the speed asked, rounded so the loop is seamless
+const isGait = (o) => (o.loop === "walk" || o.loop === "run") && fitsForm(o);
+const PLANNED = new WeakMap();
+function gaitPlanOf(o, kind) {
+  let pl = PLANNED.get(o);
+  if (!pl) {
+    const r = Array.isArray(o.room) ? o.room : [-meta.origin[0], -meta.origin[1], meta.size[0] - meta.origin[0], meta.size[1] - meta.origin[1]];
+    const T = Math.max(16, Math.ceil(Math.max(r[2] - r[0], r[3] - r[1])));
+    pl = gaitPlan(o, kind, loopLen(o), T, kind === "run" ? o.gaRun : o.gaWalk, o.gaStride);
+    PLANNED.set(o, pl);
+  }
+  return pl;
+}
 const gaitLoop = (kind) => (o) => {
-  const P = total(o), r = Array.isArray(o.room) ? o.room : [-meta.origin[0], -meta.origin[1], meta.size[0] - meta.origin[0], meta.size[1] - meta.origin[1]];
-  const T = Math.max(16, Math.ceil(Math.max(r[2] - r[0], r[3] - r[1]))), dir = o.gaDir === "left" ? -1 : 1;
-  const plan = gaitPlan(o, kind, P, T, kind === "run" ? o.gaRun : o.gaWalk, o.gaStride);
+  const P = loopLen(o), dir = o.gaDir === "left" ? -1 : 1, plan = gaitPlanOf(o, kind);
+  // the loop's strides at its clock t, and the line its steps follow (at its own pace: the loop's clock itself)
+  const cs = (t) => (plan.N * t) / P + 0.1, csInv = (c) => ((c - 0.1) * P) / plan.N;
+  const W0 = { kind, S: plan.S, v: plan.v, rate: plan.rate, N: plan.N, dir, arms: o.gaArms, lean: o.gaLean,
+    bounce: o.gaBounce, heel: o.gaHeel, knee: o.gaKnee, hair: o.gaHair, prints: o.gaPrints, sparks: o.gaSparks };
+  const gait = (line, t) => { const c = line.c(t); return { ...W0, ph: c - Math.floor(c), cyc: c, line, t }; };
+  const own = gaitLine({ S: plan.S, rate: plan.rate, cs, csInv });
   return {
     plan,
-    mods(t) {
-      const c = (plan.N * t) / P + 0.1;
-      return { gait: { kind, ph: c - Math.floor(c), cyc: c, S: plan.S, v: plan.v, rate: plan.rate, N: plan.N, dir, arms: o.gaArms, lean: o.gaLean,
-        bounce: o.gaBounce, heel: o.gaHeel, knee: o.gaKnee, hair: o.gaHair, prints: o.gaPrints, sparks: o.gaSparks }, quiet: 1 };
-    },
+    mods(t) { return { gait: gait(own, t), quiet: 1 }; },
+    // its entry and its exit (o.part): the line of its first steps, or of its last, and what they make of the figure
+    parts(part, T) { return gaitParts(o, kind, part, T, plan, (line) => (t) => gait(line, t), cs, csInv); },
   };
 };
 L.walk = gaitLoop("walk");
@@ -632,19 +668,127 @@ L.run = gaitLoop("run");
 /** Walking or running: how fast it really goes and its strides, for the page (null for the other loops). */
 export const gaitOf = (o) => ((o.loop === "walk" || o.loop === "run") && fitsForm(o) ? loopOf(o).plan : null);
 
-// a loop its form can't do: it just rests in that form
-function loopOf(o) { return fitsForm(o) ? (L[o.loop] || L.sleep)(o) : { mods: () => ({}) }; }
+// a loop its form can't do (or a part it doesn't have yet): it just rests in that form
+function loopOf(o) { return fitsForm(o) && (partOf(o) === "loop" || hasParts(o.loop)) ? (L[o.loop] || L.sleep)(o) : { mods: () => ({}) }; }
 
-export function drawBack(p, t, o) {
-  const C = fit(o.palette, 8), act = loopOf(o), M = (tt) => act.mods(tt);
-  const st = bodyBack(p, t, o, M, C, total(o));
-  bodyAmbient(p, t, o, false, C);
-  if (act.back) act.back(p, C, t, st);
+// ---- walking and running in three parts, the first steps and the last. Entry: it stands facing us (its rest) and turns
+// side on, its body turning as one (the figure facing us and the one side on blend: it never melts), then sets off, its
+// steps growing to the loop's over a stride and a half (two running) as its floor of ice starts to go by under it, leaning
+// into the start; then it goes at the loop's own pace long enough that its steps and its prints are the loop's, frame for
+// frame. Exit: it slows down, its steps shortening, leans back, stops and turns back to face us, at rest. Its steps follow
+// a line (gaitLine, ice-blob-transform.js): every foot stays where it came down while the floor goes back under it by
+// exactly as much as it goes, whatever its pace, so nothing slides
+const GAIT_RAMP = { walk: 1.5, run: 2 }; // strides from standing to its own pace, and back
+const PRINT_LIFE = { walk: 2.6, run: 1.7 }; // how many strides a print lasts (gaitFx)
+const TURN = 0.55; // (s) a quarter turn
+function gaitTimes(o, kind, part, T, rate) {
+  const R = GAIT_RAMP[kind] / rate, a0 = Math.max(0.12, (o.lead ?? 0.08) * T);
+  if (part === "enter") {
+    // (it sets off as it ends its turn; then at its own pace for as long as the prints of its first steps take to fade)
+    const g0 = a0 + 0.75 * TURN, g1 = g0 + R;
+    return { turn: [a0, a0 + TURN], go: [g0, g1], need: g1 + Math.max(DROP_LIFE, (PRINT_LIFE[kind] + 0.05) / rate) };
+  }
+  // (it slows down once the steps already on their way are set down: a foot in the air lands within 0.4 of a stride; it
+  // turns back to face us as it stops, then rests)
+  const f0 = Math.max(a0, 0.45 / rate), f1 = f0 + R, u0 = f1 - 0.2 * TURN;
+  return { turn: [u0, u0 + TURN], go: [f0, f1], need: u0 + TURN + DROP_LIFE };
+}
+// how many of the blob's loops its entry or exit takes (at least n)
+const PART_LOOPS = new WeakMap();
+function gaitLoops(o, part, n) {
+  const key = part + n;
+  let m = PART_LOOPS.get(o);
+  if (!m) { m = {}; PART_LOOPS.set(o, m); }
+  if (m[key]) return m[key];
+  const kind = o.loop, rate = gaitPlanOf(o, kind).rate;
+  let k = n;
+  while (k < n + 8 && gaitTimes(o, kind, part, o.duration * k, rate).need > o.duration * k) k++;
+  return (m[key] = k);
+}
+function gaitParts(o, kind, part, T, plan, gaitOn, cs, csInv) {
+  const tm = gaitTimes(o, kind, part, T, plan.rate), enter = part === "enter", clock = enter ? (t) => t - T : (t) => t;
+  const line = gaitLine({ S: plan.S, rate: plan.rate, cs, csInv, at: clock(enter ? tm.go[1] : tm.go[0]),
+    pieces: [{ t0: clock(tm.go[0]), t1: clock(tm.go[1]), s0: enter ? 0 : 1, s1: enter ? 1 : 0 }] });
+  const gaitAt = gaitOn(line), [u0, u1] = tm.turn;
+  // how far it has turned side on (0 facing us at rest, 1 side on)
+  const turnAt = (tt) => (enter ? E(seg(tt, u0, u1)) : 1 - E(seg(tt, u0, u1)));
+  const at = (tt) => ({ k: line.s(clock(tt)), turn: turnAt(tt) });
+  const mods = (tt) => {
+    const w = turnAt(tt);
+    if (w <= 0) return {}; // facing us, at rest
+    // side on: exactly the loop's at its own pace; turning, the two figures blended
+    return w >= 1 ? { gait: gaitAt(clock(tt)), quiet: 1 } : { gait: gaitAt(clock(tt)), turn: w, quiet: 1 };
+  };
+  return { at, mods };
 }
 
-export function draw(p, t, o) {
-  const C = fit(o.palette, 8), act = loopOf(o), M = (tt) => act.mods(tt);
-  const st = bodyFront(p, t, o, M, C, total(o));
-  bodyAmbient(p, t, o, true, C);
-  if (act.front) act.front(p, C, t, st);
+// ---- the three parts. The loop is the activity itself. Its entry starts on the rest's frame and the activity's own
+// clock runs up to 0 on its last frame, where the loop starts; its exit starts where the loop ends (its clock goes on)
+// and ends on the rest's frame. In between, the activity's intensity k (phases(), ice-time.js) draws each of its
+// modifiers back to rest and fades what it draws; at k = 1 the modifiers are exactly the loop's, for the last 1.7 s of
+// the entry, so the drops of light alive at the join are the same. A pose the activity needs (sitting cross-legged on
+// the floor, legs crossed, arms down) can't be faded: the figure melts into light (morph 1), the pose switches while
+// nothing of the figure shows, and it takes shape again in the new pose; on its legs its frame gathers meanwhile at a
+// point that goes from where the one pose has it to where the other does (anchor), so the light it melts into doesn't jump.
+const POSE_KEYS = ["legs", "arms", "seat"];
+function poseChange(o, m0) {
+  if (!isForm(o)) return false;
+  if (o.form === "grounded") return m0.seat > 0.5;
+  return !!((m0.legs && m0.legs !== (o.huLegs ?? FORM_DEFAULTS.huLegs)) || (m0.arms && m0.arms !== (o.huArms ?? FORM_DEFAULTS.huArms)));
 }
+const PLANS = new WeakMap();
+function planOf(o) {
+  let pl = PLANS.get(o);
+  if (pl) return pl;
+  const act = loopOf(o), part = partOf(o), T = total(o);
+  pl = { act, part, T, clock: part === "enter" ? (t) => t - T : (t) => t };
+  if (part !== "loop" && act.parts) {
+    // walking, running: their own first and last steps
+    const g = act.parts(part, T);
+    Object.assign(pl, { at: g.at, own: g.mods });
+  } else if (part !== "loop") {
+    const m0 = act.mods(0), pose = poseChange(o, m0);
+    pl.at = phases(part, T, o.lead ?? 0.08, pose, o.meltTime ?? 1.1);
+    if (pose && o.form === "grounded") {
+      const keep = {};
+      for (const k of POSE_KEYS) if (k in m0) keep[k] = m0[k];
+      pl.anchors = [formAnchor(o, null), formAnchor(o, () => keep)];
+    }
+  }
+  PLANS.set(o, pl);
+  return pl;
+}
+function modsOf(pl) {
+  const { act } = pl;
+  if (pl.part === "loop") return (tt) => act.mods(tt);
+  if (pl.own) return pl.own;
+  return (tt) => {
+    const a = pl.at(tt), m = act.mods(pl.clock(tt));
+    if (a.k >= 1 && a.swap && !(a.melt > 0)) return m;
+    const out = settle(m, a.k);
+    if (a.swap) for (const key of POSE_KEYS) if (key in m) out[key] = m[key];
+    // drops of light falling while it does anything don't show (as for an action)
+    out.quiet = a.k > 0 || a.melt > 0 ? 1 : 0;
+    if (a.melt > 0) {
+      out.morph = a.melt;
+      if (pl.anchors) out.anchor = pl.anchors[0].map((v, i) => lerp(v, pl.anchors[1][i], a.s));
+    }
+    return out;
+  };
+}
+function layer(p, t, o, front) {
+  const C = fit(o.palette, 8), pl = planOf(o), M = modsOf(pl);
+  const st = front ? bodyFront(p, t, o, M, C, pl.T) : bodyBack(p, t, o, M, C, pl.T);
+  bodyAmbient(p, t, o, front, C);
+  const hook = front ? pl.act.front : pl.act.back, k = pl.part === "loop" ? 1 : pl.at(t).k;
+  if (!hook || k <= 0) return st;
+  // what the activity draws fades in and out with it (dithered, so it stays crisp pixel art)
+  const f0 = p.fade;
+  p.fade = f0 * k;
+  hook.call(pl.act, p, C, pl.clock(t), st);
+  p.fade = f0;
+  return st;
+}
+
+export function drawBack(p, t, o) { return layer(p, t, o, false); }
+export function draw(p, t, o) { return layer(p, t, o, true); }

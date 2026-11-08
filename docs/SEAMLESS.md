@@ -1,14 +1,17 @@
 # Seamless loops and chains
 
-The promise to the user: any GIF loops forever with no visible jump, and GIFs placed end to end chain:
+The promise to the user: the creature lives on (page Vivre) without ever a jump, and any GIF loops forever with no visible
+jump, and GIFs placed end to end chain:
 
     rest (Blob né) → action → rest → clock → rest → electricity → rest …
+    move: rest here → move → rest there (everything after is drawn there)
     objects: live without X → appear X → live with X → remove X → live without X
     portal: rest → open → live (as often as you like) → close → rest
             or … → live → cross → beyond (the blob at rest in the other world, as often as you like)
             → reopen → beyondOpen (as often as you like) → return → rest (or live, if the portal stays open)
     transformation: rest → transform → live (the new form, as often as you like) → revert → rest
-    loops (Boucles) and worlds (Mondes): each one loops on itself (no chaining promise)
+    loops (Boucles): rest → entry → the loop (as often as you like) → exit → rest
+    worlds (Mondes) and world actions (Action monde): each one loops on itself (no chaining promise yet)
     in a new form: rest -> transform -> live -> (any of the above, from live and back to live) -> revert -> rest
 
 `npm test` checks all of it pixel for pixel (`tests/seams.mjs`).
@@ -54,8 +57,43 @@ The promise to the user: any GIF loops forever with no visible jump, and GIFs pl
   the ice floor's glints go by with it, wrapped on the tile. The world's layer under its feet is found by `groundDepth()` and
   given `wDrift = tiles / depth`, so it makes exactly `tiles` a loop; other layers make their own whole number (`wAllMove: 0`:
   one too far to make a whole tile stays still).
+- **Walking and running that set off and stop.** Their pace follows a `gaitLine`: each foot lands ahead of the hips by as much
+  as the step its pace gives it, then stays where it came down while the floor goes back (or the figure goes on, `ax`) by exactly
+  as much as it goes, d(t), so a foot down never slides whatever the pace. The entry's line is the loop's own clock (`cs`) from
+  the moment it reaches its pace, and it stays at its pace for as long as a print lives (2.6 strides walking, 1.7 running): its
+  last frame has the loop's steps, prints and floor. The exit goes on at its pace until the steps already on their way are set
+  down (0.45 of a stride), so its first frame is the loop's. Turning side on is a blend of the two figures (`m.turn`, nothing
+  switches while it shows); the floor's glints and prints change footing at the half-way point, where they are dimmed to nothing.
+- **Going somewhere else.** A move is from one rest to another: at progress 0 nothing is changed, from its arrival on it is
+  `{ ax, ay }` exactly (whole pixels), and `ax`/`ay` are a pure translation of everything the creature draws (body, light on the
+  ground, drops, motes, its floor's light; the floor itself and its glints stay with the scene, dithers read their column from
+  `room[0]`), so its last frame is the rest drawn there: the painter moved by the new `pos` and the scene's room seen from there.
+  Its progress does not wrap round, so the drops before it fell here and those after it fell there.
 - **Encoding.** GIF frames carry a palette computed from that frame alone, so two identical frames in two
   different GIFs produce identical pixels.
+
+## Loops in three parts
+
+The entry and the exit are windows of the activity's own time, so they join the loop exactly: in the entry its clock is
+`t - T` (0 on its last frame, where the loop starts), in the exit it goes on from the loop's end. Its intensity k (ice-time.js
+`phases()`) never wraps: before the entry it is 0, after it 1, before the exit 1, after it 0. For the last 1.7 s of an entry
+k = 1 (the modifiers are exactly the loop's, so the drops alive at the join fell the same way), and the last 1.7 s of an exit
+are rest. Modifiers that can be faded go back to rest by k (`settle()`); what the activity draws fades by k (`p.fade`); a
+pose can't be faded: it switches while the figure is melted into light (`morph` exactly 1 on a plateau), on its legs its
+frame gathered at `anchor`.
+
+## The life
+
+A segment starts on a beat of the rest it leaves and lasts whole loops: every join is one checked above. Its first frame is
+that rest's, its last the frame before the next rest's first. Every length is a whole number of the blob's loops, so the
+blob's own clock, the things' float and turn (whole turns a blob loop) and the figure's live loop (whole live loops by
+`figClock`) run on; a world's clock is `t - wt0` in another world (the portal's "reopen" starts it at `wClock0` and still ends
+on 0), and the portal's open loops are whole world loops. Where it stands (`pos`) moves the painter for the module's layers and
+the options' spot, never the worlds or the things. Nothing is scheduled sooner than `now + MARGIN`: a frame already on
+screen never changes. The drawing order is the same in every segment (world behind, module back, things back, module front,
+things front, world's near part), so a thing drawn by the engine and the same thing drawn by the objects tab are the same
+pixels. `tests/seams.mjs` plays whole lives (at home, in the forms, through portals into space and onto a plain, things
+linked and following, going about the scene, walking and running) and checks every join.
 
 ## When you add something
 

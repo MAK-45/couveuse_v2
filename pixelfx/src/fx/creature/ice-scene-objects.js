@@ -7,6 +7,7 @@
 // "live without it" -> "appear" -> "live with it" -> "remove" -> "live without it" chain frame for frame.
 import { fit, clamp, lerp, seg, bump, ease, noise2, rng, TAU, WHITE } from "../../core/index.js";
 import { meta as idleMeta, state } from "./ice-blob-idle.js";
+import { prog as progAt } from "./ice-time.js";
 import { bodyBack, bodyFront, bodyAmbient } from "./ice-blob-transform.js";
 import { hsl, fromHsl } from "./ice-blob-actions.js";
 
@@ -40,7 +41,7 @@ export const meta = {
 const E = ease.inOutSine;
 const total = (o) => o.duration * Math.max(1, Math.round(o.loops));
 // as for the actions: the lead-out outlasts a drop of light, so the last frame is the rest's
-const prog = (o, t) => { const T = total(o); return seg(((t / T) % 1 + 1) % 1, o.lead, 1 - Math.max(o.lead, Math.min(0.45, 1.7 / T))); };
+const prog = (o, t) => progAt(o, t, total(o));
 const ln = (x, y, u, s, r = 1) => noise2(x + Math.cos(TAU * u) * r, y + Math.sin(TAU * u) * r, s);
 const hash = (x, y, s) => { const v = Math.sin(x * 127.1 + y * 311.7 + s * 74.7) * 43758.5453; return v - Math.floor(v); };
 

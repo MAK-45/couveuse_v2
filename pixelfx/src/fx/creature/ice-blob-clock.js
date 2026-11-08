@@ -5,6 +5,7 @@
 // of the blob's rest and everything it changes is back to zero at both ends: first and last frames are the rest's.
 import { fit, clamp, lerp, seg, bump, ease, rng, TAU, WHITE, hex } from "../../core/index.js";
 import { meta as idleMeta, state } from "./ice-blob-idle.js";
+import { prog as progAt } from "./ice-time.js";
 import { bodyBack, bodyFront, bodyAmbient } from "./ice-blob-transform.js";
 import { hsl, fromHsl } from "./ice-blob-actions.js";
 
@@ -37,7 +38,7 @@ export const meta = {
 
 const E = ease.inOutSine;
 const total = (o) => o.duration * Math.max(1, Math.round(o.loops));
-const prog = (o, t) => { const T = total(o); return seg(((t / T) % 1 + 1) % 1, o.lead, 1 - Math.max(o.lead, Math.min(0.45, 1.7 / T))); };
+const prog = (o, t) => progAt(o, t, total(o));
 const hash = (a, b) => { const v = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return v - Math.floor(v); };
 
 // ---- a 5x7 pixel font for the clock
