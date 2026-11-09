@@ -4,10 +4,10 @@
 // sucked back into the blob, sliding off, shattering, rolling away). Like the actions, it runs over whole loops
 // of the blob's rest and everything it changes is back to zero at both ends: first and last frames are the rest's.
 import { fit, clamp, lerp, seg, bump, ease, rng, TAU, WHITE } from "../../pixelfx/src/core/index.js";
-import { meta as idleMeta, state } from "./ice-blob-idle.js";
-import { prog as progAt } from "./ice-time.js";
-import { bodyBack, bodyFront, bodyAmbient } from "./ice-blob-transform.js";
-import { hsl, fromHsl } from "./ice-blob-actions.js";
+import { meta as idleMeta, state } from "../blob/blob.js";
+import { prog as progAt } from "../shared/_time.js";
+import { bodyBack, bodyFront, bodyAmbient } from "../forms/forms.js";
+import { hsl, fromHsl } from "../shared/_color.js";
 
 export const APPEAR = ["particles", "projector", "write", "pop", "crystal", "slot"];
 export const VANISH = ["fade", "scatter", "absorb", "slide", "shatter", "slot"];

@@ -7,10 +7,10 @@
 // for magic); on its legs it keeps to its floor (it sits down cross-legged to sleep), and only the figure on its legs
 // can walk or run (FORM_FIT).
 import { fit, lerp, seg, bump, ease, rng, TAU, WHITE, hex } from "../../pixelfx/src/core/index.js";
-import { meta as idleMeta } from "./ice-blob-idle.js";
-import { bodyBack, bodyFront, bodyAmbient, formAnchor, gaitPlan, gaitLine, isForm, FORM_DEFAULTS } from "./ice-blob-transform.js";
-import { phases, settle, DROP_LIFE } from "./ice-time.js";
-import { hsl, fromHsl } from "./ice-blob-actions.js";
+import { meta as idleMeta } from "../blob/blob.js";
+import { bodyBack, bodyFront, bodyAmbient, formAnchor, gaitPlan, gaitLine, isForm, FORM_DEFAULTS } from "../forms/forms.js";
+import { phases, settle, DROP_LIFE } from "../shared/_time.js";
+import { hsl, fromHsl } from "../shared/_color.js";
 
 export const LOOPS = ["sleep", "magic", "walk", "run"];
 /** What a new form can't do, and why (the page shows it; the effect then just rests). */

@@ -6,10 +6,10 @@
 // Objects move only by whole turns of the blob's loop, and the blob's part goes back to rest at both ends, so
 // "live without it" -> "appear" -> "live with it" -> "remove" -> "live without it" chain frame for frame.
 import { fit, clamp, lerp, seg, bump, ease, noise2, rng, TAU, WHITE } from "../../pixelfx/src/core/index.js";
-import { meta as idleMeta, state } from "./ice-blob-idle.js";
-import { prog as progAt } from "./ice-time.js";
-import { bodyBack, bodyFront, bodyAmbient } from "./ice-blob-transform.js";
-import { hsl, fromHsl } from "./ice-blob-actions.js";
+import { meta as idleMeta, state } from "../blob/blob.js";
+import { prog as progAt } from "../shared/_time.js";
+import { bodyBack, bodyFront, bodyAmbient } from "../forms/forms.js";
+import { hsl, fromHsl } from "../shared/_color.js";
 
 export const APPEAR = ["halo", "laser", "crystal", "orb"];
 export const REMOVE = ["dissolve", "laser", "implode", "shatter", "swallow"];

@@ -23,7 +23,7 @@ const COLORS = { title: "Couleurs", hint: "la lumière", palette: true, rows: [[
 
 const ANIMS = {
   birth: {
-    name: "Naissance", fx: PFX.birth, file: "naissance", id: "spawn/ice-spirit-gestation",
+    name: "Naissance", fx: PFX.birth, file: "naissance", id: "birth/birth",
     groups: [
       PLACE,
       { title: "Temps", hint: "durée, rythme", rows: [
@@ -71,7 +71,7 @@ const ANIMS = {
     ],
   },
   blob: {
-    name: "Blob né", fx: PFX.blob, file: "blob", id: "creature/ice-blob-idle",
+    name: "Blob né", fx: PFX.blob, file: "blob", id: "blob/blob",
     groups: [
       PLACE,
       { title: "Temps", hint: "durée, rythme", rows: [
@@ -165,7 +165,7 @@ function actionGroups() {
     { ...PLACE, rows: PLACE.rows.filter((r) => r[0] !== "canvas"), hint: "la même que le blob né" },
   ];
 }
-ANIMS.actions = { name: "Actions", fx: PFX.actions, file: "action", id: "creature/ice-blob-actions", mode: "scene", groups: null };
+ANIMS.actions = { name: "Actions", fx: PFX.actions, file: "action", id: "actions/index", mode: "scene", groups: null };
 ANIMS.birth.mode = "box"; ANIMS.blob.mode = "scene";
 ANIMS.blob.groups[0] = { ...PLACE, rows: PLACE.rows.filter((r) => r[0] !== "canvas") };
 const BLOB_KEYS = new Set(Object.keys(PFX.blob.meta.options));
@@ -185,7 +185,7 @@ const TARGETS = { move: ["moveTX", "moveTY"] };
 // an action's targets as a list of key pairs
 const targetKeys = (a) => (TARGETS[a] ? [TARGETS[a]] : []);
 // ---- the objects tab: things the blob makes in its scene, which stay and float with it
-ANIMS.objects = { name: "Objets", fx: PFX.objects, file: "objets", id: "creature/ice-scene-objects", mode: "scene", groups: null };
+ANIMS.objects = { name: "Objets", fx: PFX.objects, file: "objets", id: "objects/objects", mode: "scene", groups: null };
 const SHAPE_LIST = [["cube", "Cube"], ["sphere", "Sphère"], ["pyramid", "Pyramide"], ["crystal", "Cristal"], ["column", "Colonne"], ["gem", "Gemme"]];
 const shapeName = (s) => (SHAPE_LIST.find((x) => x[0] === s) || SHAPE_LIST[0])[1];
 const OBJ_MODES = [["live", "Scène vivante", "tout flotte avec le blob"], ["appear", "Apparition", "le blob crée l’objet choisi"], ["remove", "Disparition", "le blob retire l’objet choisi"]];
@@ -296,7 +296,7 @@ function objAnimMarkup(rows) {
   rows.insertAdjacentHTML("beforeend", `<p class="note">${txt}</p>`);
 }
 // ---- the loops tab: the blob busy with something, for ever
-ANIMS.loops = { name: "Boucles", fx: PFX.loops, file: "boucle", id: "creature/ice-blob-loops", mode: "scene", groups: null };
+ANIMS.loops = { name: "Boucles", fx: PFX.loops, file: "boucle", id: "loops/index", mode: "scene", groups: null };
 const LOOP_LIST = [
   ["sleep", "Sommeil", "dort, respire, bulles"], ["magic", "Magie", "cercle de runes, lumière"],
   ["walk", "Marche", "sur place, le sol défile sous ses pas"], ["run", "Course", "sur place, foulées et temps de vol"]];
@@ -342,7 +342,7 @@ function loopGroups() {
   ];
 }
 // ---- the clock tab: the blob shows the time, then is back at rest
-ANIMS.clock = { name: "Heure", fx: PFX.clock, file: "heure", id: "creature/ice-blob-clock", mode: "scene", groups: null };
+ANIMS.clock = { name: "Heure", fx: PFX.clock, file: "heure", id: "clock/clock", mode: "scene", groups: null };
 const CLOCK_KEYS = new Set(Object.keys(PFX.clock.meta.options).filter((k) => !(k in PFX.blob.meta.options) && k !== "form"));
 const clockDef = () => {
   const d = Object.fromEntries([...CLOCK_KEYS].map((k) => [k, PFX.clock.meta.options[k]]));
@@ -398,7 +398,7 @@ function clockSpot() {
 // ---- the transformation tab: the blob changes shape (into a human figure made for levitation, or the same figure on
 // its legs on a floor, with gravity), lives in that form and comes back. rest -> transform -> live (looping) -> revert
 // -> rest, frame for frame
-ANIMS.transform = { name: "Transformation", fx: PFX.transform, file: "transformation", id: "creature/ice-blob-transform", mode: "scene", groups: null };
+ANIMS.transform = { name: "Transformation", fx: PFX.transform, file: "transformation", id: "forms/forms", mode: "scene", groups: null };
 const TF_MODES = [["transform", "Transformation", "le blob change de forme"], ["live", "Forme en boucle", "il vit sous sa nouvelle forme"],
   ["revert", "Retour au blob", "il redevient le blob né"]];
 const TF_FORMS = [["human", "Forme humaine", "en lévitation, faite de sa lumière"], ["grounded", "Forme humaine au sol", "sur ses jambes, avec la gravité"]];
@@ -548,7 +548,7 @@ const RENDER = { title: "Rendu", hint: "fond, export", render: true, rows: [
   ["gifScale", "Agrandissement du GIF", 1, 6, 1, "×"],
 ]};
 const SHARED_KEYS = new Set(Object.keys(SHARED_DEF));
-ANIMS.life = { name: "Vivre", fx: PFX.life, file: "vie", id: "creature/ice-life", mode: "scene", groups: null };
+ANIMS.life = { name: "Vivre", fx: PFX.life, file: "vie", id: "life/life", mode: "scene", groups: null };
 const lifeDef = () => ({ shape: "cube", obSize: 12, obHue: 0, obLayer: "back", appearStyle: "halo", removeStyle: "dissolve",
   spotX: 27, spotY: 36, hub: { form: "blob", pos: [0, 0] }, things: [] });
 const LIFE_KEYS = new Set(Object.keys(lifeDef()));
@@ -1167,7 +1167,7 @@ view.addEventListener("keydown", (ev) => {
 });
 
 // ---- the life tab (Vivre): the creature lives on, as it will in its own page. It plays every tab's animations with
-// that tab's settings, each one from its rest back to a rest, on the beats of that rest (ice-life.js), taking by itself
+// that tab's settings, each one from its rest back to a rest, on the beats of that rest (life/life.js), taking by itself
 // the steps it needs (changing form...); its scene keeps what it makes. What it is asked waits its turn: nothing ever jumps.
 const FORM_NAMES = { blob: "le blob né", human: "la forme humaine en lévitation", grounded: "la forme humaine au sol" };
 const SHAPE_NAMES = Object.fromEntries(SHAPE_OPTS);

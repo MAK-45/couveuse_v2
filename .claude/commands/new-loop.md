@@ -4,7 +4,7 @@ Before anything: ask the author whether they want it once (from rest back to res
 entry and an exit (like Boucles), and wait for the answer. Ask in French. Once: follow new-action.md instead.
 Then load the `pixelfx` skill (`anthropic-skills:pixelfx`) and use its render → look → refine loop.
 
-1. Read docs/SEAMLESS.md and the entries in `src/creature/ice-blob-loops.js` (`L.sleep`, `L.magic`).
+1. Read docs/SEAMLESS.md and the entries in `src/loops/index.js` (`L.sleep`, `L.magic`).
 2. Add `L.<id> = (o) => ({ mods(t), back?, front? })`; time only through `phase(o, t)`, every count through `whole()`; particles with `cycle(t, total(o), …)`.
 3. Options with defaults in `meta.options`; id in `LOOPS`.
 4. In `app/main.js`: entry in `LOOP_LIST`, rows in `LOOP_PARAMS` (its default length is 2 of the blob's loops, `loopsDef()`).

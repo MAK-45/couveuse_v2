@@ -9,7 +9,7 @@ Add a new animation to the creature: $ARGUMENTS
    A new form or posture → `new-form.md`; a new object shape or a companion → `new-thing.md`.
    Something else (a new kind of thing the creature does, a new state, a new settings page): read docs/ARCHITECTURE.md
    « The life » and « Extension points », give its module a `total(o)` and neutral ends, add its step to `plan()` / `segment()`
-   in `ice-life.js`, its cards in `lifeControls()` (app/main.js) with a ⚙ to its settings page, and a scenario to the life
+   in `life/life.js`, its cards in `lifeControls()` (app/main.js) with a ⚙ to its settings page, and a scenario to the life
    block of `tests/seams.mjs`.
 4. Make it for every form (blob, levitating human, human on its legs, and any later form), or list in `FORM_FIT` why not.
 5. Check it lives: in Vivre its card plays it from rest back to rest, in every form; `npm run build && npm test`

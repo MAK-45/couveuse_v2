@@ -61,7 +61,7 @@ jump, and GIFs placed end to end chain:
 ## Loops in three parts
 
 The entry and the exit are windows of the activity's own time, so they join the loop exactly: in the entry its clock is
-`t - T` (0 on its last frame, where the loop starts), in the exit it goes on from the loop's end. Its intensity k (ice-time.js
+`t - T` (0 on its last frame, where the loop starts), in the exit it goes on from the loop's end. Its intensity k (shared/_time.js
 `phases()`) never wraps: before the entry it is 0, after it 1, before the exit 1, after it 0. For the last 1.7 s of an entry
 k = 1 (the modifiers are exactly the loop's, so the drops alive at the join fell the same way), and the last 1.7 s of an exit
 are rest. Modifiers that can be faded go back to rest by k (`settle()`); what the activity draws fades by k (`p.fade`); a

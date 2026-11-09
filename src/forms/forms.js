@@ -21,8 +21,8 @@
 // figure's own clock h runs on the live loop; in "transform" it is set back by the animation's length, so the last
 // frame is the live loop's last frame. Everything the change adds is zero at both ends (seg, bump, ease).
 import { fit, clamp, lerp, seg, bump, ease, noise2, rng, cycle, TAU, WHITE } from "../../pixelfx/src/core/index.js";
-import { meta as idleMeta, blobBack, blobFront, ambient, state, shapeOf, drawEyes, drawSparks, drawDrips } from "./ice-blob-idle.js";
-import { prog as progAt, leadOut } from "./ice-time.js";
+import { meta as idleMeta, blobBack, blobFront, ambient, state, shapeOf, drawEyes, drawSparks, drawDrips } from "../blob/blob.js";
+import { prog as progAt, leadOut } from "../shared/_time.js";
 
 export const STYLES = ["grow", "flash", "spiral"];
 export const LEGS = ["spirit", "legs", "lotus"];

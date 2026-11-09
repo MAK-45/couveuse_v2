@@ -19,7 +19,7 @@ inside a tab), **ask the author** which kind they want, and wait for the answer 
   exactly the rest's (the Blob né's, or a new form's live loop). Test it against the rest's frames.
 - **A loop** (en boucle): an **entry** from rest, a **loop** that repeats until something else is asked, an **exit** back to
   rest, like Boucles (`o.part` "enter" / "loop" / "exit"). Write the loop; its entry and exit come from its intensity
-  (`phases()` + `settle()` in ice-time.js, the drawing faded by `p.fade`), unless the art needs its own (walking and
+  (`phases()` + `settle()` in shared/_time.js, the drawing faded by `p.fade`), unless the art needs its own (walking and
   running have their first and last steps). Test frame t against t + T, and the joins rest → entry → loop → exit → rest.
 
 Ask in French, e.g. « Tu la veux une seule fois (elle part du repos et y revient), ou en boucle (elle s’y met, continue
@@ -35,9 +35,9 @@ module's `FORM_FIT` with the reason in French. The other way round too: **a new 
 (or say in `FORM_FIT` why it can't). See « The new forms in every tab » below.
 
 **Every new animation must live in Vivre.** An action or a loop added to its module's list (`ACTIONS`, `LOOPS`) and to the
-page's list (`ACTION_LIST`, `LOOP_LIST`) is in Vivre by itself (`CATALOG` in ice-life.js is made from those lists, its
+page's list (`ACTION_LIST`, `LOOP_LIST`) is in Vivre by itself (`CATALOG` in life/life.js is made from those lists, its
 options from that tab's own `effOpts()` via `optsAs()`). A new kind of thing (a new tab, a new state) needs its step in
-ice-life.js (`plan()`, `segment()`) and a scenario in the life block of `tests/seams.mjs`.
+life/life.js (`plan()`, `segment()`) and a scenario in the life block of `tests/seams.mjs`.
 
 ## Use the pixelfx skill for every effect
 
@@ -75,7 +75,7 @@ npm install          # once (esbuild)
 npm run build        # -> dist/couveuse.html (self-contained page: engine bundled + UI inlined)
 npm test             # seam tests, pixel-exact; must print "all seams exact"
 npm run check:fx     # pixelfx contract checks on our effects (warnings about speed are fine)
-npm run render -- creature/ice-blob-loops --max 16 --zoom 2   # contact sheet in records/
+npm run render -- loops/index --max 16 --zoom 2   # contact sheet in records/
 ```
 
 Open `dist/couveuse.html` directly in a browser to try it. There is no dev server.
@@ -91,8 +91,8 @@ thing (the page has no tab bar). "Tab Actions" = the settings page of an action,
 
 - `pixelfx/` the pixelfx library (MIT, see `pixelfx/LICENSE`), kept exactly as it is: **never edit it**. Core in `pixelfx/src/core/`.
 - `src/` our effects (`tools/fxdir.mjs` points pixelfx's render and check tools at it):
-  - `src/spawn/ice-spirit-gestation.js` — tab **Naissance** (birth, box-drawn; not part of the life)
-  - `src/creature/ice-life.js` — tab **Vivre**, the life engine: a score of segments laid end to end, each one a tab's
+  - `src/birth/birth.js` — tab **Naissance** (birth, box-drawn; not part of the life)
+  - `src/life/life.js` — tab **Vivre**, the life engine: a score of segments laid end to end, each one a tab's
     animation played with that tab's options (`cfg.optsFor(tab, pick, hub)`, the page's `optsAs()`), starting on a beat of
     the rest it leaves (a hub: `form`, `pos` where it stands in the scene, whole px from its home spot) and lasting whole
     loops; at a `pos` every module draws with the painter moved there and its options worked out from there (`optsAs`
@@ -102,21 +102,21 @@ thing (the page has no tab bar). "Tab Actions" = the settings page of an action,
     `pos`), `can()` (why not), `status()`, `clearQueue()`, `trim()`, `snapshot()` (hub + things to keep), `plainOpts()`
     (tests, render tool, `--opts '{"script":[...]}'`). Things: `{ id, ob, born, dying }`, drawn by the engine except while
     the objects tab makes or takes one away.
-  - `src/creature/ice-time.js` — the time every animation shares: `prog(o, t, T)`, `settle(m, k)` (modifiers back to rest
+  - `src/shared/_time.js` — the time every animation shares: `prog(o, t, T)`, `settle(m, k)` (modifiers back to rest
     by an intensity), `phases(part, T, lead, pose)` (an entry's or exit's timetable: k, the melt into light when the pose
     changes, `swap`, `s` for the anchor)
-  - `src/creature/ice-blob-idle.js` — tab **Blob né** (reached from Vivre › Forme); the blob itself (exports `blobBack`,
+  - `src/blob/blob.js` — tab **Blob né** (reached from Vivre › Forme); the blob itself (exports `blobBack`,
     `blobFront`, `state`, `ambient`, `shapeOf`, eyes/sparks/drips; modifiers `ax`, `ay` move the whole creature, its light
     on the ground included: drawn there at rest it is its rest drawn there)
-  - `src/creature/ice-blob-actions.js` — tab **Actions** (`move`, `aura`; exports `hsl`, `fromHsl`, `total(o)`, `moveOf(o)`).
+  - `src/actions/index.js` — tab **Actions** (`move`, `aura`; exports `hsl`, `fromHsl`, `total(o)`, `moveOf(o)`).
     `move` (« Se déplacer »): it goes to `moveTo` (a life's) or `moveX`/`moveY` and stays (its progress doesn't wrap round:
     `{ ax, ay }` after it arrives); the blob glides there on an arc (`moveArc`, hops `moveHops`), the levitating figure flies
     there, the figure on its legs walks or runs there (`walkTo()`: a quarter turn `turn`, a `gaitLine` up to its pace and
     down, the body carried by `ax`, prints left on the ground, a quarter turn back); `moveOf()` keeps its whole body in
     `o.room`, only x on its legs; its length is what its way takes (`moveLoops()`, `total()`). `aura` (« Halo de lumière »):
     it charges with light, rays and rings, and is back at rest.
-  - `src/creature/ice-scene-objects.js` — tab **Objets** (solids, appear/remove; exports `drawObject`)
-  - `src/creature/ice-blob-loops.js` — tab **Boucles** (`sleep`, `magic`, `walk`, `run`; `walk`/`run` = `gaitLoop()`: the
+  - `src/objects/objects.js` — tab **Objets** (solids, appear/remove; exports `drawObject`)
+  - `src/loops/index.js` — tab **Boucles** (`sleep`, `magic`, `walk`, `run`; `walk`/`run` = `gaitLoop()`: the
     figure on its legs walks or runs on the spot, its floor of ice going by under its feet like a treadmill). Each loop has
     three parts (`o.part`: "loop", "enter" from rest, "exit" back to rest; `inLoops` / `outLoops`, `meltTime`; `total(o)` is
     the part's length, `loopLen` the activity's period): `planOf()` / `modsOf()` / `layer()` at the end of the file.
@@ -124,8 +124,8 @@ thing (the page has no tab bar). "Tab Actions" = the settings page of an action,
     the steps growing to the loop's pace on a `gaitLine` joined to the loop's clock (`cs`), long enough at its pace that its
     prints are the loop's; on the way out it slows down, stops and turns back; their entry and exit take the loops they need
     (`gaitLoops()`)
-  - `src/creature/ice-blob-clock.js` — tab **Heure** (shows the time)
-  - `src/creature/ice-blob-transform.js` — tab **Transformation** (« Formes humaines »; the blob changes shape; `form:
+  - `src/clock/clock.js` — tab **Heure** (shows the time)
+  - `src/forms/forms.js` — tab **Transformation** (« Formes humaines »; the blob changes shape; `form:
     "human"`, a levitating human figure of the same ice-light, or `form: "grounded"`, the same figure on its legs on a floor
     of ice with gravity: it takes shape in the air (the change over c ∈ [0, 0.56], `formOf()`), the floor spreads, it falls
     for as long as the height takes under `grGravity`, lands knees bent and stands (`gravityAt()` gives every phase,
@@ -229,7 +229,7 @@ If `npm test` reports a FAIL, fix the effect — never loosen the test.
 ## The new forms in every tab
 
 - Tabs Actions, Objets, Boucles, Heure draw the creature with `bodyBack(p, t, o, M, C, T)`, `bodyFront(p, t, o, M, C, T)`,
-  `bodyAmbient(...)` from `ice-blob-transform.js`, never `blobBack`/`blobFront` directly. With `o.form` "blob" they are the
+  `bodyAmbient(...)` from `forms/forms.js`, never `blobBack`/`blobFront` directly. With `o.form` "blob" they are the
   idle's own; with "human" / "grounded" they draw the figure with the Transformation tab's settings (`FORM_DEFAULTS` fill
   what's missing) and return an `st` whose `x, y` is the middle of its body, plus `hands`, `head`, `headR`, `feet`, `top`,
   `floor`, `U`: emit light from the nearest hand, put things in its hands, effects over its head.
@@ -268,7 +268,7 @@ Two skills the author calls by name, **only when asked** (they have `disable-mod
   in rounds until the plan is shared. Ask **in French**, with your recommended answer for each question. The project's own
   questions come first in the tree: once or a loop, every form, its place in Vivre, its settings.
 - `/improve-codebase-architecture` (or « améliore l’architecture ») → `codebase-design` + `domain-modeling` + `grilling`:
-  scan for deepening opportunities (hot spots from `git log`: the modules in `src/creature/`, `app/main.js`).
+  scan for deepening opportunities (hot spots from `git log`: the modules in `src/`, `app/main.js`).
   Here the HTML report is not opened with `xdg-open`: write it in the scratchpad and publish it with the Artifact tool (a new
   artifact, not the couveuse one), cards and labels in French. `GLOSSARY.md` (domain words: blob, repos, forme, vie, boucle...)
   and `docs/adr/` are created lazily at the root. No refactor may break a rule of docs/SEAMLESS.md: `npm test` must still

@@ -14,13 +14,13 @@
 //                        scene, walking and running)
 // Run: npm test      (exit code 1 on any failure)
 import { createFrame, clearFrame, painterFor, composite } from "../pixelfx/src/core/index.js";
-import * as idle from "../src/creature/ice-blob-idle.js";
-import * as actions from "../src/creature/ice-blob-actions.js";
-import * as objects from "../src/creature/ice-scene-objects.js";
-import * as loops from "../src/creature/ice-blob-loops.js";
-import * as clock from "../src/creature/ice-blob-clock.js";
-import * as transform from "../src/creature/ice-blob-transform.js";
-import * as life from "../src/creature/ice-life.js";
+import * as idle from "../src/blob/blob.js";
+import * as actions from "../src/actions/index.js";
+import * as objects from "../src/objects/objects.js";
+import * as loops from "../src/loops/index.js";
+import * as clock from "../src/clock/clock.js";
+import * as transform from "../src/forms/forms.js";
+import * as life from "../src/life/life.js";
 
 const W = 320, H = 200, Ni = 120; // Ni: frames in one idle loop (D * fps with the defaults)
 function render(mod, o, t, at = [0, 0]) {

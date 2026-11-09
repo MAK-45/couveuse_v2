@@ -6,7 +6,7 @@
   "scripts": {
     "build": "node app/build.mjs",
     "test": "node tests/seams.mjs",
-    "check:fx": "node --import ./tools/fxdir.mjs pixelfx/tools/check.mjs spawn/ice-spirit-gestation creature/ice-blob-idle creature/ice-blob-actions creature/ice-scene-objects creature/ice-blob-loops creature/ice-blob-clock creature/ice-blob-transform creature/ice-life",
+    "check:fx": "node --import ./tools/fxdir.mjs pixelfx/tools/check.mjs",
     "render": "node --import ./tools/fxdir.mjs pixelfx/tools/render.mjs --out records"
   },
   "devDependencies": {

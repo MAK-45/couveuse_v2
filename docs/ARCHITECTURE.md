@@ -8,12 +8,12 @@
 from `pixelfx/` (the vendored library, never edited).
 
 **The page** (`app/main.js`) holds the settings, builds the controls, makes the creature live (page Vivre, through the
-life engine `ice-life.js`), previews each animation on its settings page and exports it. `app/build.mjs` bundles
+life engine `life/life.js`), previews each animation on its settings page and exports it. `app/build.mjs` bundles
 `app/entry.js` (the effects + core helpers) into a global `PFX` and inlines everything into `dist/couveuse.html`.
 
 ## The life (tab Vivre)
 
-`ice-life.js` makes the creature live: a **score** of segments laid end to end, a frame being a pure function of (t, score).
+`life/life.js` makes the creature live: a **score** of segments laid end to end, a frame being a pure function of (t, score).
 
 - A **hub** is a rest: `{ form, pos, since }` — its form (blob, human, grounded), where it stands in the scene (`pos`: whole
   px from its home spot) and when this rest began. At a `pos` the engine moves the painter for the module's layers (`at()`),
@@ -48,14 +48,14 @@ In the page, `lifeTick()` draws the frame of the time it is (`lifeNow()`: real t
 buttons call `lifeAsk(req)`, `lifeStatus()` shows what it does and greys what it can't do, `S.life` keeps the settings, the
 last hub and the things.
 
-## Shared time (ice-time.js)
+## Shared time (shared/_time.js)
 
 `prog(o, t, T)` (an animation's progress with its lead-in and a lead-out never shorter than a drop of light lives),
 `settle(m, k)` (modifiers drawn back to rest by an intensity), and `phases(part, T, lead, pose)`: the timetable of a loop's
 entry or exit (intensity k, and when the pose must change, a melt into light with `swap` at its middle and `s` for where the
 light gathers).
 
-## Loops in three parts (ice-blob-loops.js)
+## Loops in three parts (loops/index.js)
 
 `o.part` "loop" (the activity itself), "enter" (from rest; the activity's clock is `t - T`, 0 on its last frame) or "exit"
 (back to rest; its clock goes on from the loop's end). `modsOf()` lays the activity's modifiers over rest by k (`settle`),
@@ -69,7 +69,7 @@ the loops they need.
 
 ## The blob and its modifiers
 
-`ice-blob-idle.js` draws the blob from `state(o, t, M)`:
+`blob/blob.js` draws the blob from `state(o, t, M)`:
 - its rest motion (bob, sway, noise wander), squash/stretch from its velocity, breath;
 - an optional **modifier function** `M(t)` returning overrides, merged over `NONE`:
   `dx, dy, ax, ay, rot, sx, sy, grow, morph, shut, happy, halo, glow, lookX, lookY, quiet, eyeScale`
@@ -77,13 +77,13 @@ the loops they need.
   included: at rest there it is its rest drawn there, pixel for pixel).
 
 Every module that draws the creature supplies only `M` plus its own extra drawing (`back`/`front` hooks) and draws it
-through `bodyBack` / `bodyFront` / `bodyAmbient` (ice-blob-transform.js), which are the idle's `blobBack` / `blobFront` /
+through `bodyBack` / `bodyFront` / `bodyAmbient` (forms/forms.js), which are the idle's `blobBack` / `blobFront` /
 `ambient` for the blob form and the figure for the human forms (see below). `ambient()` draws the floating motes.
 
 ## The new forms (the creature in every tab)
 
 Every tab that draws the creature (actions, objects, loops, clock) calls `bodyBack(p, t, o, M, C, T)` /
-`bodyFront(p, t, o, M, C, T)` / `bodyAmbient(...)` from `ice-blob-transform.js` instead of the idle's functions. With
+`bodyFront(p, t, o, M, C, T)` / `bodyAmbient(...)` from `forms/forms.js` instead of the idle's functions. With
 `o.form` "human" (levitating) or "grounded" (on its legs, on its floor of ice) they draw the Transformation's figure, fully
 formed (c = 1), through the same `build()` as that tab's `live` loop:
 
@@ -123,18 +123,18 @@ always come from `S.transform` (merged in `effOpts()`).
 
 | File | Tab | Shape of an entry |
 |---|---|---|
-| src/spawn/ice-spirit-gestation.js | Naissance | the birth, drawn in its own square zone (`mode: "box"`); not part of the life |
-| src/creature/ice-blob-idle.js | Blob né | the blob at rest: `blobBack`, `blobFront`, `state`, `ambient`, `shapeOf`, `drawEyes`, `drawSparks`, `drawDrips` |
-| src/creature/ice-blob-actions.js | Actions | `A.name = (o) => ({ mods(t), back?(p,C,t,st), front?(p,C,t,st) })`; `total(o)`; `move` ends elsewhere (`moveOf(o)`: where, inside `o.room`; `{ ax, ay }` once there; on its legs `walkTo()`: turn, `gaitLine`, turn back); also `hsl`/`fromHsl` (colour helpers the other tabs use) |
-| src/creature/ice-blob-loops.js | Boucles | `L.name = (o) => ({ mods(t), back?, front?, parts?(part, T) })`, phase via `phase(o, t)` (the activity's period `loopLen`); `o.part` loop / enter / exit, `total(o)` the part's length; `walk`/`run` (`gaitLoop`) pass `m.gait` from `gaitPlan()` with the scene's tile, on the spot, with a `gaitLine` (their own clock), and their own entry and exit (`parts`) |
-| src/creature/ice-blob-clock.js | Heure | 5x7 font, cells laid out by `layout()`, styles in `drawCells()`, timetable in `phases()` |
-| src/creature/ice-scene-objects.js | Objets | `objects[]` list; `mode` live / appear / remove; `appearing()` / `removing()` per style; `drawObject()` |
-| src/creature/ice-blob-transform.js | Transformation | `mode` transform / live / revert, `form` human (levitating) or grounded (on its legs on a floor, with gravity: `gravityAt(o, c)` gives the timeline — shape taken in the air over `formOf()`, floor, fall, landing — `grounding()` where gravity puts it, `stander()` the figure with legs solved from the feet up, `floorFx()` / `landFx()` the floor and the landing; `o.room` = the scene for the floor). The body is a distance field: the blob's outline (`r - rad(th)`) blended (`kb`) with the figure's (`human(o, st, h, P, g)`: round cones and ovals, smooth union, posed at the form's clock `h`, parts grown out by `g`); `build()` fills the field over the pixels it covers, `body()` lights it like the blob, the hair is a second field drawn behind. `chore(o, c, style)` is the change at c (0 blob, 1 new form) for `grow` / `flash` / `spiral`; at c = 0 the idle's own `blobBack/blobFront` draw it. `total(o)`: live = `liveLoops` blob loops. Also the form engine of every tab (see above) |
-| src/creature/ice-life.js | Vivre | the life engine (see « The life »): `createLife(cfg)`, `want`, `can`, `status`, `snapshot`, `clearQueue`, `trim`, `plainOpts`; `drawBack/draw` with `o.life` (or `o.script`) |
-| src/creature/ice-time.js | — | the shared time (see above) |
+| src/birth/birth.js | Naissance | the birth, drawn in its own square zone (`mode: "box"`); not part of the life |
+| src/blob/blob.js | Blob né | the blob at rest: `blobBack`, `blobFront`, `state`, `ambient`, `shapeOf`, `drawEyes`, `drawSparks`, `drawDrips` |
+| src/actions/index.js | Actions | `A.name = (o) => ({ mods(t), back?(p,C,t,st), front?(p,C,t,st) })`; `total(o)`; `move` ends elsewhere (`moveOf(o)`: where, inside `o.room`; `{ ax, ay }` once there; on its legs `walkTo()`: turn, `gaitLine`, turn back); also `hsl`/`fromHsl` (colour helpers the other tabs use) |
+| src/loops/index.js | Boucles | `L.name = (o) => ({ mods(t), back?, front?, parts?(part, T) })`, phase via `phase(o, t)` (the activity's period `loopLen`); `o.part` loop / enter / exit, `total(o)` the part's length; `walk`/`run` (`gaitLoop`) pass `m.gait` from `gaitPlan()` with the scene's tile, on the spot, with a `gaitLine` (their own clock), and their own entry and exit (`parts`) |
+| src/clock/clock.js | Heure | 5x7 font, cells laid out by `layout()`, styles in `drawCells()`, timetable in `phases()` |
+| src/objects/objects.js | Objets | `objects[]` list; `mode` live / appear / remove; `appearing()` / `removing()` per style; `drawObject()` |
+| src/forms/forms.js | Transformation | `mode` transform / live / revert, `form` human (levitating) or grounded (on its legs on a floor, with gravity: `gravityAt(o, c)` gives the timeline — shape taken in the air over `formOf()`, floor, fall, landing — `grounding()` where gravity puts it, `stander()` the figure with legs solved from the feet up, `floorFx()` / `landFx()` the floor and the landing; `o.room` = the scene for the floor). The body is a distance field: the blob's outline (`r - rad(th)`) blended (`kb`) with the figure's (`human(o, st, h, P, g)`: round cones and ovals, smooth union, posed at the form's clock `h`, parts grown out by `g`); `build()` fills the field over the pixels it covers, `body()` lights it like the blob, the hair is a second field drawn behind. `chore(o, c, style)` is the change at c (0 blob, 1 new form) for `grow` / `flash` / `spiral`; at c = 0 the idle's own `blobBack/blobFront` draw it. `total(o)`: live = `liveLoops` blob loops. Also the form engine of every tab (see above) |
+| src/life/life.js | Vivre | the life engine (see « The life »): `createLife(cfg)`, `want`, `can`, `status`, `snapshot`, `clearQueue`, `trim`, `plainOpts`; `drawBack/draw` with `o.life` (or `o.script`) |
+| src/shared/_time.js | — | the shared time (see above) |
 
 `prog(o, t)` in each module maps time to the action's progress 0..1 inside the lead-in/lead-out (the shared
-`prog(o, t, T)` of ice-time.js); `total(o)` is the animation's length, a whole number of the blob's loops (`duration * loops`,
+`prog(o, t, T)` of shared/_time.js); `total(o)` is the animation's length, a whole number of the blob's loops (`duration * loops`,
 or the part's length for loops, the live loop for the transformation's `live`).
 
 `tools/fxdir.mjs` points pixelfx's own `render` and `check` tools at `src/` when they load (`npm run render`,
@@ -183,12 +183,12 @@ it plays in its tab and in Vivre, in every form, with no other change.
 
 ## Adding a settings page (a new kind of thing to tune)
 
-1. Effect file in `src/creature/`, export it in `app/entry.js` (and add it to `check:fx` in package.json).
+1. Effect file in `src/<concept>/`, export it in `app/entry.js` (and add it to `check:fx` in package.json).
 2. In `main.js`: `ANIMS.x = {...}`, a `X_KEYS` set + `xDef()`, add to `fresh()`/`sanitize()`, routing in `setV()`, a
    `xGroups()` builder, branches in `settingsGroups()`, `loopsOf()`, `effOpts()`, `base()`; `PAGE_NAMES.x` and
    `PAGE_INTRO.x`; its way in from Vivre (a section or a « Régler … » link in `lifeControls()` calling `openPage("x", pick)`).
 3. Seam test in `tests/seams.mjs`.
-4. For Vivre: its step(s) in `ice-life.js` (`plan()`, `segment()`), its buttons in `lifeControls()`, a scenario in the life
+4. For Vivre: its step(s) in `life/life.js` (`plan()`, `segment()`), its buttons in `lifeControls()`, a scenario in the life
    block of the seam tests.
 
 ## Extension points
@@ -196,8 +196,8 @@ it plays in its tab and in Vivre, in every form, with no other change.
 - **An action, a loop**: its module and list, the page's list and params (`.claude/commands/new-action.md`, `new-loop.md`).
   It is in Vivre and on its settings page by itself.
 - **A form** (`new-form.md`): a figure builder chosen in `build()`, `isForm()`, `FORM_FIT` in every module, `FORMS` in
-  ice-life.js, `TF_FORMS` / `BODY_FORMS` in the page. A **posture** of a form (a real sit) is a continuous pose parameter in its
-  builder; loops then blend to it instead of melting through light (`POSE_KEYS`, `poseChange()` in ice-blob-loops.js).
+  life/life.js, `TF_FORMS` / `BODY_FORMS` in the page. A **posture** of a form (a real sit) is a continuous pose parameter in its
+  builder; loops then blend to it instead of melting through light (`POSE_KEYS`, `poseChange()` in loops/index.js).
 - **A thing** (`new-thing.md`): an object shape is a solid in `SOLIDS` (+ `SHAPE_LIST` / `SHAPE_OPTS` in the page); a companion
   is a new `kind` of thing with its own module (rest loop, its animations from rest back to rest), drawn by `thingsOn()`,
   planned by `plan()` / `segment()`, saved by `snapshot()`.

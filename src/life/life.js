@@ -12,12 +12,12 @@
 // So every join is one the seam tests check (an animation's first and last frames are its rest's), and the creature
 // lives without a jump for as long as you like. A frame is a pure function of (t, score): the page draws the time it
 // is now, the tests and the render tool draw any time. Things (objects for now) stay in the scene where they were made.
-import * as idle from "./ice-blob-idle.js";
-import * as actions from "./ice-blob-actions.js";
-import * as loops from "./ice-blob-loops.js";
-import * as clock from "./ice-blob-clock.js";
-import * as objects from "./ice-scene-objects.js";
-import * as transform from "./ice-blob-transform.js";
+import * as idle from "../blob/blob.js";
+import * as actions from "../actions/index.js";
+import * as loops from "../loops/index.js";
+import * as clock from "../clock/clock.js";
+import * as objects from "../objects/objects.js";
+import * as transform from "../forms/forms.js";
 
 export const meta = {
   name: "Ice creature life",
