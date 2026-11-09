@@ -1,103 +1,118 @@
 # Architecture
 
+How the page, the life engine and the effects fit together, and where to add things. Why every join is exact is in
+SEAMLESS.md; the words are in GLOSSARY.md.
+
 ## Two halves
 
-**Effects** (`pixelfx/src/fx/...`) are pure pixelfx effects: `meta` (name, size, duration, `options`) plus
-`drawBack(p, t, o)` and `draw(p, t, o)` drawing with a pixelfx Painter `p` placed at the creature's spot
-(local coords, y down). They run in Node (tests, `pixelfx/tools/render.mjs`) and in the browser.
+**Effects** (`src/<concept>/`) are pixelfx effects: `meta` (name, size, duration, `options`) plus `drawBack(p, t, o)` and
+`draw(p, t, o)`, drawing with a pixelfx painter placed at the creature's spot (local px, y down). They are pure functions
+of (t, options): they run in Node (tests, `npm run render`) and in the browser, and import the pixelfx core from
+`pixelfx/` (never edited; `tools/fxdir.mjs` points pixelfx's own render and check tools at `src/`).
 
-**The page** (`app/main.js`) holds the settings, builds the controls, renders frames with the effects, previews
-them and exports them. `app/build.mjs` bundles `app/entry.js` (the effects + core helpers) into a global `PFX`
-and inlines everything into `dist/couveuse.html`.
+**The page** (`app/main.js`) holds the settings, builds the controls, makes the creature live (Vivre, through
+`life/life.js`), previews each animation on its settings page and exports it. `app/build.mjs` bundles `app/entry.js` (the
+effects, as the global `PFX`) and inlines everything into `dist/couveuse.html`.
 
-## The blob and its modifiers
+## Fiches and catalogues (actions, loops)
 
-`ice-blob-idle.js` draws the blob from `state(o, t, M)`:
-- its rest motion (bob, sway, noise wander), squash/stretch from its velocity, breath;
-- an optional **modifier function** `M(t)` returning overrides, merged over `NONE`:
-  `dx, dy, rot, sx, sy, grow, morph, shape, shut, happy, vis, halo, glow, lookX, lookY, quiet, eyeScale, tw`
-  (`tw` = the blob's own clock, used by the freeze action; `quiet` hides drops born at that time).
+An action or a loop is a **fiche**, one file: its id, its kind, its card (French name and description), its options
+(default, row on its page, unit, how the page sets it: `shared/_fiche.js`), `formFit` (the forms that can't play it, and
+why) and `play`. Its host builds everything else:
 
-Actions, objects, loops and clock all draw the same blob with `blobBack(p, t, o, M)` / `blobFront(p, t, o, M)`
-and only supply `M` plus their own extra drawing (`back`/`front` hooks). `ambient()` draws the floating motes.
+- `actions/_action.js`: `action(def)` gives it its length (whole blob loops, or what its way takes for kind "move"), its
+  progress `prog(t)` (a lead-in of at least 0.12 s, a lead-out of at least 1.7 s), the rest when its form can't play it,
+  and makes the fiche a pixelfx effect. `family(list)` is the actions page's effect, playing the fiche `o.action` names.
+- `loops/_loop.js`: `loop(def)` gives it its period and its three parts (`o.part` "enter" / "loop" / "exit": the
+  activity's intensity from `phases()` draws its modifiers back to rest with `settle()` and fades its drawing; a pose
+  switches under a melt into light), and the rest when its form can't play it. `family(list)` is the loops page's effect
+  (`o.loop`). `loops/_gait.js` gives walking and running their own entry and exit (a quarter turn, steps on a
+  `gaitLine`).
+- `shared/_creature.js`: the one adapter that draws the creature for every page: its body in its form (`bodyBack` /
+  `bodyFront` / `bodyAmbient`, forms.js) moved by the animation's modifiers, the motes round it, then the animation's own
+  drawing behind and in front (`st`: where its body, hands, head and feet are).
 
-## The new forms (the creature in every tab)
+The **catalogue** is the list in `actions/index.js` and `loops/index.js`. The page reads it (Vivre's cards, the settings
+pages, their rows, units and defaults), the life reads it (`CATALOG`), the tests walk it. The clock and the objects are
+pages of their own that draw the creature through the same adapter.
 
-Every tab that draws the creature (actions, objects, loops, clock, electricity, portal, world actions) calls
-`bodyBack(p, t, o, M, C, T, part)` / `bodyFront(p, t, o, M, C, T)` / `bodyAmbient(...)` from `ice-blob-transform.js`
-instead of the idle's functions. With `o.form` "human" (levitating) or "grounded" (on its legs, on its floor of ice) they
-draw the Transformation's figure, fully formed (c = 1), through the same `build()` as that tab's `live` loop:
+## The life (page Vivre)
 
-- `formFrame(o, t, M, T)`: the idle state with the tab's modifiers, the figure's clock `figClock(o, t, T)` (nudged so a
-  T-long animation lands back on the live loop), the walking speed; cached for back, front and copies.
-- the modifiers act on the figure: levitating, it moves, squashes (60 %), turns and scales as the blob; on its legs
-  `grounding(..., xm)` + `walking()` turn `dx` into steps, `dy < 0` into a jump (feet leave the floor, `X.air`), `dy > 0`
-  and squash into bent knees, `rot` into a lean of the upper body (`X.lean`, `turnParts`) or a flip in the air, `grow`
-  into a scale round the floor under it; `morph`/`shape` blend the figure into the blob's shape (`k = 1 - morph`).
-- figure-only modifiers: `armUp`, `armOpen`, `hold`, `reach` + `reachK` (arm angles blended in `posed()`), `legs` / `arms`
-  (pose overrides), `seat` (on its legs: sits cross-legged on its floor), `gait` (on its legs: walks or runs, see below).
-- **walking and running** (`m.gait`): `strider()` draws the figure side on, posed by `gaitPose()`: a person's gait at that speed
-  (`gaitK()`: stance share, knee bend over the stance, foot pitch, swing lift, lean, arm swing), the foot rolling heel → flat →
-  ball while the ground carries it back at the stride's speed, where it lands worked out by `gaitSolve()` so the hips ride
-  smoothly from leg to leg (and fly between the steps when running), the legs solved from the hips, the swinging foot on a smooth
-  path that clears the ground. The near arm is a layer in front of the body (`As`), the far arm and leg one behind it (`Fs`),
-  drawn by `limbs()`; `gaitFx()` lays prints of light on the ground. `gaitPlan(o, kind, P, T, kmh, stride)` gives a tab whole
-  strides and whole tiles of ground a loop. `o.grNoFloor` (a planet's ground under its feet) leaves out the floor of ice.
-- `bodyFront` returns the state with `x, y` at the middle of the body and `hands`, `head`, `headR`, `feet`, `top`, `floor`,
-  `U`, so a tab's effects come from its hands or sit on its head; `formExtent`, `formCentre`, `formMask` (afterimages),
-  `floorFor` help tabs and the page.
-- each module's `FORM_FIT[form][name]` says, in French, what can't be done in a form and why (the effect then rests).
+`life/life.js` keeps a **score**: segments laid end to end; a frame is a pure function of (t, score).
 
-In the page, the form is `S.shared.bodyForm`, picked in a « Forme » group at the top of those tabs; the figure's settings
-always come from `S.transform` (merged in `effOpts()`).
+- A **hub** is a rest `{ form, pos, since }`: its form, where it stands (`pos`, whole px from its home spot), when this
+  rest began. Its beats are `since + n · R` (R: the blob's loop, or the figure's live loop). The rest is drawn by the
+  objects page's live scene with nothing in it.
+- A **segment** `{ at, len, kind, mod, o, hub0, hub1, label }` plays one page's animation with that page's options:
+  "once" (actions, clock), "move" (« Se déplacer »: the hub after it has the new `pos`), "enter" / "loop" (repeated until
+  something else is asked) / "exit", "transform" / "revert", "appear" / "remove". It starts on a beat of hub0.
+- `want(L, req, now)` closes a loop going on after its turn, then `plan()` lists the steps the request needs (revert,
+  transform…) and `segment()` builds each one from the next beat after `now + MARGIN`. `can()` says why not (in French),
+  `status()` what it does and what follows, `snapshot()` what to keep, `trim()` and `clearQueue()` forget.
+- **Things** (objects) `{ id, ob, born, dying }` stay where they were made. The engine draws them after the module's back
+  and front layers; during "appear" and "remove" the objects page draws them all.
+- **Options**: `cfg.optsFor(tab, pick, hub)`. The page's is `optsAs()`: that page's own `effOpts()` for that spot, so a
+  life plays exactly what each page shows. The tests and the render tool use `plainOpts()` (each module's defaults).
 
-## Effect modules
+## The forms
 
-| File | Tab | Shape of an entry |
+`forms/forms.js` is the Transformation page (`transform` → `live` → `revert`, styles `grow` / `flash` / `spiral`) and the
+form engine of every page. `FORMS` lists them: "blob", "human" (levitating) and "grounded" (on its legs on a floor of ice,
+with gravity: it falls, lands and stands). The body is a distance field: the blob's outline blended with the figure's
+round cones and ovals (`human()`, `stander()`), lit like the blob; `chore(o, c, style)` is the change at c (0 blob, 1 the
+new form), neutral at both ends.
+
+- `bodyBack` / `bodyFront(p, t, o, M, C, T)` draw the creature in `o.form` with an animation's modifiers `M`: the blob's
+  own drawing, or the figure, its clock nudged by `figClock` so a T-long animation ends on its live loop. They return
+  `st` (the middle of the body, `hands`, `head`, `feet`, `floor`…).
+- Modifiers for every form: `dx, dy, ax, ay, rot, sx, sy, grow, morph, shut, happy, halo, glow, lookX, lookY, quiet,
+  eyeScale`; for figures: `armUp, armOpen, hold, reach + reachK, legs, arms, seat`. On its legs `dx` becomes steps,
+  `dy < 0` a jump, `dy > 0` bent knees, `rot` a lean.
+- Walking and running (`m.gait`): side on (`strider()`), a person's gait at that speed (`gaitK()`, `gaitSolve()`,
+  `gaitPose()`), prints of light on the floor (`gaitFx()`); `gaitPlan()` gives a loop whole strides and whole tiles of
+  floor; a pace that changes follows a `gaitLine` (every foot stays where it came down); turning side on (`m.turn`)
+  blends the figure facing us with the one side on.
+
+## Modules
+
+| File | Page | What it holds |
 |---|---|---|
-| ice-blob-actions.js | Actions | `A.name = (o) => ({ mods(t), back?(p,C,t,st), front?(p,C,t,st), copies?(t), palette?(t) })` |
-| ice-blob-loops.js | Boucles | `L.name = (o) => ({ mods(t), back?, front? })`, phase via `phase(o, t)`; `walk`/`run` (`gaitLoop`) pass `m.gait` from `gaitPlan()` with the scene's tile, on the spot |
-| ice-scene-objects.js | Objets | `objects[]` list; `mode` live / appear / remove; `appearing()` / `removing()` per style |
-| ice-blob-electric.js | Électricité | `L.name = (o) => ({ mods(t), charge(t), back?(p,C,V,t,st), front? })`; `V` = electricity colours, `charge` tints the blob; bolts via `zap()` reseeded `flick()` times a loop. Runs as an action: time is `prog()`, `presence()` fades it in/out and `settle()` brings every modifier back to neutral |
-| ice-blob-portal.js | Portail | `mode` open / live / close / cross / beyond / reopen / beyondOpen / return (`wayOf()` gives the way in and out, so the crossing runs both ways); `crossing()` + `crossMods()` + `reflect()` (the mirror image, drawn into a scratch frame and copied flipped inside the portal) for the way through; `opening()`/`closing()` give the portal's shape over progress, `drawPortal()` draws the world inside (via `renderWorld`), the inner lip, the rim and its flames, `castFx()` the ray and flashes. `total(o)`: live = the world's period |
-| ice-blob-explore.js | Action monde | `X.name = (o) => ({ mods(t), world(t) → { w, wt }, calm, back(p,C,Cf,t,st,M), front(...) })` (`world` gives the world and its clock for that frame: camera moves go in `wCamX/wCamY`, periodic; `calm` shows the idle's motes); actions move, look, swim, turns, collect, walk, run (`Cf` = palette shifted by `exHue`); walk and run (`gaitAct`, figure on its legs only) move the world at the speed of its steps (`gaitPlan`, `groundDepth`: the meadow under its feet goes by at the stride's speed), and on a planet's surface what stands nearer to us than its feet is painted after it (`paintWorld(..., split)`). Free loop over `loops` blob loops; the world from `worldFor(o)` (moving at `exSpeed × exDrift` scenes a blob loop, against `exDir`), its clock warped by `pace(o,t).x` for the surges; `pace(o,t).k` = how much the body shows the speed |
-| ice-blob-transform.js | Transformation | `mode` transform / live / revert, `form` human (levitating) or grounded (on its legs on a floor, with gravity: `gravityAt(o, c)` gives the timeline — shape taken in the air over `formOf()`, floor, fall, landing — `grounding()` where gravity puts it, `stander()` the figure with legs solved from the feet up, `floorFx()` / `landFx()` the floor and the landing; `o.room` = the scene for the floor). The body is a distance field: the blob's outline (`r - rad(th)`) blended (`kb`) with the figure's (`human(o, st, h, P, g)`: round cones and ovals, smooth union, posed at the form's clock `h`, parts grown out by `g`); `build()` fills the field over the pixels it covers, `body()` lights it like the blob (rim, ramp steps, currents, heart of light, plus a body-wide gradient for the thin limbs), the hair is a second field drawn behind. `chore(o, c, style)` is the change at c (0 blob, 1 new form) for `grow` / `flash` / `spiral` (the spiral cuts at a rising line instead of blending); at c = 0 the idle's own `blobBack/blobFront` draw it. `total(o)`: live = `liveLoops` blob loops |
-| ice-worlds.js | Mondes | `renderWorld(w, wt, P, T, X0, Y0, bw, bh, cam, dims, split)` → `{ col, lit }` for a window of scene cells; layers at depths shifted by voyage + camera (parallax); `WORLD_TYPES`, `DEFAULTS`, `worldOf()`, `worldPeriod()`, `isSurface()`, `groundDepth()`; `paintWorld(p, w, wt, P, room, view, split)` |
-| ice-surface.js | Surface planète | `renderSurface(w, wt, P, T, X0, Y0, bw, bh, cam, dims)` → `{ col, lit }`, called by `renderWorld` for surface types (`plain`); `dims` = the scene's size in cells (horizon, sun, sizes in % of its height). Layers back to front: sky, stars, sun/moon, birds, clouds (wind = whole tiles a loop), mountains (0.12), hills (0.3), meadows (0.45, 0.7, 1) with their lake/ponds/flowers/rocks/trees, tall grass (1.35), motes. Only the sideways part of a heading moves it. `split` (someone standing at a row): "back" leaves out what stands up nearer to us (only its shadow), "front" draws only that on transparency; `groundDepthAt()` |
-| ice-blob-clock.js | Heure | 5x7 font, cells laid out by `layout()`, styles in `drawCells()`, timetable in `phases()` |
-
-`prog(o, t)` (actions, objects, clock) maps time to the action's progress 0..1 inside the lead-in/lead-out.
-`total(o) = duration * loops`.
+| src/shared/_time.js | — | `prog`, `leadIn` / `leadOut` (`LEAD_MIN`, `DROP_LIFE`), `settle`, `phases` |
+| src/shared/_fiche.js | — | `options(spec)`: a fiche's defaults, page defaults and rows; `merged(list)` |
+| src/shared/_creature.js | — | `creature(frame)`: the creature drawn by an animation, the same way in every page |
+| src/shared/_color.js | — | `hsl`, `fromHsl` |
+| src/actions/ | Actions | `index.js` (the catalogue), `_action.js` (host), `move.js`, `aura.js`, `_template.js` |
+| src/loops/ | Boucles | `index.js`, `_loop.js` (host), `_gait.js`, `sleep.js`, `magic.js`, `walk.js`, `run.js`, `_template.js` |
+| src/forms/forms.js | Transformation | the forms and the form engine (above) |
+| src/blob/blob.js | Blob né | the blob at rest: `blobBack`, `blobFront`, `state`, `ambient`, eyes, sparks, drips |
+| src/clock/clock.js | Heure | a 5×7 font laid out in cells, the ways it shows and hides the time |
+| src/objects/objects.js | Objets | the solids (`SOLIDS`), `drawObject`, the appear and remove styles |
+| src/birth/birth.js | Naissance | the birth, drawn in its own square zone (not part of the life) |
+| src/life/life.js | Vivre | the life engine (above) |
 
 ## The page (app/main.js)
 
-Sections, in order (search for `// ----`):
+No tab bar: the page opens on **Vivre** (`S.anim = "life"`); every other page is a **settings page**, opened from Vivre
+(`openPage(anim, pick)`: a card's ⚙, or a « Régler … » link) and left with « Revenir à la vie » or Escape
+(`backToLife()`). Its sections, in order (search for `// ----`): constants and shared settings; `ANIMS` (one entry per
+page); the catalogue (`FAMILIES`, `ficheOf`, `pageDef`, `sceneUnits`); each page's groups and rows; the state `S` (saved
+in `localStorage`, `sanitize()`), its flat view `V` and `setV()`; the controls (`buildControls()`, `lifeControls()`);
+rendering (`effOpts()`, `renderScene()`); dragging; the life (`optsAs`, `lifeAsk`, `lifeTick`); the exports (`makeGif()`
+with one palette per frame, `makePng()`, `makeJson()`), saved through `window.claude.use("downloads")` on claude.ai.
 
-1. Constants: palettes, ratios, `SHARED_DEF` (scene/export settings shared by all tabs), `PER_DEF`.
-2. `ANIMS` registry: `{ name, fx, file, id, mode: "box" | "scene", groups }`. Tabs: birth, blob, actions,
-   objects, loops, clock, elec, portal, explore, transform, worlds, surface (the worlds of `S.worlds` whose type is a planet surface). `mode: "box"` = drawn in its own square zone and blitted (birth only);
-   `"scene"` = drawn across the whole scene at `1/scale` resolution and upscaled.
-3. Per-tab UI tables: `ACTION_LIST/ACTION_PARAMS`, `LOOP_LIST/LOOP_PARAMS`, `OBJ_ROWS`, `clockGroups()`…
-   A row is `[key, label, min, max, step, unit]` (slider) or `[key, label, { select | color | button }]`.
-   Units with special read-outs: `" % pos x"`, `" % pos y"`, `" % de la scène"`, `" % de la largeur"`,
-   `" % de la hauteur"`, `" part"`, `" % (sol)"`.
-4. State `S = { anim, shared, birth, blob, actions, objects, loops, clock, elec, portal, worlds }`
-   (`worlds = { list: [{ id, name, wType, w… }], sel, nextId }`; the portal picks one with `pWorld`) saved in `localStorage`
-   (`couveuse-v3`), merged by `sanitize()`. `V` is the flat view the current tab reads (`refreshV()`);
-   `setV()` writes back to the right store. Actions/objects/loops/clock borrow the blob's look from `S.blob`.
-5. Controls: `buildControls()` → `group()` + `rowFor()`; `wire()` hooks shared controls (guarded by `on()`).
-6. Rendering: `effOpts()` builds the effect's options from `V` (converts % of scene to effect pixels, clamps
-   paths into the scene). `renderScene(anim, o, t, bg)` → RGBA scene buffer; `getScene(i)` caches frames.
-   Placement grid (`grid()`) keeps the creature centre on the same scene pixel in every tab, so tabs chain.
-7. Guides (preview only), dragging (creature, action targets, objects), playback.
-8. Export: `allFrames()`, `makePng()` (sprite sheet), `makeJson()` (Aseprite-style + `meta.pixelfx` with scene,
-   placement, chain info, settings), `makeGif()` (own encoder: median cut + LZW, **local palette per frame**).
-   Saving goes through `window.claude.use("downloads")` when hosted on claude.ai, else a plain download link.
+## Extension points
 
-## Adding a tab (outline)
-
-1. Effect file in `pixelfx/src/fx/creature/`, export it in `app/entry.js`.
-2. In `main.js`: `ANIMS.x = {...}`, a `X_KEYS` set + `xDef()`, add to `fresh()`/`sanitize()`, routing in
-   `refreshV()`/`setV()`, a `xGroups()` builder, branches in `buildControls()`, `loopsOf()`, `effOpts()`, `base()`.
-3. Tab button in `app/index.template.html`.
-4. Seam test in `tests/seams.mjs`.
+- **An action, a loop**: a fiche made from `_template.js`, listed in its catalogue (skills `new-action`, `new-loop`). Its
+  card, settings page, life and tests follow.
+- **A form** (`new-form`): its figure in forms.js, its id in `FORMS`, its names in the page; every fiche plays it or says
+  why in `formFit`; the tests and the life take it from `FORMS`.
+- **A thing** (`new-thing`): an object shape is a solid in `SOLIDS` and a name in `SHAPE_LIST`; a companion is a new kind
+  of thing with its own module, drawn by `thingsOn()`, planned by `plan()` / `segment()`, saved by `snapshot()`.
+- **An animation that ends elsewhere** (like the move): kind "move", `moveOf` and `length` in its fiche; its last frames
+  are its rest drawn there (`ax` / `ay`, a pure translation), and `segment()` gives the hub after it the new `pos`.
+- **A new kind of step in the life** (a state such as sitting, holding a thing): a hub field if it is a rest of its own
+  (its drawing in `rest()`, its beats in `restLen()`), its steps in `plan()` and `segment()`, its reasons in French, its
+  requests in the tests' lives. Keep every join on a beat and the drawing order (module back, things back, module front,
+  things front).
+- **A new settings page**: its effect in `src/<concept>/`, exported in `app/entry.js`; in main.js its `ANIMS` entry, its
+  keys and defaults, its groups, `PAGE_NAMES` / `PAGE_INTRO` and its way in from Vivre; its checks in the tests.
