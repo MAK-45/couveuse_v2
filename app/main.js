@@ -179,6 +179,7 @@ const actionDef = () => ({ ...Object.fromEntries([...ACTION_KEYS].filter((k) => 
 const targetKeys = (a) => { const f = find("actions", a); return f && f.target ? [f.target] : []; };
 // ---- the objects tab: things the blob makes in its scene, which stay and float with it
 ANIMS.objects = { name: "Objets", fx: PFX.objects, file: "objets", id: "objects/objects", mode: "scene", groups: null };
+// the shapes of objects (their solids: src/objects/objects.js)
 const SHAPE_LIST = [["cube", "Cube"], ["sphere", "Sphère"], ["pyramid", "Pyramide"], ["crystal", "Cristal"], ["column", "Colonne"], ["gem", "Gemme"]];
 const shapeName = (s) => (SHAPE_LIST.find((x) => x[0] === s) || SHAPE_LIST[0])[1];
 const OBJ_MODES = [["live", "Scène vivante", "tout flotte avec le blob"], ["appear", "Apparition", "le blob crée l’objet choisi"], ["remove", "Disparition", "le blob retire l’objet choisi"]];
@@ -290,7 +291,6 @@ function objAnimMarkup(rows) {
 }
 // ---- the loops tab: the blob busy with something, for ever
 ANIMS.loops = { name: "Boucles", fx: PFX.loops, file: "boucle", id: "loops/index", mode: "scene", groups: null };
-const SHAPE_OPTS = [["sphere", "Sphère"], ["cube", "Cube"], ["pyramid", "Pyramide"], ["crystal", "Cristal"], ["column", "Colonne"], ["gem", "Gemme"]];
 const LOOP_KEYS = new Set(Object.keys(PFX.loops.meta.options).filter((k) => !(k in PFX.blob.meta.options) && k !== "form"));
 const loopsDef = () => {
   return { ...Object.fromEntries([...LOOP_KEYS].map((k) => [k, PFX.loops.meta.options[k]])), ...pageDef("loops") };
@@ -1137,7 +1137,7 @@ view.addEventListener("keydown", (ev) => {
 // that tab's settings, each one from its rest back to a rest, on the beats of that rest (life/life.js), taking by itself
 // the steps it needs (changing form...); its scene keeps what it makes. What it is asked waits its turn: nothing ever jumps.
 const FORM_NAMES = { blob: "le blob né", human: "la forme humaine en lévitation", grounded: "la forme humaine au sol" };
-const SHAPE_NAMES = Object.fromEntries(SHAPE_OPTS);
+const SHAPE_NAMES = Object.fromEntries(SHAPE_LIST);
 const LIFE_KIND = { enter: " (il s’y met)", exit: " (il s’arrête)", loop: " (en boucle)" };
 let LIFE = null, lifeBase = 0, lifeAt = 0, lifePaused = false, lifeLast = 0, lifeSig = "", lifeOpts = null, placeSig = "";
 // a tab's options for its effect, as that tab builds them, for the creature in a given form (the life engine asks)
@@ -1272,7 +1272,7 @@ function lifeControls() {
   }
   {
     const [d, rows] = group({ title: "Objets", hint: "ils restent dans le décor" }, "life-objects", false);
-    for (const def of [["shape", "Objet", { select: SHAPE_OPTS }], ["obSize", "Taille", 4, 30, 0.5, " px"], ["obHue", "Teinte", 0, 360, 1, "°"],
+    for (const def of [["shape", "Objet", { select: SHAPE_LIST }], ["obSize", "Taille", 4, 30, 0.5, " px"], ["obHue", "Teinte", 0, 360, 1, "°"],
       ["obLayer", "Plan", { select: [["back", "Derrière lui"], ["front", "Devant lui"]] }],
       ["appearStyle", "Il apparaît en", { select: OBJ_APPEAR }], ["removeStyle", "Il disparaît en", { select: OBJ_REMOVE }]]) rowFor(rows, def);
     rows.insertAdjacentHTML("beforeend", `<p class="note">Clique dans la scène pour choisir où le prochain objet apparaît (la croix ; « Se déplacer » y va aussi).</p>`);

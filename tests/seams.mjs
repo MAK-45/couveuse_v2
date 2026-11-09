@@ -24,9 +24,9 @@ import { fiche as actionTemplate } from "../src/actions/_template.js";
 import { fiche as loopTemplate } from "../src/loops/_template.js";
 
 const W = 320, H = 200, ROOM = [-160, -115, 160, 85], D = idle.meta.options.duration, Ni = 120, dt = D / Ni; // Ni frames a blob's loop
-// the forms everything is tested in: the three, plus the figure's own loop over 1 or 3 of the blob's (its clock nudged
-// to land on it) and a pose that melts into light to change (legs crossed to sleep)
-const FORM_CASES = { blob: {}, human: { form: "human" }, grounded: { form: "grounded" }, "legs L1": { form: "human", huLegs: "legs", liveLoops: 1 },
+// the forms everything is tested in: each of forms.FORMS, plus the figure's own loop over 1 or 3 of the blob's (its clock
+// nudged to land on it) and a pose that melts into light to change (legs crossed to sleep)
+const FORM_CASES = { ...Object.fromEntries(forms.FORMS.map((f) => [f, f === "blob" ? {} : { form: f }])), "legs L1": { form: "human", huLegs: "legs", liveLoops: 1 },
   "lotus L1": { form: "human", huLegs: "lotus", liveLoops: 1 }, "hips L3": { form: "grounded", grArms: "hips", liveLoops: 3 } };
 const DESTS = [null, [-130, 40], [17, -61], [300, -200]]; // where a move goes (null: its own default; the last one past the edge)
 const EXTREMES = [["court, sans repos", { lead: 0, loops: 1 }], ["long, long repos", { lead: 0.3, loops: 8 }]]; // the other tabs' length rows

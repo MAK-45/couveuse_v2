@@ -45,7 +45,8 @@ const prog = (o, t) => progAt(o, t, total(o));
 const ln = (x, y, u, s, r = 1) => noise2(x + Math.cos(TAU * u) * r, y + Math.sin(TAU * u) * r, s);
 const hash = (x, y, s) => { const v = Math.sin(x * 127.1 + y * 311.7 + s * 74.7) * 43758.5453; return v - Math.floor(v); };
 
-// ---- solids: vertices (y up) and faces, faces turned outward
+// ---- solids: vertices (y up) and faces, faces turned outward. A new shape: its solid here (the sphere is drawn apart, in
+// drawObject), its French name in app/main.js (SHAPE_LIST)
 function solid(verts, faces) {
   return {
     verts,

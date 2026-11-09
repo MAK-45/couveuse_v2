@@ -1487,7 +1487,9 @@ export function draw(p, t, o) {
 // T is the tab's length: the figure's own clock runs on the live loop's period, so over T it is nudged (a little
 // faster mid-way, never near the ends) to come back on that loop's frame (figClock).
 export const FORM_DEFAULTS = Object.freeze(Object.fromEntries(Object.entries(meta.options).filter(([k]) => /^(hu|gr)[A-Z]/.test(k) || k === "liveLoops")));
-/** The forms the creature can take: the blob it is born as, and the Transformation's two human forms. */
+/** The forms the creature can take: the blob it is born as, and the Transformation's two human forms. A new form: its
+ * figure in this file, its id here, its names in app/main.js (TF_FORMS, BODY_FORMS, FORM_NAMES); every tab, its life and
+ * npm test then play it (skill /new-form). */
 export const FORMS = ["blob", "human", "grounded"];
 export const isForm = (o) => !!o && (o.form === "human" || o.form === "grounded");
 const FORMED = new WeakMap();

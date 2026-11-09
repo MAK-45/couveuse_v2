@@ -38,12 +38,12 @@ const MODULES = { actions, loops, clock, objects, transform };
 const MARGIN = 0.15; // (s) nothing new starts sooner than this after now: the frame on screen never changes
 
 // ---- what it can do: every animation of the tabs that go from rest back to rest, or loop with an entry and an exit
-/** Every animation a life can play, generated from the modules' own lists: { id, family, tab, pick, kind, name }. */
+/** Every animation a life can play, from the catalogues: { id, tab (whose options and effect), pick, kind, fiche }. */
 const CATALOG = [
-  // (the move goes from one rest to another: its rest is somewhere else after it)
-  ...actions.ACTIONS.map((f) => ({ id: "actions:" + f.id, family: "actions", tab: "actions", pick: { action: f.id }, kind: f.kind, name: f.id, fiche: f })),
-  ...loops.LOOPS.map((f) => ({ id: "loops:" + f.id, family: "loops", tab: "loops", pick: { loop: f.id }, kind: "loop", name: f.id, fiche: f })),
-  { id: "clock", family: "clock", tab: "clock", pick: {}, kind: "once", name: "clock" },
+  // (kind "move" goes from one rest to another: its rest is somewhere else after it)
+  ...actions.ACTIONS.map((f) => ({ id: "actions:" + f.id, tab: "actions", pick: { action: f.id }, kind: f.kind, fiche: f })),
+  ...loops.LOOPS.map((f) => ({ id: "loops:" + f.id, tab: "loops", pick: { loop: f.id }, kind: "loop", fiche: f })),
+  { id: "clock", tab: "clock", pick: {}, kind: "once" },
 ];
 const byId = new Map(CATALOG.map((c) => [c.id, c]));
 /** Why an animation can't be played in a form (null if it can). */
@@ -108,7 +108,9 @@ function closeLoop(L, now) {
   L.segs.push(segment(L, { kind: "exit", entry: s.entry, label: s.exitLabel }, s.hub1, endOf(s)));
 }
 
-// ---- what a request needs: the steps that take it from the rest it is in to doing what's asked
+// ---- what a request needs: the steps that take it from the rest it is in to doing what's asked. (An action or a loop
+// needs nothing here: the catalogue brings it. A new kind of step, such as a companion: its case in plan() and segment(),
+// and its request in the lives of tests/seams.mjs.)
 const STEP_LABEL = { move: "se déplace", revert: "redevient le blob", transform: "prend forme humaine", appear: "fait apparaître un objet", remove: "fait disparaître un objet" };
 function plan(L, req, h) {
   const steps = [];
