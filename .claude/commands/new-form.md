@@ -7,7 +7,7 @@ and comes back (`revert`). Every animation of every page must be played by it, o
    forms in the other tabs »). Load the `pixelfx` skill and use its render → look → refine loop.
 2. Ask the author what it looks like, how it moves at rest, how it takes shape and goes back (in French), and wait.
 3. In `src/creature/ice-blob-transform.js`:
-   - add its id to `FORMS` and to `isForm()`; its settings to `meta.options` with a prefix of their own (and to
+   - add its id to `isForm()`; its settings to `meta.options` with a prefix of their own (and to
      `FORM_DEFAULTS`' filter if the prefix is not `hu`/`gr`);
    - a figure builder like `human()` / `stander()`: primitives (round cones, ovals) in its own space, returning
      `{ L, Hl, U, head, hands, tips, heart, chest, hips, box }`, posed at its own clock `h` (period `livePeriod(o)`, whole turns),
@@ -16,8 +16,8 @@ and comes back (`revert`). Every animation of every page must be played by it, o
    - what the shared modifiers mean for it (`dx`, `dy`, `rot`, `grow`, `armUp`/`armOpen`/`hold`/`reach` if it has arms...).
    A new **posture** of an existing form (a real sit, knees bending) is a pose parameter in its builder that goes from 0 to 1
    continuously; then the loops that need it (`seat`) can blend to it instead of melting through light.
-4. In every other module (`ice-blob-actions.js`, `ice-blob-loops.js`, `ice-blob-electric.js`, `ice-blob-clock.js`,
-   `ice-scene-objects.js`, `ice-blob-portal.js`, `ice-blob-explore.js`): render each animation in the new form, adapt what must
+4. In every other module (`ice-blob-actions.js`, `ice-blob-loops.js`, `ice-blob-clock.js`, `ice-scene-objects.js`): render
+   each animation in the new form, adapt what must
    be (effects from its hands or head via `st`), and list in `FORM_FIT[newForm]` what truly can't be done, with the reason in French.
 5. In `ice-life.js`: add it to `FORMS` (the life engine plans `revert` then `transform` to reach it).
 6. In `app/main.js`: add it to `TF_FORMS` and `BODY_FORMS` (French name and description), its settings rows in

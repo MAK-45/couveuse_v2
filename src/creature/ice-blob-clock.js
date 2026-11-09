@@ -3,7 +3,7 @@
 // machine), stays a while (seconds ticking if asked, the colon blinking), then goes (melting away, scattering,
 // sucked back into the blob, sliding off, shattering, rolling away). Like the actions, it runs over whole loops
 // of the blob's rest and everything it changes is back to zero at both ends: first and last frames are the rest's.
-import { fit, clamp, lerp, seg, bump, ease, rng, TAU, WHITE, hex } from "../../pixelfx/src/core/index.js";
+import { fit, clamp, lerp, seg, bump, ease, rng, TAU, WHITE } from "../../pixelfx/src/core/index.js";
 import { meta as idleMeta, state } from "./ice-blob-idle.js";
 import { prog as progAt } from "./ice-time.js";
 import { bodyBack, bodyFront, bodyAmbient } from "./ice-blob-transform.js";

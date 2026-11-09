@@ -1,7 +1,7 @@
 // The blob's scene with things in it: solid shapes of ice-light (a cube, a sphere, a pyramid, a crystal, a column,
 // a gem) floating weightless around it, turning slowly, all on the blob's own loop. Three animations:
 //   live    the blob and every object floating, a loop of the blob's rest
-//   appear  the blob conjures one object (a halo gathering, a laser, crystals assembling, a portal, an orb)
+//   appear  the blob conjures one object (a halo gathering, a laser, crystals assembling, an orb)
 //   remove  the blob takes one away (dissolving, a laser, an implosion, shattering, swallowing it)
 // Objects move only by whole turns of the blob's loop, and the blob's part goes back to rest at both ends, so
 // "live without it" -> "appear" -> "live with it" -> "remove" -> "live without it" chain frame for frame.
@@ -11,13 +11,12 @@ import { prog as progAt } from "./ice-time.js";
 import { bodyBack, bodyFront, bodyAmbient } from "./ice-blob-transform.js";
 import { hsl, fromHsl } from "./ice-blob-actions.js";
 
-export const SHAPES = ["cube", "sphere", "pyramid", "crystal", "column", "gem"];
-export const APPEAR = ["halo", "laser", "crystal", "portal", "orb"];
+export const APPEAR = ["halo", "laser", "crystal", "orb"];
 export const REMOVE = ["dissolve", "laser", "implode", "shatter", "swallow"];
 
 export const meta = {
   name: "Ice scene objects",
-  desc: "The ice blob's weightless scene: solid shapes of ice-light float and turn around it; it can conjure one (halo, laser, crystals, portal, orb) or take one away (dissolve, laser, implode, shatter, swallow).",
+  desc: "The ice blob's weightless scene: solid shapes of ice-light float and turn around it; it can conjure one (halo, laser, crystals, orb) or take one away (dissolve, laser, implode, shatter, swallow).",
   tags: ["creature", "blob", "objects", "scene", "ice", "light", "loop"],
   size: [320, 180],
   origin: [160, 100],
@@ -241,20 +240,6 @@ function appearing(o, ob, t, a, from) {
         }
         const fl = bump(a, 0.6, 0.72);
         if (fl > 0) p.glow(ps.x, ps.y, s * 3, WHITE, 0.4 * fl * P);
-      } };
-    }
-    case "portal": {
-      const open = E(seg(a, 0.12, 0.3)) * (1 - E(seg(a, 0.62, 0.78))), rise = ease.outCubic(seg(a, 0.3, 0.64)), ringY = ps.y + s * 1.5;
-      const off = (1 - rise) * h * 1.1;
-      return { obj: rise > 0 ? { dy: off, clip: (x, y) => y <= ringY + 0.5 || rise >= 1 } : null, fx(p, C) {
-        if (open <= 0.01) return;
-        const rx = s * 1.6 * open, ry = s * 0.45 * open;
-        p.glow(ps.x, ringY, rx * 1.6, C[5], 0.4 * open * P);
-        for (let j = 0, m = Math.ceil(rx * 6); j < m; j++) {
-          const th = (j / m) * TAU + a * 4;
-          p.px(ps.x + Math.cos(th) * rx, ringY + Math.sin(th) * ry, Math.sin(th) < 0 ? C[5] : WHITE);
-        }
-        for (let i = 0; i < 6; i++) { const k = ((a * 5 + i / 6) % 1); spark(p, C, ps.x + Math.sin(i * 2.4) * rx * 0.7, ringY - k * s * 2.5, (1 - k) * open); }
       } };
     }
     case "orb": {

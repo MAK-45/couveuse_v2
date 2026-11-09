@@ -24,8 +24,6 @@ import { fit, clamp, lerp, seg, bump, ease, noise2, rng, cycle, TAU, WHITE } fro
 import { meta as idleMeta, blobBack, blobFront, ambient, state, shapeOf, drawEyes, drawSparks, drawDrips } from "./ice-blob-idle.js";
 import { prog as progAt, leadOut } from "./ice-time.js";
 
-export const FORMS = ["human", "grounded"];
-export const MODES = ["transform", "live", "revert"];
 export const STYLES = ["grow", "flash", "spiral"];
 export const LEGS = ["spirit", "legs", "lotus"];
 export const ARMS = ["float", "open", "down"];
@@ -61,7 +59,7 @@ export const meta = {
 const E = ease.inOutSine;
 const whole = (v, lo = 0) => Math.max(lo, Math.round(v));
 /** The live loop's length: a whole number of the blob's loops. */
-export const livePeriod = (o) => o.duration * whole(o.liveLoops, 1);
+const livePeriod = (o) => o.duration * whole(o.liveLoops, 1);
 /** How long the animation lasts: the live loop, or a whole number of the blob's loops. */
 export const total = (o) => (o.mode === "live" ? livePeriod(o) : o.duration * whole(o.loops, 1));
 // as for the actions: the lead-out outlasts a drop of light, so every drop alive on the last frame fell from the
@@ -528,14 +526,13 @@ function walking(Lw, xm) {
 // settings (arms, lean, bounce, heel, knee, hair, prints, sparks; 1 = as it comes). The figure turns side on and moves as
 // a person does. Its feet roll: walking, the heel strikes (toes up), the foot lowers flat, the heel lifts and the toes push
 // off; running, it lands on the ball of the foot, the heel touches down and lifts again. While a foot is down it goes back
-// at exactly the stride's speed (S a stride), so a world going by at that speed keeps it planted. Each leg on the ground
+// at exactly the stride's speed (S a stride), so a floor going by at that speed keeps it planted. Each leg on the ground
 // holds the hips as high as its rolling foot and its knee allow (the knee's bend over the stance follows a person's), so
 // they rise over the foot and dip as the weight passes to the other leg when walking, and give under the weight, push off
 // and fly when running; where the foot lands is worked out so the hips ride smoothly from one leg to the next. The legs are
 // solved from the hips down (two bones, the knee forward), the swinging foot follows a smooth path from its toe-off to its
 // landing, lifted (the heel kicked up when running); the arms swing against the legs, the upper body leans into the pace,
 // the head stays level, the hair streams back and bounces with every step.
-export const GAITS = ["walk", "run"];
 const frac = (x) => x - Math.floor(x);
 const herm = (p0, m0, p1, m1, s) => { const s2 = s * s, s3 = s2 * s; return (2 * s3 - 3 * s2 + 1) * p0 + (s3 - 2 * s2 + s) * m0 + (3 * s2 - 2 * s3) * p1 + (s3 - s2) * m1; };
 // the foot's frame turned by its pitch a (toes up > 0), y down
@@ -684,7 +681,7 @@ function lineOf(W, S) {
   return { L, t: 0 };
 }
 /** How far a gait has gone (px, the way it goes) at the moment it gives (the floor goes back by as much). */
-export const gaitDist = (Lw, W) => { const S = gaitSolve(Lw, W).S, { L, t } = lineOf(W, S); return L.d(t); };
+const gaitDist = (Lw, W) => { const S = gaitSolve(Lw, W).S, { L, t } = lineOf(W, S); return L.d(t); };
 // the legs at that moment: for each leg (near first) its hip, knee, ankle, the foot's and the toes' pitch, whether it is
 // down; the hips' height; its pace. Each foot stays where it came down on the ground (it lands ahead of the hips by as
 // much as the step it takes, which the pace then gives it) while the ground goes back under it by as much as it goes:
@@ -872,7 +869,7 @@ function build(o, t, ext = null) {
   // another tab may change its pose for a while: its legs (lotus...) and arms (down...), or, on the floor, sit down
   // cross-legged on it (seat)
   const fo = ext && (m.legs || m.arms) ? { ...o, huLegs: m.legs || o.huLegs, huArms: m.arms || o.huArms } : o, seat = !!(ext && G && m.seat > 0.5);
-  // walking or running (m.gait, on its legs): it turns side on and works out its own pose, on the spot (the world goes by).
+  // walking or running (m.gait, on its legs): it turns side on and works out its own pose, on the spot (its floor goes by).
   // m.turn (0 facing us .. 1 side on) while it turns to set off or after it has stopped: the figure facing us and the one
   // side on are both posed and their fields blend, so it turns as one body, never melting nor jumping (at 0 it is the
   // figure facing us exactly, at 1 the one side on)
@@ -882,7 +879,7 @@ function build(o, t, ext = null) {
     const g = m.grow;
     fsx = g; fsy = g; tilt = clamp(m.rot, -0.5, 0.5); ox = m.dx + m.ax; oy = G.FY - (BOTTOM.lotus + 0.06) * G.Lw.U * g;
   } else if (gait) {
-    // (on the spot, the world going by, or carried along the floor by ax as it goes)
+    // (on the spot, its floor going by, or carried along it by ax as it goes)
     fsx = ch.scale; fsy = ch.scale; tilt = 0; ox = m.ax; oy = 0;
     X = { gm: 1, grav: 1, lift: 0, hairUp: 0, hairGrav: 1, kick: 0, crouch: 0, gl: 1, flat: 1, sx: 0, pel: 0, feet: null, fy: G.FY, gait };
   } else if (G) {
@@ -950,7 +947,7 @@ function build(o, t, ext = null) {
   const grow = (x, y) => { X0 = Math.min(X0, x); X1 = Math.max(X1, x); Y0 = Math.min(Y0, y); Y1 = Math.max(Y1, y); };
   const [bx0, by0, bx1, by1] = fig.box;
   for (const [x, y] of [[bx0, by0], [bx1, by0], [bx0, by1], [bx1, by1]]) grow(...toScreen(x, y));
-  const blobPart = k < 1 || spiral, rad = blobPart ? shapeOf(o, st.u, m) : null;
+  const blobPart = k < 1 || spiral, rad = blobPart ? shapeOf(o, st.u) : null;
   if (blobPart) { const R = S * 1.9 * Math.max(bs.sx, bs.sy); grow(bs.x - R, bs.y - R); grow(bs.x + R, bs.y + R); }
   X0 = Math.floor(X0 - far - 1); Y0 = Math.floor(Y0 - far - 1); X1 = Math.ceil(X1 + far + 1); Y1 = Math.ceil(Y1 + far + 1);
   const W = X1 - X0 + 1, H = Y1 - Y0 + 1, N = W * H;
@@ -1104,7 +1101,7 @@ function limbs(p, C, o, F, Ls, Lw2, far, Rg, cy0, boost) {
 }
 // the halo against the skin and the aura, as for the blob, around whatever shape it has now
 function aura(p, C, o, F) {
-  const { X0, Y0, W, H, Gs, st, ch, hm, fig } = F, S = o.size * st.m.grow, U = F.U * ch.scale, k = F.k, m = st.m, Hh = o.halo * m.halo * m.vis * lerp(1, o.huHalo, k), xg = F.ext ? m.glow : 0;
+  const { X0, Y0, W, H, Gs, st, ch, hm, fig } = F, S = o.size * st.m.grow, U = F.U * ch.scale, k = F.k, m = st.m, Hh = o.halo * m.halo * lerp(1, o.huHalo, k), xg = F.ext ? m.glow : 0;
   const [cx, cy] = F.toScreen(0, lerp(0, (fig.chest + fig.hips) / 2, k));
   p.glow(cx, cy, lerp(S * 3.2, U * 3.4, k), C[2], 0.3 * Hh);
   p.glow(cx, cy, lerp(S * 2, U * 2.2, k), C[4], 0.22 * Hh + 0.3 * (ch.glow + ch.white + xg));
@@ -1222,8 +1219,7 @@ const G1g = { torso: 1, head: 1, arms: 1, legs: 1, hair: 1 };
 // the edges), the ice below it (faint lines nearer and nearer apart... farther apart as they come toward us), the
 // figure's reflection in it, glints; it spreads from under the figure (and goes back there on the way back)
 const FLOOR_LINES = [[0.2, 0.6], [0.46, 0.5], [0.8, 0.4], [1.25, 0.32], [1.85, 0.25]];
-function floorFx(p, C, o, F, part = 0) {
-  // part: 0 the floor and the figure's reflection, 1 only the reflection (another copy of it on the same floor)
+function floorFx(p, C, o, F) {
   const G = F.G;
   if (!G || G.fl <= 0) return;
   const room = roomOf(o), FY = G.FY, U = G.Lw.U, x0 = Math.floor(room[0]), x1 = Math.ceil(room[2]) - 1, W = Math.max(1, x1 - x0 + 1);
@@ -1231,13 +1227,6 @@ function floorFx(p, C, o, F, part = 0) {
   const reach = G.fl * (Math.max(-room[0], room[2]) + 6), grow = G.fl < 1, Lt = o.grLight, ice = o.grLook !== "line", y1 = Math.ceil(room[3]);
   // (lit round the figure: where it stands, or where another tab's steps or moves took it)
   const wx = F.turnWx != null ? F.turnWx : F.X && F.X.step ? F.ox - F.X.sx : F.X && F.X.gait ? F.ox : 0, lumAt = (px) => { const d = Math.abs(px - wx), edge = clamp(Math.min(px - room[0], room[2] - px) / (W * 0.14)); return Lt * (0.28 + 0.72 * Math.exp(-d / (U * 2.4))) * (0.3 + 0.7 * edge); };
-  if (o.grNoFloor) {
-    // on a planet's ground (another tab's world): no floor of ice to lay, only its light on the ground round its feet
-    if (part) return;
-    p.glow(wx, FY, U * 2.2, C[4], 0.12 * Lt * G.fl);
-    if (G.plant && F.fig && !F.hidden) for (const [tx, ty] of F.fig.tips) { const [x, y] = F.toScreen(tx, ty); p.glow(x, FY, U * 0.45, C[6], 0.3 * Lt * clamp(1 - (FY - y) / (U * 0.3)) * (F.k ?? 1)); }
-    return;
-  }
   // the reflection: the body seen upside down in the ice, darker, in lines that thin out with depth
   const refl = o.grReflect > 0 && F.Gs && !F.hidden ? Math.round(U * 2.6 * o.grReflect) : 0;
   const sh = new Uint8Array(W);
@@ -1262,7 +1251,6 @@ function floorFx(p, C, o, F, part = 0) {
     const [hx, hy] = F.nucS;
     p.glow(hx, 2 * FY - hy, F.nucR * 0.7, C[5], 0.12 * o.grReflect * G.fl);
   }
-  if (part) return;
   for (let x = x0; x <= x1; x++) {
     const px = x + 0.5, d = Math.abs(px - wx);
     if (Math.abs(px) > reach) continue;
@@ -1507,7 +1495,7 @@ function withForm(o) {
   return f;
 }
 /** The figure's clock at time t of an animation T long: t at both ends, nudged in between to end on a whole loop. */
-export function figClock(o, t, T) {
+function figClock(o, t, T) {
   const P = livePeriod(o);
   if (!(T > 0)) return t;
   const r = T / P, sh = (Math.ceil(r - 1e-9) - r) * P;
@@ -1515,17 +1503,17 @@ export function figClock(o, t, T) {
   const n = Math.floor(t / T), f = t / T - n, a1 = Math.max(0.2, 1 - 1.75 / T);
   return t + sh * (n + E(seg(f, 0.04, a1)));
 }
-// back and front ask for the same frame (and copies for theirs): keep a few
+// back and front ask for the same frame: keep a few
 const EXT = [];
 const keyOf = (m) => JSON.stringify(m, (k, v) => (typeof v === "function" ? undefined : v));
 function formFrame(o, t, M, T) {
-  const st = state(o, t, M), m = st.m, h = figClock(o, m.tw ?? t, T);
+  const st = state(o, t, M), m = st.m, h = figClock(o, t, T);
   let vx = 0;
   if (M && grounded(o)) { const e = 0.004 * o.duration; vx = ((M(t + e).dx || 0) - (M(t - e).dx || 0)) / (2 * e); }
   const key = [t, h, vx, st.x, st.y, st.vx, st.vy, st.sx, st.sy, st.tilt, keyOf(m)].join();
   for (const e of EXT) if (e.o === o && e.key === key) return e.F;
   const F = build(o, t, { M, st, h, vx });
-  F.hidden = m.vis <= 0.02 || m.grow < 0.03;
+  F.hidden = m.grow < 0.03;
   EXT.unshift({ o, key, F });
   if (EXT.length > 10) EXT.pop();
   return F;
@@ -1538,13 +1526,13 @@ function stOf(o, F) {
     hands: fig.hands.map(at), head: F.toScreen(fig.head.x, fig.head.y), headR: fig.head.rx * sc, feet: fig.tips.map(at), top: F.toScreen(fig.head.x, fig.box[1]),
     floor: F.G ? F.G.FY : null };
 }
-/** The creature's back layer in its form (part: 0 alone or the first, 1 another copy on the same floor, 2 its body only). */
-export function bodyBack(p, t, o, M = null, C = fit(o.palette, 8), T = 0, part = 0) {
+/** The creature's back layer in its form. */
+export function bodyBack(p, t, o, M = null, C = fit(o.palette, 8), T = 0) {
   if (!isForm(o)) return blobBack(p, t, o, M, C);
   const f = withForm(o), F = formFrame(f, t, M, T);
   aura(p, C, f, F); sparksOf(p, C, f, F, false);
-  if (part < 2) floorFx(p, C, f, F, part);
-  if (part === 0) gaitFx(p, C, f, F);
+  floorFx(p, C, f, F);
+  gaitFx(p, C, f, F);
   return stOf(f, F);
 }
 /** The creature's front layer in its form. */
@@ -1565,19 +1553,6 @@ export function bodyAmbient(p, t, o, front, C = fit(o.palette, 8), off = [0, 0])
   if (!isForm(o) || o.form !== "grounded") return ambient(p, t, o, front, C, off);
   const G = gravityAt(withForm(o), 1);
   return ambient(p, t, o, front, C, [off[0] + 0, off[1] + G.gm * (G.FY - 1.85 * G.Lw.U)]);
-}
-/** The floor's top edge in local px for a tab in the grounded form (null otherwise). */
-export const floorFor = (o) => (isForm(o) && o.form === "grounded" ? floorOf(withForm(o)) : null);
-/** Its silhouette at t (body and hair), for afterimages: { X0, Y0, W, H, inside(i, j) } over the pixels it covers. */
-export function formMask(o, t, M = null, T = 0) {
-  const F = formFrame(withForm(o), t, M, T), { X0, Y0, W, H, Gs, Hs, As, Fs } = F;
-  return { X0, Y0, W, H, inside: (i, j) => i >= 0 && j >= 0 && i < W && j < H && (Gs[j * W + i] <= 0 || (Hs ? Hs[j * W + i] <= 0 : false) || (As ? As[j * W + i] <= 0 : false) || (Fs ? Fs[j * W + i] <= 0 : false)) };
-}
-/** The middle of its body at rest, in local px (where a tab's st.x, st.y are when nothing moves it). */
-export function formCentre(o) {
-  if (!isForm(o)) return [0, 0];
-  const F = formFrame(withForm(o), 0, null, 0);
-  return F.toScreen(0, (F.fig.chest + F.fig.hips) / 2);
 }
 /** Where its frame is and where the middle of its body is, at rest or posed by M: [x, y, middle x, middle y] in local px. */
 export function formAnchor(o, M = null) {

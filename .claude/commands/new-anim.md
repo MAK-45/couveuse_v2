@@ -4,9 +4,9 @@ Add a new animation to the creature: $ARGUMENTS
    « Tu la veux une seule fois (elle part du repos et y revient), ou en boucle (elle s’y met, continue autant que tu
    veux, puis s’arrête et revient au repos) ? »
 2. Load the `pixelfx` skill (`anthropic-skills:pixelfx`) and use its render → look → refine loop.
-3. Once → follow `.claude/commands/new-action.md` (an action, or an electric animation in `ice-blob-electric.js`).
+3. Once → follow `.claude/commands/new-action.md`.
    A loop → follow `.claude/commands/new-loop.md`.
-   A new form or posture → `new-form.md`; a new world → `new-world.md`; a new object shape or a companion → `new-thing.md`.
+   A new form or posture → `new-form.md`; a new object shape or a companion → `new-thing.md`.
    Something else (a new kind of thing the creature does, a new state, a new settings page): read docs/ARCHITECTURE.md
    « The life » and « Extension points », give its module a `total(o)` and neutral ends, add its step to `plan()` / `segment()`
    in `ice-life.js`, its cards in `lifeControls()` (app/main.js) with a ⚙ to its settings page, and a scenario to the life

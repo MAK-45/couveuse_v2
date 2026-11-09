@@ -1,7 +1,7 @@
 // The creature once born: a blob of ice-light floating in place, its body never settling, wandering a little
 // around its spot, squashing and stretching as it bobs, eyes that blink and look about. Everything random comes
 // from noise read along a circle of time, and every cycle is a whole number of turns a loop: no seam, ever.
-import { fit, cycle, clamp, lerp, ease, noise2, rng, TAU, WHITE, hex } from "../../pixelfx/src/core/index.js";
+import { fit, cycle, clamp, noise2, rng, TAU, WHITE, hex } from "../../pixelfx/src/core/index.js";
 
 export const meta = {
   name: "Ice blob idle",
@@ -36,7 +36,7 @@ const turns = (v) => Math.max(0, Math.round(v));
 
 // what an action can lay over the idle; all neutral here, so the idle is the action at rest. ax, ay move the whole
 // creature (body, its light on the ground, drops, motes): drawn there at rest, it is the rest drawn ax, ay farther
-export const NONE = Object.freeze({ dx: 0, dy: 0, ax: 0, ay: 0, rot: 0, sx: 1, sy: 1, grow: 1, morph: 0, shape: null, shut: 0, happy: 0, vis: 1, halo: 1, glow: 0, lookX: 0, lookY: 0, quiet: 0, eyeScale: 1, tw: null });
+const NONE = Object.freeze({ dx: 0, dy: 0, ax: 0, ay: 0, rot: 0, sx: 1, sy: 1, grow: 1, morph: 0, shut: 0, happy: 0, halo: 1, glow: 0, lookX: 0, lookY: 0, quiet: 0, eyeScale: 1 });
 const modAt = (M, t) => (M ? { ...NONE, ...M(t) } : NONE);
 
 // where the body is at phase u: bob, sway and a noise wander
@@ -48,9 +48,8 @@ function posAt(o, u) {
 }
 
 export function state(o, t, M) {
-  // tw: an action can slow or stop the blob's own clock (frozen, say); its idle reads that time instead
-  const D = o.duration, m = modAt(M, t), ti = m.tw ?? t, u = (((ti / D) % 1) + 1) % 1, e = 0.004;
-  const at = (tt) => { const mm = modAt(M, tt), [ix, iy] = posAt(o, (mm.tw ?? tt) / D); return [ix + mm.dx + mm.ax, iy + mm.dy + mm.ay]; };
+  const D = o.duration, m = modAt(M, t), u = (((t / D) % 1) + 1) % 1, e = 0.004;
+  const at = (tt) => { const mm = modAt(M, tt), [ix, iy] = posAt(o, tt / D); return [ix + mm.dx + mm.ax, iy + mm.dy + mm.ay]; };
   const [x, y] = at(t), [x0, y0] = at(t - e * D), [x1, y1] = at(t + e * D);
   const vx = (x1 - x0) / (2 * e * o.duration), vy = (y1 - y0) / (2 * e * o.duration); // px a second
   // squash and stretch: moving up or down stretches it tall, the turn at the top and bottom squashes it
@@ -61,7 +60,7 @@ export function state(o, t, M) {
 
 // the outline as a table over angle, in the body's own (unsquashed) space
 const TABLE = 512;
-export function shapeOf(o, u, m = NONE) {
+export function shapeOf(o, u) {
   const tab = new Float32Array(TABLE + 1), k = turns(o.shapeTurns) || 1;
   for (let j = 0; j <= TABLE; j++) {
     const th = (j / TABLE) * TAU - Math.PI, c = Math.cos(th), s = Math.sin(th);
@@ -70,7 +69,6 @@ export function shapeOf(o, u, m = NONE) {
     let r = 1 + o.wobble * (n * 0.9 + n2 * 0.35);
     r += o.drip * Math.max(0, s) ** 3; // heavier at the bottom: a drop that floats
     r *= 1 + (o.width - 1) * c * c;
-    if (m.morph > 0 && m.shape) r = lerp(r, m.shape(th) * (1 + o.wobble * n * 0.25), m.morph);
     tab[j] = Math.max(0.2, r) * o.size;
   }
   return (th) => {
@@ -90,18 +88,18 @@ const toScreen = (st, bx, by) => {
 };
 
 function aura(p, C, o, st, rad) {
-  const S = o.size * st.grow, m = st.m, H = o.halo * m.halo * m.vis;
+  const S = o.size * st.grow, m = st.m, H = o.halo * m.halo;
   p.glow(st.x, st.y, S * 3.2, C[2], 0.3 * H);
   p.glow(st.x, st.y, S * 2, C[4], 0.22 * H + 0.3 * m.glow);
   if (o.ground > 0) {
     // a pool of its light on the ground below: brighter when it dips close
     // (moved elsewhere, ay, its ground goes with it)
     const g0 = o.size * o.groundDist + o.hover + Math.max(0, m.dy), gy = g0 + m.ay, near = clamp(1 - (gy - st.y) / (g0 + o.hover + 1) + 0.5);
-    for (let i = 0; i < 3; i++) p.glow(st.x, gy, S * (1.2 - i * 0.3), C[4 + i], 0.18 * o.ground * near * st.m.vis);
+    for (let i = 0; i < 3; i++) p.glow(st.x, gy, S * (1.2 - i * 0.3), C[4 + i], 0.18 * o.ground * near);
     p.shade(st.x - S * 1.6, gy - 3, st.x + S * 1.6, gy + 3, (x, y, out) => {
       const d = Math.hypot((x - st.x) / (S * (1.3 - 0.3 * near)), (y - gy) / 2.4);
       if (d > 1) return;
-      out.c = 0; out.l = C[5]; out.k = (1 - d) ** 2 * 0.35 * o.ground * near * m.vis;
+      out.c = 0; out.l = C[5]; out.k = (1 - d) ** 2 * 0.35 * o.ground * near;
     });
   }
   if (o.shell > 0) {
@@ -110,13 +108,13 @@ function aura(p, C, o, st, rad) {
       const [bx, by] = toBody(st, x - st.x, y - st.y), th = Math.atan2(by, bx), r = Math.hypot(bx, by), e = rad(th), d = (r - e) / (o.size * 0.55);
       if (d < 0 || d > 1) return;
       out.c = 0; out.l = d < 0.2 ? C[6] : d < 0.5 ? C[5] : C[4];
-      out.k = (1 - d) ** 2 * (0.32 * o.shell + 0.4 * m.glow) * m.vis;
+      out.k = (1 - d) ** 2 * (0.32 * o.shell + 0.4 * m.glow);
     });
   }
 }
 
 function body(p, C, o, st, rad) {
-  if (st.m.vis <= 0.02 || st.grow < 0.03) return;
+  if (st.grow < 0.03) return;
   const S = o.size, u = st.u, la = (o.lightAngle * Math.PI) / 180 - st.tilt, lx = Math.cos(la), ly = Math.sin(la), boost = st.m.glow;
   const nx = Math.cos(TAU * u) * S * 0.1 - S * 0.12, ny = Math.sin(TAU * u * 2) * S * 0.06 + S * 0.15, E = S * 2.6 * Math.max(st.sx, st.sy, 0.3);
   const inside = (x, y) => { const [bx, by] = toBody(st, x - st.x, y - st.y); return Math.hypot(bx, by) <= rad(Math.atan2(by, bx)); };
@@ -171,7 +169,7 @@ function blinkAt(o, u) {
 
 function eyes(p, C, o, st, rad) {
   const n = Math.max(0, Math.min(3, Math.round(o.eyes))), m = st.m;
-  if (!n || m.vis <= 0.02 || st.grow < 0.35) return;
+  if (!n || st.grow < 0.35) return;
   const S = o.size, u = st.u;
   const look = [(ln(1.7, 4.2, u * turns(o.lookTurns || 1), o.seed + 51, 1.1) - 0.5) * 2 * o.look + m.lookX, (ln(6.2, 2.9, u * turns(o.lookTurns || 1), o.seed + 52, 1.1) - 0.5) * 1.4 * o.look + m.lookY];
   // the face turns toward where it's going
@@ -246,7 +244,7 @@ function drips(p, C, t, o, st, rad, M) {
 
 // sparks circling it, tilted, passing behind and in front
 function sparks(p, C, o, st, front) {
-  const n = st.m.vis > 0.5 ? Math.round(o.sparks) : 0;
+  const n = Math.round(o.sparks);
   for (let i = 0; i < n; i++) {
     const th = TAU * (st.u * (1 + (i % 2)) * (i % 3 === 2 ? -1 : 1) + i / n), d = Math.sin(th);
     if (d >= 0 !== front) continue;
@@ -272,13 +270,13 @@ function motes(p, C, t, o, front, ox = 0, oy = 0) {
 
 /** The blob's layers, with an action's modifiers M(t) laid over (null for the plain idle). */
 export function blobBack(p, t, o, M = null, C = fit(o.palette, 8)) {
-  const st = state(o, t, M), rad = shapeOf(o, st.u, st.m);
+  const st = state(o, t, M), rad = shapeOf(o, st.u);
   aura(p, C, o, st, rad);
   sparks(p, C, o, st, false);
   return st;
 }
 export function blobFront(p, t, o, M = null, C = fit(o.palette, 8)) {
-  const st = state(o, t, M), rad = shapeOf(o, st.u, st.m);
+  const st = state(o, t, M), rad = shapeOf(o, st.u);
   drips(p, C, t, o, st, rad, M);
   body(p, C, o, st, rad);
   eyes(p, C, o, st, rad);
