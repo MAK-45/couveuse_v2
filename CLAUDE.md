@@ -290,6 +290,19 @@ If `npm test` reports a FAIL, fix the effect — never loosen the test.
 - Keep effects pure functions of `(t, options)`: no state between frames, no `Math.random()` (use `rng(seed, …)`).
 - Small, focused changes; run the seam tests after each one.
 
+## Matt Pocock's skills (in .claude/skills/, see its README)
+
+Two skills the author calls by name, **only when asked** (they have `disable-model-invocation`):
+- `/grill-me` (or « grille-moi », « cuisine-moi sur ce plan ») → `grilling`: before building something, interview the author
+  in rounds until the plan is shared. Ask **in French**, with your recommended answer for each question. The project's own
+  questions come first in the tree: once or a loop, every form, its place in Vivre, its settings.
+- `/improve-codebase-architecture` (or « améliore l’architecture ») → `codebase-design` + `domain-modeling` + `grilling`:
+  scan for deepening opportunities (hot spots from `git log`: the modules in `pixelfx/src/fx/creature/`, `app/main.js`).
+  Here the HTML report is not opened with `xdg-open`: write it in the scratchpad and publish it with the Artifact tool (a new
+  artifact, not the couveuse one), cards and labels in French. `GLOSSARY.md` (domain words: blob, repos, forme, vie, monde,
+  portail, boucle...) and `docs/adr/` are created lazily at the root. No refactor may break a rule of docs/SEAMLESS.md:
+  `npm test` must still print "all seams exact".
+
 ## Adding things (recipes in .claude/commands/)
 
 First ask: once, or a loop? (see « Always ask first » above). Load the `pixelfx` skill. Make it for every form, and

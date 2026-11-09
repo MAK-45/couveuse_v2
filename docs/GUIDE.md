@@ -59,6 +59,13 @@ les réglages que tu aimerais avoir. Claude te demandera d’abord : **« une fo
 Les commandes prêtes (dans Claude Code) font la même chose avec la bonne recette : `/new-anim`, `/new-action`, `/new-loop`,
 `/new-form`, `/new-world`, `/new-thing`, et `/check` pour tout vérifier.
 
+Deux outils de Matt Pocock (dans `.claude/skills/`) servent avant ou à côté d’une nouveauté, seulement quand tu les demandes :
+- `/grill-me` (ou « grille-moi sur ce plan ») : Claude te pose ses questions par séries, avec sa réponse conseillée pour
+  chacune, jusqu’à ce que le plan soit clair pour vous deux. Rien n’est construit avant ton accord.
+- `/improve-codebase-architecture` (ou « améliore l’architecture ») : Claude cherche où le code pourrait être plus simple à
+  faire évoluer, te montre une page avec des propositions (avant / après), puis te questionne sur celle que tu choisis.
+  Il tient un lexique (`GLOSSARY.md`) et note les décisions importantes (`docs/adr/`).
+
 ## Ce que Claude fait à chaque fois
 
 1. Il demande « une fois ou en boucle ? » et attend ta réponse.
