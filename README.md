@@ -16,14 +16,15 @@ redevient blob).
 ```bash
 npm install
 npm run build      # crée dist/couveuse.html, à ouvrir dans un navigateur
-npm test           # vérifie au pixel près que toutes les boucles et tous les enchaînements sont exacts
+npm test           # vérifie au pixel près toutes les boucles et tous les enchaînements, dans chaque forme
 ```
 
-Pour continuer le projet (ajouter des animations, des formes, des objets) : lis `docs/GUIDE.md`.
+Pour continuer le projet (ajouter des animations, des formes, des objets) : lis `docs/GUIDE.md`. Une animation tient dans
+un seul fichier (sa fiche, faite à partir d’un modèle commenté) ajouté au catalogue.
 
-Avec Claude Code : ouvre ce dossier, `CLAUDE.md` est lu automatiquement. Commandes prêtes :
-`/check`, `/new-anim <idée>` (demande d’abord : une fois ou en boucle ?), `/new-action <idée>`, `/new-loop <idée>`,
-`/new-form <idée>`, `/new-thing <idée>`.
+Avec Claude Code : ouvre ce dossier, `CLAUDE.md` est lu automatiquement. Recettes prêtes : `/check`, `/new-anim <idée>`
+(demande d’abord : une fois ou en boucle ?), `/new-action <idée>`, `/new-loop <idée>`, `/new-form <idée>`,
+`/new-thing <idée>`.
 
 ## Licence
 

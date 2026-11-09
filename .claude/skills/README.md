@@ -1,4 +1,12 @@
-# Vendored skills (Matt Pocock)
+# Skills
+
+## The project's recipes
+
+Ours, also used by Claude by itself when a request fits: `new-anim` (asks « une fois ou en boucle ? », then one of the
+next), `new-action`, `new-loop` (a fiche from `src/actions/_template.js` or `src/loops/_template.js`), `new-form`,
+`new-thing`, `check`.
+
+## Vendored skills (Matt Pocock)
 
 From https://github.com/mattpocock/skills (MIT, see `LICENSE-mattpocock`), commit `4ae2317`, copied unchanged.
 

@@ -894,7 +894,7 @@ function build(o, t, ext = null) {
     }
   }
   // a pose another tab changes under a melt into light (m.anchor = [x, y] of the frame, [x, y] of the middle, see
-  // ice-blob-loops.js): the frame gathers to that point as it melts, so neither the pose it leaves nor the one it takes
+  // loops/_loop.js): the frame gathers to that point as it melts, so neither the pose it leaves nor the one it takes
   // shows while it switches (at morph 1 nothing of the figure is left)
   if (ext && G && m.anchor && m.morph > 0) { ox = lerp(ox, m.anchor[0], m.morph); oy = lerp(oy, m.anchor[1], m.morph); }
   // its arms, as another tab asks (raised, spread, holding, one reaching for a point given in the scene)
