@@ -1,7 +1,7 @@
 // The creature once born: a blob of ice-light floating in place, its body never settling, wandering a little
 // around its spot, squashing and stretching as it bobs, eyes that blink and look about. Everything random comes
 // from noise read along a circle of time, and every cycle is a whole number of turns a loop: no seam, ever.
-import { fit, cycle, clamp, lerp, ease, noise2, rng, TAU, WHITE, hex } from "../../core/index.js";
+import { fit, cycle, clamp, lerp, ease, noise2, rng, TAU, WHITE, hex } from "../../pixelfx/src/core/index.js";
 
 export const meta = {
   name: "Ice blob idle",

@@ -2,7 +2,7 @@
 // rings collapsing onto it as it beats faster, a white ignition, then a crystalline body, halo and wings of light
 // unfolding out of the flash. It holds, breathes, and sheds itself into drifting frost motes until only the seed
 // is left, and the gathering starts again. Pure function of time: the loop never seams.
-import { fit, sparkle, flare, band, cycle, burst, clamp, lerp, seg, bump, ease, loopNoise, mix, TAU, WHITE } from "../../core/index.js";
+import { fit, sparkle, flare, band, cycle, burst, clamp, lerp, seg, bump, ease, loopNoise, mix, TAU, WHITE } from "../pixelfx/src/core/index.js";
 
 export const meta = {
   name: "Ice spirit birth",

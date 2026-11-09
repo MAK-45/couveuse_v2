@@ -17,7 +17,7 @@
 // frame. It loops over a whole number of the blob's loops (P): the world scrolls whole tiles a loop (ice-worlds.js),
 // the speed surges a whole number of times a loop (the world's clock is warped by a sine that integrates to zero over
 // the loop, so the distance stays whole tiles), every ripple runs whole turns and every particle is on cycle(t, P).
-import { fit, clamp, lerp, ease, tileNoise, tileFbm, rng, cycle, TAU, WHITE, hex } from "../../core/index.js";
+import { fit, clamp, lerp, ease, tileNoise, tileFbm, rng, cycle, TAU, WHITE, hex } from "../../pixelfx/src/core/index.js";
 import { meta as idleMeta, state, shapeOf } from "./ice-blob-idle.js";
 import { bodyBack, bodyFront, bodyAmbient, isForm, formMask, gaitPlan, floorFor } from "./ice-blob-transform.js";
 import { hsl, fromHsl } from "./ice-blob-actions.js";

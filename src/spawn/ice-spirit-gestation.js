@@ -2,7 +2,7 @@
 // swelling out of it and sinking back, patches of its skin not yet solid. Frost streams and loose fragments of
 // itself drift in and merge, it beats inside a luminous cocoon. Every knob is an option; every motion runs at a
 // whole number of turns a loop, so whatever the settings the loop never seams.
-import { fit, cycle, clamp, lerp, seg, ease, noise2, rng, TAU, WHITE } from "../../core/index.js";
+import { fit, cycle, clamp, lerp, seg, ease, noise2, rng, TAU, WHITE } from "../../pixelfx/src/core/index.js";
 
 export const meta = {
   name: "Ice spirit gestation",

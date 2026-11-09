@@ -28,4 +28,5 @@ Avec Claude Code : ouvre ce dossier, `CLAUDE.md` est lu automatiquement. Command
 
 ## Licence
 
-`pixelfx/` est la bibliothèque pixelfx (MIT, © Patch, Hugo Duprez), voir `pixelfx/LICENSE`.
+`pixelfx/` est la bibliothèque pixelfx (MIT, © Patch, Hugo Duprez), voir `pixelfx/LICENSE` : notre bibliothèque de référence,
+gardée telle quelle (on n’y modifie rien). Nos effets sont dans `src/`.

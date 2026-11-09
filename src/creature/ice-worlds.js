@@ -10,7 +10,7 @@
 // It loops on its own period, a whole number of the blob's loops (wLoops x duration): layers scroll by whole
 // tiles of the world, the nebula's warp turns round a circle of time, twinkles and shooting stars run whole
 // cycles. The world is anchored to the scene (o.room), not to the blob, so it stays put when the blob moves.
-import { clamp, mix, hex, red, green, blue, rng, cycle, hash, TAU, WHITE } from "../../core/index.js";
+import { clamp, mix, hex, red, green, blue, rng, cycle, hash, TAU, WHITE } from "../../pixelfx/src/core/index.js";
 import { renderSurface, groundDepthAt, SURFACE_DEFAULTS, SURFACE_TYPES, PLAIN } from "./ice-surface.js";
 
 // space worlds (tab Mondes) and planet surfaces (tab Surface planète, drawn by ice-surface.js)

@@ -50,8 +50,8 @@ companions) have a `place` and are `linked` to that world or follow it.
 Whenever you create or change an effect, animation or anything drawn (new tab, action, loop, object, style),
 **load the `pixelfx` skill first** (Skill tool, `anthropic-skills:pixelfx`) and follow its draft → render → look →
 refine loop: render contact sheets (`npm run render`), look at them, and fix what looks wrong before handing over.
-The pixelfx core is vendored in `pixelfx/`; the skill is the authority on how to use it and how to make effects look
-hand-animated.
+The pixelfx library is vendored in `pixelfx/` and is never edited (it is our reference library); the skill is the authority
+on how to use it and how to make effects look hand-animated.
 
 ## After every change: give the author the live artifact
 
@@ -82,7 +82,7 @@ npm install          # once (esbuild)
 npm run build        # -> dist/couveuse.html (self-contained page: engine bundled + UI inlined)
 npm test             # seam tests, pixel-exact; must print "all seams exact"
 npm run check:fx     # pixelfx contract checks on our effects (warnings about speed are fine)
-npm run render -- creature/ice-blob-loops --max 16 --zoom 2   # contact sheet in pixelfx/records/
+npm run render -- creature/ice-blob-loops --max 16 --zoom 2   # contact sheet in records/
 ```
 
 Open `dist/couveuse.html` directly in a browser to try it. There is no dev server.
@@ -96,10 +96,10 @@ To look at the page yourself, Playwright and Chromium are installed (`require("p
 In the code and in these docs a "tab" (`S.anim`, `ANIMS`) is a page of the UI: Vivre ("life") or the settings page of one
 thing (the page has no tab bar). "Tab Actions" = the settings page of an action, and so on.
 
-- `pixelfx/` vendored pixelfx library (MIT, see `pixelfx/LICENSE`). Core in `pixelfx/src/core/`.
-  Only our effects are ours:
-  - `pixelfx/src/fx/spawn/ice-spirit-gestation.js` — tab **Naissance** (birth, box-drawn)
-  - `pixelfx/src/fx/creature/ice-life.js` — tab **Vivre**, the life engine: a score of segments laid end to end, each one a
+- `pixelfx/` the pixelfx library (MIT, see `pixelfx/LICENSE`), kept exactly as it is: **never edit it**. Core in `pixelfx/src/core/`.
+- `src/` our effects (`tools/fxdir.mjs` points pixelfx's render and check tools at it):
+  - `src/spawn/ice-spirit-gestation.js` — tab **Naissance** (birth, box-drawn)
+  - `src/creature/ice-life.js` — tab **Vivre**, the life engine: a score of segments laid end to end, each one a
     tab's animation played with that tab's options (`cfg.optsFor(tab, pick, hub)`, the page's `optsAs()`), starting on a
     beat of the rest it leaves (a hub: `form`, `place` home or a world's id, `portal`, `pos` where it stands in the scene, whole
     px from its home spot) and lasting whole loops; at a `pos` every module draws with the painter moved there and its options
@@ -112,36 +112,36 @@ thing (the page has no tab bar). "Tab Actions" = the settings page of an action,
     `--opts '{"script":[...]}'`). Things: `{ id, ob, place, linked, born, dying }`, drawn by the engine (fading while it
     crosses to another world) except while the objects tab makes or takes one away. In another world it paints the world
     behind (clock `t - wt0`) and its near part last; portal modes paint their own.
-  - `pixelfx/src/fx/creature/ice-time.js` — the time every animation shares: `prog(o, t, T)`, `presence`, `NEUTRAL` +
+  - `src/creature/ice-time.js` — the time every animation shares: `prog(o, t, T)`, `presence`, `NEUTRAL` +
     `settle(m, k)` (modifiers back to rest by an intensity), `phases(part, T, lead, pose)` (an entry's or exit's timetable:
     k, the melt into light when the pose changes, `swap`, `s` for the anchor), `meltAt`
-  - `pixelfx/src/fx/creature/ice-blob-idle.js` — tab **Blob né**; the blob itself (exports `blobBack`, `blobFront`, `state`, `ambient`, `NONE`;
+  - `src/creature/ice-blob-idle.js` — tab **Blob né**; the blob itself (exports `blobBack`, `blobFront`, `state`, `ambient`, `NONE`;
     modifiers `ax`, `ay` move the whole creature, its light on the ground included: drawn there at rest it is its rest drawn there)
-  - `pixelfx/src/fx/creature/ice-blob-actions.js` — tab **Actions** (20 actions; exports `hsl`, `fromHsl`, `walkRoute`, `portalSpots`,
+  - `src/creature/ice-blob-actions.js` — tab **Actions** (20 actions; exports `hsl`, `fromHsl`, `walkRoute`, `portalSpots`,
     `total(o)`, `moveOf(o)`). `move` (« Se déplacer », first in `ACTIONS`): it goes to `moveTo` (a life's) or `moveX`/`moveY` and
     stays (its progress doesn't wrap round: `{ ax, ay }` after it arrives); the blob glides there on an arc (`moveArc`, hops
     `moveHops`), the levitating figure flies there, the figure on its legs walks or runs there (`walkTo()`: a quarter turn
     `turn`, a `gaitLine` up to its pace and down, the body carried by `ax`, prints left on the ground, a quarter turn back);
     `moveOf()` keeps its whole body in `o.room`, only x on its legs; its length is what its way takes (`moveLoops()`, `total()`)
-  - `pixelfx/src/fx/creature/ice-scene-objects.js` — tab **Objets** (solids, appear/remove; exports `drawObject`)
-  - `pixelfx/src/fx/creature/ice-blob-loops.js` — tab **Boucles** (20 endless activities; `walk`/`run` = `gaitLoop()`: the figure on
+  - `src/creature/ice-scene-objects.js` — tab **Objets** (solids, appear/remove; exports `drawObject`)
+  - `src/creature/ice-blob-loops.js` — tab **Boucles** (20 endless activities; `walk`/`run` = `gaitLoop()`: the figure on
     its legs walks or runs on the spot, its floor of ice going by under its feet like a treadmill, same `m.gait` and `ga` keys as Action monde).
     Each loop has three parts (`o.part`: "loop", "enter" from rest, "exit" back to rest; `inLoops` / `outLoops`, `meltTime`;
     `total(o)` is the part's length, `loopLen` the activity's period): `planOf()` / `modsOf()` / `layer()` at the end of the file.
     Walking and running have their own (`gaitParts()`, `gaitTimes()`): a quarter turn from facing us to side on (`m.turn`), the
     steps growing to the loop's pace on a `gaitLine` joined to the loop's clock (`cs`), long enough at its pace that its prints
     are the loop's; on the way out it slows down, stops and turns back; their entry and exit take the loops they need (`gaitLoops()`)
-  - `pixelfx/src/fx/creature/ice-blob-clock.js` — tab **Heure** (shows the time)
-  - `pixelfx/src/fx/creature/ice-blob-electric.js` — tab **Électricité** (8 electric animations, rest → electricity → rest like actions; own colours `elCore`/`elColor`/`elGlow`)
-  - `pixelfx/src/fx/creature/ice-blob-portal.js` — tab **Portail** (the blob opens a portal onto a world: `open` from rest, `live` portal open, `close` back to rest; `cross` from `live` through the portal, with its mirror image, out of a mirrored portal into `beyond` = its rest in the other world; then `reopen` (a portal home, our void inside) → `beyondOpen` (loop) → `return` back through to the Blob né's rest, or to `live` with `returnKeep`; 3 open + 3 close styles, 5 shapes)
-  - `pixelfx/src/fx/creature/ice-blob-explore.js` — tab **Action monde** (the blob explores a world, free endless loop: `move` = it stays on its spot while the world scrolls past (`worldFor()`, wDrift from `exSpeed`, `wAllMove`), one speed drives the world and the blob's deformation (`pace()`: surges warp the world's clock by a sine that integrates to zero over the loop); 5 speed styles `comet`/`stretch`/`ghosts`/`shock`/`flame`; also `look` (still world, camera glides on a figure of eight, stars bloom for it to stare at), `swim` (strokes: the world's clock warped by two zero-mean harmonics), `turns` (slalom: the camera sways across its way, `trFollow` shares the swing with the blob, trail as the world carried it) and `collect` (stars come with the world, it darts across and gulps them); shared helpers `travel`/`dropMods`/`speedLines`/`shedSparks`; keys start with `ex`, `lk`, `sw`, `tr`, `cl`.
+  - `src/creature/ice-blob-clock.js` — tab **Heure** (shows the time)
+  - `src/creature/ice-blob-electric.js` — tab **Électricité** (8 electric animations, rest → electricity → rest like actions; own colours `elCore`/`elColor`/`elGlow`)
+  - `src/creature/ice-blob-portal.js` — tab **Portail** (the blob opens a portal onto a world: `open` from rest, `live` portal open, `close` back to rest; `cross` from `live` through the portal, with its mirror image, out of a mirrored portal into `beyond` = its rest in the other world; then `reopen` (a portal home, our void inside) → `beyondOpen` (loop) → `return` back through to the Blob né's rest, or to `live` with `returnKeep`; 3 open + 3 close styles, 5 shapes)
+  - `src/creature/ice-blob-explore.js` — tab **Action monde** (the blob explores a world, free endless loop: `move` = it stays on its spot while the world scrolls past (`worldFor()`, wDrift from `exSpeed`, `wAllMove`), one speed drives the world and the blob's deformation (`pace()`: surges warp the world's clock by a sine that integrates to zero over the loop); 5 speed styles `comet`/`stretch`/`ghosts`/`shock`/`flame`; also `look` (still world, camera glides on a figure of eight, stars bloom for it to stare at), `swim` (strokes: the world's clock warped by two zero-mean harmonics), `turns` (slalom: the camera sways across its way, `trFollow` shares the swing with the blob, trail as the world carried it) and `collect` (stars come with the world, it darts across and gulps them); shared helpers `travel`/`dropMods`/`speedLines`/`shedSparks`; keys start with `ex`, `lk`, `sw`, `tr`, `cl`.
     `walk` and `run` (only the human form on its legs: `FORM_FIT.blob` / `.human` say why): `gaitAct()` asks the figure for a gait
     (`m.gait`, see the transform module) and moves the world at exactly the speed of its steps: `gaitPlan()` gives whole tiles of the
     ground a loop and whole strides a loop, the speed asked in km/h (`gaWalk`/`gaRun`, its legs a person's) rounded to fit;
     `groundDepth()` picks the meadow under its feet so that layer goes by at the stride's speed (`wDrift = tiles / depth`, `wAllMove: 0`);
     keys start with `ga`. On its legs on a planet's surface there is no floor of ice (`bodyOf` sets `grNoFloor`) and what stands
     nearer to us than its feet passes in front of it (`cutOf`, `exFront`: `paintWorld` with a `split`))
-  - `pixelfx/src/fx/creature/ice-blob-transform.js` — tab **Transformation** (the blob changes shape; `form: "human"`,
+  - `src/creature/ice-blob-transform.js` — tab **Transformation** (the blob changes shape; `form: "human"`,
     a levitating human figure of the same ice-light, or `form: "grounded"`, the same figure on its legs on a floor of ice with
     gravity: it takes shape in the air (the change over c ∈ [0, 0.56], `formOf()`), the floor spreads, it falls for as long as
     the height takes under `grGravity`, lands knees bent and stands (`gravityAt()` gives every phase, `grounding()` where it
@@ -171,14 +171,14 @@ thing (the page has no tab bar). "Tab Actions" = the settings page of an action,
     `gaitFree()` a gait going somewhere (no loop to fit). **Turning** (`m.turn` 0 facing us .. 1 side on, with `m.gait`): the figure
     facing us, narrowed (`narrow()`), and the one side on (`moveFig()` into its space) are both built and their fields blend, the
     side-on limbs growing out of the body, the eyes sliding round: it turns as one body, never melting)
-  - `pixelfx/src/fx/creature/ice-worlds.js` — tab **Mondes** (backdrops seen only through portals; `renderWorld()` draws a window of a world in depth layers with a camera; type `space` for now; two states, `wState` "still" (lives in place) or "moving" (travels at `wDrift`); every world key starts with `w`)
-  - `pixelfx/src/fx/creature/ice-surface.js` — tab **Surface planète** (planet surfaces seen from the ground; type `plain` for now:
+  - `src/creature/ice-worlds.js` — tab **Mondes** (backdrops seen only through portals; `renderWorld()` draws a window of a world in depth layers with a camera; type `space` for now; two states, `wState` "still" (lives in place) or "moving" (travels at `wDrift`); every world key starts with `w`)
+  - `src/creature/ice-surface.js` — tab **Surface planète** (planet surfaces seen from the ground; type `plain` for now:
     banded sky, sun/moon, clouds, ridged mountains with snow, hills, three meadows at depths 0.45/0.7/1 with lake, ponds, trees,
     rocks, flowers, tall grass at 1.35 in front, motes, birds; `renderSurface()` has the same shape as `renderWorld()`, which
     dispatches to it for surface types; only sideways travel; sizes in % of the scene's height; every hash reads `wrap(lx, T)`;
     `groundDepthAt()` the meadow at a row; `split` = someone standing at a row: part "back" leaves out what stands up nearer to
     us (trees, rocks, flowers, tall grass; only their shadows), part "front" draws only that, on transparency)
-  - `ice-spirit-birth.js` is the first, abandoned birth version; ignore it.
+- `archive/ice-spirit-birth.js` the first birth, kept aside for later: not loaded, not tested.
 - `app/main.js` the whole UI (state, controls, render pipeline, GIF encoder, export). `app/index.template.html` HTML + CSS.
   **No tab bar**: the page opens on Vivre (`S.anim = "life"`); every other tab is a **settings page** opened from Vivre (⚙ on
   a card, or a « Régler … » link: `openPage(anim, pick)`), with « Revenir à la vie » in the header (or Escape: `backToLife()`).
@@ -297,7 +297,7 @@ Two skills the author calls by name, **only when asked** (they have `disable-mod
   in rounds until the plan is shared. Ask **in French**, with your recommended answer for each question. The project's own
   questions come first in the tree: once or a loop, every form, its place in Vivre, its settings.
 - `/improve-codebase-architecture` (or « améliore l’architecture ») → `codebase-design` + `domain-modeling` + `grilling`:
-  scan for deepening opportunities (hot spots from `git log`: the modules in `pixelfx/src/fx/creature/`, `app/main.js`).
+  scan for deepening opportunities (hot spots from `git log`: the modules in `src/creature/`, `app/main.js`).
   Here the HTML report is not opened with `xdg-open`: write it in the scratchpad and publish it with the Artifact tool (a new
   artifact, not the couveuse one), cards and labels in French. `GLOSSARY.md` (domain words: blob, repos, forme, vie, monde,
   portail, boucle...) and `docs/adr/` are created lazily at the root. No refactor may break a rule of docs/SEAMLESS.md:

@@ -6,7 +6,7 @@
 // are the rest's. An animation in three parts (an entry from rest, a loop, an exit back to rest) has an intensity k
 // instead: 0 at rest, 1 in full; settle() draws its modifiers back to rest by k, the same way for every animation, and
 // the drawing it adds fades with k (the painter's fade, dithered).
-import { seg, ease } from "../../core/index.js";
+import { seg, ease } from "../../pixelfx/src/core/index.js";
 
 const E = ease.inOutSine;
 /** How long a drop of light lives (s): every lead-out outlasts it, so the drops on a last frame fell from the body at rest. */

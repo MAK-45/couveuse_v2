@@ -16,7 +16,7 @@
 // is now, the tests and the render tool draw any time. Things (objects for now, companions later) live in the scene
 // with their place: linked to the world they were made in (they stay there when it leaves, and are there again when it
 // comes back) or following the creature from world to world.
-import { fit, seg, ease } from "../../core/index.js";
+import { fit, seg, ease } from "../../pixelfx/src/core/index.js";
 import * as idle from "./ice-blob-idle.js";
 import * as actions from "./ice-blob-actions.js";
 import * as loops from "./ice-blob-loops.js";

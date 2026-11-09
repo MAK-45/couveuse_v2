@@ -19,7 +19,7 @@
 // The world runs on its own clock, periodic over a whole number of the blob's loops (P). In "open" that clock is
 // set back by the animation's length, so it reaches 0 exactly on the last frame, where "live" starts; "close"
 // starts on it at 0. The blob's part goes neutral at both ends (prog/castMods, as for the objects).
-import { fit, clamp, lerp, seg, bump, ease, noise2, rng, cycle, TAU, WHITE, hex, mix, createFrame, clearFrame, painterFor } from "../../core/index.js";
+import { fit, clamp, lerp, seg, bump, ease, noise2, rng, cycle, TAU, WHITE, hex, mix, createFrame, clearFrame, painterFor } from "../../pixelfx/src/core/index.js";
 import { meta as idleMeta, state } from "./ice-blob-idle.js";
 import { prog as progAt } from "./ice-time.js";
 import { bodyBack, bodyFront, bodyAmbient, floorFor } from "./ice-blob-transform.js";

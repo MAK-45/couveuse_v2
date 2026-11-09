@@ -9,7 +9,7 @@ The blob leaves its rest, does the action, and is back at rest exactly (first/la
 drawn there, `{ ax, ay }` whole pixels, its progress doesn't wrap, its CATALOG kind is "move" and the life's hub after it gets
 the new `pos`; see docs/ARCHITECTURE.md « Extension points ». Test its last frame against the rest drawn there.)
 
-1. Read docs/SEAMLESS.md and look at two existing entries in `pixelfx/src/fx/creature/ice-blob-actions.js` (e.g. `A.jump`, `A.freeze`).
+1. Read docs/SEAMLESS.md and look at two existing entries in `src/creature/ice-blob-actions.js` (e.g. `A.jump`, `A.freeze`).
 2. Add `A.<id> = (o) => ({ mods(t), back?, front? })` using `prog(o, t)`; all modifiers neutral at 0 and 1; set `quiet: 1` while active.
 3. Add its options with defaults in `meta.options` and its id to `ACTIONS`.
 4. In `app/main.js`: an entry in `ACTION_LIST` (French name + short description), its rows in `ACTION_PARAMS`, a default duration in `LOOPS_DEF` if not 2; scene-relative lengths go in `SCENE_LENGTHS` / `SCENE_ACTION_DEF`.

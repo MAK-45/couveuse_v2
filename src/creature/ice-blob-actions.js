@@ -6,7 +6,7 @@
 // same actions are done by that figure (bodyBack/bodyFront from ice-blob-transform.js) and start and end on its
 // "live" loop; on its legs they keep to the floor (strolls along it, jumps, crouches) and a few can't be done at all
 // (FORM_FIT says which and why).
-import { fit, clamp, lerp, seg, bump, ease, noise2, rng, TAU, WHITE, hex, toHex } from "../../core/index.js";
+import { fit, clamp, lerp, seg, bump, ease, noise2, rng, TAU, WHITE, hex, toHex } from "../../pixelfx/src/core/index.js";
 import { meta as idleMeta, state as idleState } from "./ice-blob-idle.js";
 import { prog as progAt, leadOut, DROP_LIFE } from "./ice-time.js";
 import { bodyBack, bodyFront, bodyAmbient, formExtent, gaitFree, gaitLine } from "./ice-blob-transform.js";

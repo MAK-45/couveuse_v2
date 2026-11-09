@@ -18,17 +18,17 @@
 //                        moves to other places of the scene, walking and running)
 // Run: npm test      (exit code 1 on any failure)
 import { createFrame, clearFrame, painterFor, composite } from "../pixelfx/src/core/index.js";
-import * as idle from "../pixelfx/src/fx/creature/ice-blob-idle.js";
-import * as actions from "../pixelfx/src/fx/creature/ice-blob-actions.js";
-import * as objects from "../pixelfx/src/fx/creature/ice-scene-objects.js";
-import * as loops from "../pixelfx/src/fx/creature/ice-blob-loops.js";
-import * as clock from "../pixelfx/src/fx/creature/ice-blob-clock.js";
-import * as elec from "../pixelfx/src/fx/creature/ice-blob-electric.js";
-import * as portal from "../pixelfx/src/fx/creature/ice-blob-portal.js";
-import * as worlds from "../pixelfx/src/fx/creature/ice-worlds.js";
-import * as explore from "../pixelfx/src/fx/creature/ice-blob-explore.js";
-import * as transform from "../pixelfx/src/fx/creature/ice-blob-transform.js";
-import * as life from "../pixelfx/src/fx/creature/ice-life.js";
+import * as idle from "../src/creature/ice-blob-idle.js";
+import * as actions from "../src/creature/ice-blob-actions.js";
+import * as objects from "../src/creature/ice-scene-objects.js";
+import * as loops from "../src/creature/ice-blob-loops.js";
+import * as clock from "../src/creature/ice-blob-clock.js";
+import * as elec from "../src/creature/ice-blob-electric.js";
+import * as portal from "../src/creature/ice-blob-portal.js";
+import * as worlds from "../src/creature/ice-worlds.js";
+import * as explore from "../src/creature/ice-blob-explore.js";
+import * as transform from "../src/creature/ice-blob-transform.js";
+import * as life from "../src/creature/ice-life.js";
 
 const W = 320, H = 200, Ni = 120; // Ni: frames in one idle loop (D * fps with the defaults)
 function render(mod, o, t, at = [0, 0]) {

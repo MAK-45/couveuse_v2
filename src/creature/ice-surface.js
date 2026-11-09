@@ -10,7 +10,7 @@
 // It loops on its own period (wLoops blob loops): layers scroll by whole tiles of the world (the tile is the
 // scene's longer side, every layer repeats on it), gusts, sway, shimmer and twinkles run whole turns, birds use
 // cycle() on that period. Sizes are in % of the scene's height, so it looks the same whatever the scene's size.
-import { clamp, mix, hex, red, green, blue, rng, cycle, hash, TAU, WHITE } from "../../core/index.js";
+import { clamp, mix, hex, red, green, blue, rng, cycle, hash, TAU, WHITE } from "../../pixelfx/src/core/index.js";
 
 export const PLAIN = {
   wType: "plain", wSeed: 21, wLoops: 3,

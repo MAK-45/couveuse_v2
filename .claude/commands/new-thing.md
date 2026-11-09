@@ -11,7 +11,7 @@ them in every segment, fades them while the creature crosses to another world, a
    `app/main.js` its French name in `SHAPE_OPTS`. Its float and turn are whole turns of the blob's loop (`pose()`). Done: it can
    be made in Vivre › Objets and in the objects page.
 4. **A companion** (a new kind of thing):
-   - a module `pixelfx/src/fx/creature/ice-<name>.js` drawing it at rest (`drawThing(p, o, th, t)`: its own rest loop, a whole
+   - a module `src/creature/ice-<name>.js` drawing it at rest (`drawThing(p, o, th, t)`: its own rest loop, a whole
      number of the blob's loops, every count whole, noise on a circle of time) and its own animations from rest back to rest
      (`total(o)`, neutral ends, lead-out ≥ 1.7 s), like the creature's modules;
    - in `ice-life.js`: things get a `kind` ("object" by default); `thingsOn()` draws each kind with its module; `plan()` and

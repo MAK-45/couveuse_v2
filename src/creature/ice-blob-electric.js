@@ -8,7 +8,7 @@
 // The electricity has its own three colours (core, arc, glow), apart from the blob's palette.
 // In one of the transformation's new forms (o.form "human" or "grounded") the figure plays with it: the current
 // comes to and leaves from its hands, it holds the plasma ball, reaches for the spark, throws the chain bolt.
-import { fit, clamp, lerp, seg, bump, ease, noise2, rng, cycle, TAU, WHITE, hex, mix, bolt, forks } from "../../core/index.js";
+import { fit, clamp, lerp, seg, bump, ease, noise2, rng, cycle, TAU, WHITE, hex, mix, bolt, forks } from "../../pixelfx/src/core/index.js";
 import { meta as idleMeta } from "./ice-blob-idle.js";
 import { prog as progAt, presence as presenceAt, settle as settleBy } from "./ice-time.js";
 import { bodyBack, bodyFront, bodyAmbient } from "./ice-blob-transform.js";

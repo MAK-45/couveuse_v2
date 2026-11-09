@@ -2,9 +2,9 @@
 
 ## Two halves
 
-**Effects** (`pixelfx/src/fx/...`) are pure pixelfx effects: `meta` (name, size, duration, `options`) plus
+**Effects** (`src/...`) are pure pixelfx effects: `meta` (name, size, duration, `options`) plus
 `drawBack(p, t, o)` and `draw(p, t, o)` drawing with a pixelfx Painter `p` placed at the creature's spot
-(local coords, y down). They run in Node (tests, `pixelfx/tools/render.mjs`) and in the browser.
+(local coords, y down). They run in Node (tests, `npm run render`) and in the browser.
 
 **The page** (`app/main.js`) holds the settings, builds the controls, makes the creature live (page Vivre, through the
 life engine `ice-life.js`), previews each animation on its settings page and exports it. `app/build.mjs` bundles `app/entry.js` (the effects + core helpers) into a global `PFX`
@@ -188,7 +188,7 @@ An action, a loop or an electric animation: add it to its module (and its list) 
 
 ## Adding a settings page (a new kind of thing to tune)
 
-1. Effect file in `pixelfx/src/fx/creature/`, export it in `app/entry.js` (and add it to `check:fx` in package.json).
+1. Effect file in `src/creature/`, export it in `app/entry.js` (and add it to `check:fx` in package.json).
 2. In `main.js`: `ANIMS.x = {...}`, a `X_KEYS` set + `xDef()`, add to `fresh()`/`sanitize()`, routing in
    `refreshV()`/`setV()`, a `xGroups()` builder, branches in `settingsGroups()`, `loopsOf()`, `effOpts()`, `base()`;
    `PAGE_NAMES.x` and `PAGE_INTRO.x`; its way in from Vivre (a section or a « Régler … » link in `lifeControls()` calling

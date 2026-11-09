@@ -85,7 +85,7 @@ Deux outils de Matt Pocock (dans `.claude/skills/`) servent avant ou à côté d
 
 ## Où sont les choses
 
-- `pixelfx/src/fx/creature/` : les animations (un fichier par famille : actions, boucles, électricité, heure, objets, portail,
+- `src/creature/` : les animations (un fichier par famille : actions, boucles, électricité, heure, objets, portail,
   formes, mondes, surfaces) et le moteur de vie (`ice-life.js`) ; le temps commun (`ice-time.js`).
 - `app/main.js` : l’interface (Vivre, les pages de réglages, l’aperçu, les exports). `app/index.template.html` : sa page.
 - `tests/seams.mjs` : les tests de raccord. `dist/couveuse.html` : la page construite, celle qu’on ouvre.

@@ -6,7 +6,7 @@ and comes back (`revert`). Every animation of every page must be played by it, o
 1. Read docs/ARCHITECTURE.md (« The new forms », « Extension points ») and docs/SEAMLESS.md (« Transformation », « The new
    forms in the other tabs »). Load the `pixelfx` skill and use its render → look → refine loop.
 2. Ask the author what it looks like, how it moves at rest, how it takes shape and goes back (in French), and wait.
-3. In `pixelfx/src/fx/creature/ice-blob-transform.js`:
+3. In `src/creature/ice-blob-transform.js`:
    - add its id to `FORMS` and to `isForm()`; its settings to `meta.options` with a prefix of their own (and to
      `FORM_DEFAULTS`' filter if the prefix is not `hu`/`gr`);
    - a figure builder like `human()` / `stander()`: primitives (round cones, ovals) in its own space, returning

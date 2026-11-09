@@ -7,7 +7,7 @@
 // In one of the transformation's new forms (o.form "human" or "grounded") the figure does them, with its arms (raised
 // for magic, holding the book, on the rope of the swing...); on its legs it keeps to its floor (it sits down
 // cross-legged to sleep or meditate) and the two that need flying can't be done (FORM_FIT).
-import { fit, clamp, lerp, seg, bump, ease, noise2, rng, cycle, TAU, WHITE, hex } from "../../core/index.js";
+import { fit, clamp, lerp, seg, bump, ease, noise2, rng, cycle, TAU, WHITE, hex } from "../../pixelfx/src/core/index.js";
 import { meta as idleMeta } from "./ice-blob-idle.js";
 import { bodyBack, bodyFront, bodyAmbient, formCentre, formAnchor, gaitPlan, gaitLine, isForm, FORM_DEFAULTS } from "./ice-blob-transform.js";
 import { phases, settle, DROP_LIFE } from "./ice-time.js";

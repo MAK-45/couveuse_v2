@@ -6,8 +6,8 @@
   "scripts": {
     "build": "node app/build.mjs",
     "test": "node tests/seams.mjs",
-    "check:fx": "node pixelfx/tools/check.mjs spawn/ice-spirit-gestation creature/ice-blob-idle creature/ice-blob-actions creature/ice-scene-objects creature/ice-blob-loops creature/ice-blob-clock creature/ice-blob-electric creature/ice-blob-portal creature/ice-blob-explore creature/ice-blob-transform creature/ice-worlds creature/ice-surface creature/ice-life",
-    "render": "node pixelfx/tools/render.mjs"
+    "check:fx": "node --import ./tools/fxdir.mjs pixelfx/tools/check.mjs spawn/ice-spirit-gestation creature/ice-blob-idle creature/ice-blob-actions creature/ice-scene-objects creature/ice-blob-loops creature/ice-blob-clock creature/ice-blob-electric creature/ice-blob-portal creature/ice-blob-explore creature/ice-blob-transform creature/ice-worlds creature/ice-surface creature/ice-life",
+    "render": "node --import ./tools/fxdir.mjs pixelfx/tools/render.mjs --out records"
   },
   "devDependencies": {
     "esbuild": "^0.24.0"

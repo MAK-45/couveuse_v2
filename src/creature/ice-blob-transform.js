@@ -20,7 +20,7 @@
 // idle's own code, so the first frame of "transform" and the last of "revert" are the idle's, pixel for pixel. The
 // figure's own clock h runs on the live loop; in "transform" it is set back by the animation's length, so the last
 // frame is the live loop's last frame. Everything the change adds is zero at both ends (seg, bump, ease).
-import { fit, clamp, lerp, seg, bump, ease, noise2, rng, cycle, TAU, WHITE } from "../../core/index.js";
+import { fit, clamp, lerp, seg, bump, ease, noise2, rng, cycle, TAU, WHITE } from "../../pixelfx/src/core/index.js";
 import { meta as idleMeta, blobBack, blobFront, ambient, state, shapeOf, drawEyes, drawSparks, drawDrips } from "./ice-blob-idle.js";
 import { prog as progAt, leadOut } from "./ice-time.js";
 
