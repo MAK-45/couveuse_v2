@@ -22,7 +22,7 @@
 // frame is the live loop's last frame. Everything the change adds is zero at both ends (seg, bump, ease).
 import { fit, clamp, lerp, seg, bump, ease, noise2, rng, cycle, TAU, WHITE } from "../../pixelfx/src/core/index.js";
 import { meta as idleMeta, blobBack, blobFront, ambient, state, shapeOf, drawEyes, drawSparks, drawDrips } from "../blob/blob.js";
-import { prog as progAt, leadOut } from "../shared/_time.js";
+import { prog as progAt, leadIn, leadOut } from "../shared/_time.js";
 
 export const STYLES = ["grow", "flash", "spiral"];
 export const LEGS = ["spirit", "legs", "lotus"];
@@ -95,7 +95,7 @@ export const floorOf = (o) => Math.round(Math.max(o.grFloor, o.size * o.huHeight
 // where its hips are when its hanging toes touch the floor
 const contactOf = (Lw, FY) => FY - 0.02 * Lw.U - (Lw.Lg + Lw.toe) * Math.cos(Lw.a0);
 function gravityAt(o, c) {
-  const T = o.duration * whole(o.loops, 1), act = T * Math.max(0.05, leadOut(o, T) - o.lead), Lw = legsOf(o), FY = floorOf(o);
+  const T = o.duration * whole(o.loops, 1), act = T * Math.max(0.05, leadOut(o, T) - leadIn(o, T)), Lw = legsOf(o), FY = floorOf(o);
   // the fall lasts what that height takes under gravity, the landing a little more than half a second
   const fallH = Math.max(1, contactOf(Lw, FY) - 0.3 * Lw.U);
   let df = Math.sqrt((2 * fallH) / (520 * Math.max(0.1, o.grGravity))) / act, dl = 0.75 / act;
@@ -1160,7 +1160,7 @@ function dropsAndHands(p, C, t, o, F) {
   const { ph, P, fig } = F, n = whole(o.huDrops) * whole(o.liveLoops, 1), T = total(o), outAt = T * leadOut(o, T);
   // a drop shows if the form was whole and at rest when it fell (the frames it chains with have the same drops)
   // (in another tab: unless that tab was busy when it fell, as for the blob's own drops)
-  const shown = F.ext ? (t0) => !(F.M && (F.M(t0).quiet || 0) > 0) : (t0) => o.mode === "live" || (o.mode === "transform" ? t0 >= outAt : t0 <= T * o.lead);
+  const shown = F.ext ? (t0) => !(F.M && (F.M(t0).quiet || 0) > 0) : (t0) => o.mode === "live" || (o.mode === "transform" ? t0 >= outAt : t0 <= T * leadIn(o, T));
   if (F.G) {
     // on the ground they drip from its fingertips, fall to the floor and splash
     const G1 = gravityAt(o, 1), FY = F.G.FY;
@@ -1487,6 +1487,8 @@ export function draw(p, t, o) {
 // T is the tab's length: the figure's own clock runs on the live loop's period, so over T it is nudged (a little
 // faster mid-way, never near the ends) to come back on that loop's frame (figClock).
 export const FORM_DEFAULTS = Object.freeze(Object.fromEntries(Object.entries(meta.options).filter(([k]) => /^(hu|gr)[A-Z]/.test(k) || k === "liveLoops")));
+/** The forms the creature can take: the blob it is born as, and the Transformation's two human forms. */
+export const FORMS = ["blob", "human", "grounded"];
 export const isForm = (o) => !!o && (o.form === "human" || o.form === "grounded");
 const FORMED = new WeakMap();
 function withForm(o) {

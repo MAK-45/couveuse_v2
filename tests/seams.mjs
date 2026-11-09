@@ -1,28 +1,36 @@
-// Seam tests: the rules that make every GIF loop or chain without a visible jump. Pixel-exact.
-//   blob idle            frame 0 == frame at t = D (its own loop)
-//   actions / clock      first and last frames == the idle's first and last frames (chain with the idle GIF)
-//   the move             first frame == the rest where it was, last == the rest where it went (drawn there), every form
-//   objects              appear: first == live without, last == live with; remove: the reverse
-//   loops                frame at t == frame at t + T (its own loop); in three parts: entry from rest -> loop -> exit to rest
-//                        (walking and running too: their first steps from rest, their last steps back to it)
-//   transformation       transform: first == idle, last == live; live loops on itself; revert: first == live, last == idle
-//                        (both forms: levitating, and on its legs on a floor with gravity)
-//   in a new form        every other tab drawn in the levitating or grounded human form: from rest now means from the
-//                        new form's loop (first and last frames == "live"'s), loops loop on themselves
-//   life (tab Vivre)     whole lives played by the life engine: every segment's first frame == the rest it leaves, its
-//                        last == the rest it reaches (forms, things made and taken away, moves to other places of the
-//                        scene, walking and running)
-// Run: npm test      (exit code 1 on any failure)
+// Seam tests: every animation starts and ends exactly on its rest, in every form, so the creature lives on without a
+// jump (docs/SEAMLESS.md). Pixel-exact. Run: npm test (exit code 1 on any failure; never loosen a test, fix the effect).
+//
+// It walks the catalogue by itself, so a new fiche needs nothing here: every fiche of src/actions/index.js and
+// src/loops/index.js, and the two templates, with its defaults, all its sliders at their minimum, all at their maximum
+// (its length too), and each choice of its lists, in every form it can take:
+//   once   its first and last frames are its rest's
+//   move   its first frame is its rest here, its last its rest where it went (drawn there), for several destinations
+//   loop   frame t == frame t + T; its entry starts on its rest and ends on the loop's last frame, its exit starts on the
+//          loop's first frame and ends on its rest
+// Then each fiche's coherence (id, file, card, rows, defaults, forms), the other tabs (clock, objects, transformation),
+// and a life per form played by the life engine (tab Vivre): every animation at home and after a move, things made and
+// taken away, its form changed and back. Rest is the blob's idle loop, or in a new form the Transformation's live loop.
+import { existsSync } from "node:fs";
 import { createFrame, clearFrame, painterFor, composite } from "../pixelfx/src/core/index.js";
 import * as idle from "../src/blob/blob.js";
-import * as actions from "../src/actions/index.js";
-import * as objects from "../src/objects/objects.js";
-import * as loops from "../src/loops/index.js";
+import * as forms from "../src/forms/forms.js";
 import * as clock from "../src/clock/clock.js";
-import * as transform from "../src/forms/forms.js";
+import * as objects from "../src/objects/objects.js";
 import * as life from "../src/life/life.js";
+import { ACTIONS } from "../src/actions/index.js";
+import { LOOPS } from "../src/loops/index.js";
+import { fiche as actionTemplate } from "../src/actions/_template.js";
+import { fiche as loopTemplate } from "../src/loops/_template.js";
 
-const W = 320, H = 200, Ni = 120; // Ni: frames in one idle loop (D * fps with the defaults)
+const W = 320, H = 200, ROOM = [-160, -115, 160, 85], D = idle.meta.options.duration, Ni = 120, dt = D / Ni; // Ni frames a blob's loop
+// the forms everything is tested in: the three, plus the figure's own loop over 1 or 3 of the blob's (its clock nudged
+// to land on it) and a pose that melts into light to change (legs crossed to sleep)
+const FORM_CASES = { blob: {}, human: { form: "human" }, grounded: { form: "grounded" }, "legs L1": { form: "human", huLegs: "legs", liveLoops: 1 },
+  "lotus L1": { form: "human", huLegs: "lotus", liveLoops: 1 }, "hips L3": { form: "grounded", grArms: "hips", liveLoops: 3 } };
+const DESTS = [null, [-130, 40], [17, -61], [300, -200]]; // where a move goes (null: its own default; the last one past the edge)
+const EXTREMES = [["court, sans repos", { lead: 0, loops: 1 }], ["long, long repos", { lead: 0.3, loops: 8 }]]; // the other tabs' length rows
+
 function render(mod, o, t, at = [0, 0]) {
   const f = createFrame(W, H); clearFrame(f);
   const p = painterFor(f); p.place(160 + at[0], 115 + at[1]);
@@ -30,157 +38,151 @@ function render(mod, o, t, at = [0, 0]) {
   return composite(f, new Uint8ClampedArray(W * H * 4), 0xff000000);
 }
 const diff = (a, b) => { let n = 0; for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) n++; return n; };
+const lastOf = (T) => { const N = Math.round(T / D) * Ni; return ((N - 1) * T) / N; }; // its last frame, as exported
+const moved = (r, d) => [r[0] - d[0], r[1] - d[1], r[2] - d[0], r[3] - d[1]];
+
+// results, one line per group; a check is pixel counts that must all be 0, or a condition that must hold
 let fails = 0;
-const report = (name, ...counts) => { const ok = counts.every((c) => c === 0); if (!ok) fails++; console.log(`${ok ? "ok  " : "FAIL"} ${name.padEnd(34)} ${counts.join(" / ")}`); };
-
-const base = { ...idle.meta.options }, D = base.duration;
-report("idle self-loop", diff(render(idle, base, 0), render(idle, base, D)));
-const id0 = render(idle, base, 0), idL = render(idle, base, D - D / Ni);
-
-for (const name of actions.ACTIONS) {
-  if (name === "move") continue; // (it ends somewhere else: see below)
-  const o = { ...actions.meta.options, action: name }, T = o.duration * o.loops, N = Ni * o.loops;
-  report(`action ${name}`, diff(render(actions, o, 0), id0), diff(render(actions, o, (N - 1) * T / N), idL));
+function group(name, fn) {
+  const g = { n: 0, bad: [] };
+  fn((label, ...counts) => { g.n++; if (counts.some((c) => c !== 0 && c !== true)) g.bad.push(`${label}: ${counts.join(" / ")}`); });
+  fails += g.bad.length;
+  console.log(`${g.bad.length ? "FAIL" : "ok  "} ${name.padEnd(30)} ${g.n} checks`);
+  for (const b of g.bad) console.log(`       ${b}`);
 }
-// the move: from its rest here to its rest there (drawn dx, dy farther, the scene seen from there), in every form, every way
-{
-  const room = [-160, -115, 160, 85], moved = (r, d) => [r[0] - d[0], r[1] - d[1], r[2] - d[0], r[3] - d[1]];
-  for (const [F, tag] of [[{}, ""], [{ form: "human" }, " human"], [{ form: "grounded" }, " ground"], [{ form: "grounded", grArms: "hips", liveLoops: 3 }, " ground L3"], [{ form: "human", huLegs: "lotus", liveLoops: 1 }, " lotus L1"]]) {
-    for (const [mv, how] of [[{}, ""], [{ moveX: -130, moveY: 40, moveArc: 1.2 }, " left"], [{ moveX: 17, moveY: -61, moveHops: 3 }, " hops"], [{ moveX: 63, moveGait: "run" }, " run"], [{ moveX: 300, moveY: -200 }, " edge"]]) {
-      const o = { ...actions.meta.options, ...F, room, action: "move", loops: 1, ...mv }, T = actions.total(o), N = Math.round(T / D) * Ni, d = actions.moveOf(o);
-      const rest = F.form ? { ...transform.meta.options, ...F, room, mode: "live" } : { ...idle.meta.options }, mod = F.form ? transform : idle;
-      const P = F.form ? transform.total(rest) : D, M = Math.round(P / D) * Ni, there = F.form ? { ...rest, room: moved(room, d) } : rest;
-      report(`action move${tag}${how}`, diff(render(actions, o, 0), render(mod, rest, 0)), diff(render(actions, o, (N - 1) * T / N), render(mod, there, (M - 1) * P / M, d)));
+
+// ---- rests: the first and last frames of the rest of each form case (and its last drawn where it went)
+const REST = {};
+for (const [name, F] of Object.entries(FORM_CASES)) {
+  const mod = F.form ? forms : idle, o = F.form ? { ...forms.meta.options, ...F, room: ROOM, mode: "live" } : { ...idle.meta.options };
+  const P = F.form ? forms.total(o) : D;
+  REST[name] = { first: render(mod, o, 0), last: render(mod, o, lastOf(P)), there: (d) => render(mod, F.form ? { ...o, room: moved(ROOM, d) } : o, lastOf(P), d) };
+}
+group("blob idle loop", (check) => check("t = 0 / t = D", diff(render(idle, idle.meta.options, 0), render(idle, idle.meta.options, D))));
+
+// ---- each fiche
+const FAMILIES = { actions: ACTIONS, loops: LOOPS };
+const TEMPLATES = { actions: actionTemplate, loops: loopTemplate };
+// the settings to try: its defaults, every slider at its minimum, every one at its maximum (and its length), each choice
+// of its lists. (A length in % of the scene is px for the effect; a point of the scene exists only on the page.)
+function variants(f) {
+  const loop = f.kind === "loop", min = loop ? { loops: 1, inLoops: 1, outLoops: 1 } : { loops: 1, lead: 0 }, max = loop ? { loops: 8, inLoops: 4, outLoops: 4 } : { loops: 8, lead: 0.3 };
+  const out = [["défauts", {}]], lists = [];
+  for (const [key, , a, b] of f.rows) {
+    if (f.points[key]) continue;
+    if (typeof a === "number") { const k = f.scene.includes(key) ? H / 100 : 1; min[key] = a * k; max[key] = b * k; }
+    else if (a && a.select) for (const [v] of a.select) if (v !== f.defaults[key]) lists.push([`${key} ${v}`, { [key]: v }]);
+  }
+  return [...out, ["min", min], ["max", max], ...lists];
+}
+function joins(check, f, label, o, R) {
+  if (f.kind === "once") {
+    check(label, diff(render(f, o, 0), R.first), diff(render(f, o, lastOf(f.total(o))), R.last));
+  } else if (f.kind === "move") {
+    for (const to of DESTS) {
+      const m = { ...o, moveTo: to }, d = f.moveOf(m);
+      check(`${label} → ${to || "défaut"}`, diff(render(f, m, 0), R.first), diff(render(f, m, lastOf(f.total(m))), R.there(d)));
+    }
+  } else {
+    const lp = { ...o, part: "loop" }, en = { ...o, part: "enter" }, ex = { ...o, part: "exit" }, T = f.total(lp), Ti = f.total(en), To = f.total(ex);
+    check(`${label} boucle`, diff(render(f, lp, 0), render(f, lp, T)), diff(render(f, lp, T / 3), render(f, lp, T + T / 3)));
+    check(`${label} entrée, sortie`, diff(render(f, en, 0), R.first), diff(render(f, en, lastOf(Ti)), render(f, lp, lastOf(T))),
+      diff(render(f, ex, 0), render(f, lp, 0)), diff(render(f, ex, lastOf(To)), R.last));
+  }
+}
+const fileOf = (family, f) => new URL(`../src/${family}/${f.id}.js`, import.meta.url);
+function coherence(check, family, f, isTemplate) {
+  const kinds = family === "loops" ? ["loop"] : ["once", "move"], text = (s) => typeof s === "string" && s.trim().length > 0;
+  check("id in camelCase", /^[a-z][a-zA-Z0-9]*$/.test(f.id));
+  check(isTemplate ? "not in the catalogue" : `its file src/${family}/${f.id}.js`, isTemplate ? !FAMILIES[family].some((x) => x.id === f.id) : existsSync(fileOf(family, f)));
+  check("name and desc (its card)", text(f.name) && text(f.desc));
+  check(`kind ${f.kind}`, kinds.includes(f.kind) && typeof f.play === "function" && (f.kind !== "move" || (typeof f.moveOf === "function" && typeof f.length === "function")));
+  check("formFit: forms, reasons in French", Object.entries(f.formFit).every(([k, v]) => forms.FORMS.includes(k) && text(v)) && forms.FORMS.some((form) => f.fits({ form })));
+  check("rows shown in known forms", Object.values(f.forms).every((l) => l.length && l.every((k) => forms.FORMS.includes(k))));
+  for (const [key, label, a, b, step] of f.rows) {
+    const v = key in f.page ? f.page[key] : f.defaults[key];
+    if (typeof a === "number") check(`${key}: ${a} ≤ ${v} ≤ ${b}`, text(label) && step > 0 && a <= v && v <= b);
+    else check(`${key}: ${v} in its list`, text(label) && !!a.select && a.select.some(([x]) => x === v));
+  }
+  check("defaults in its meta", Object.entries(f.defaults).every(([k, v]) => f.meta.options[k] === v));
+}
+for (const [family, list] of Object.entries(FAMILIES)) {
+  group(`${family}: ids`, (check) => check("each id once", new Set(list.map((f) => f.id)).size === list.length));
+  for (const [f, isTemplate] of [...list.map((f) => [f, false]), [TEMPLATES[family], true]]) {
+    const tag = isTemplate ? `${f.id} (modèle)` : f.id;
+    group(`${tag} : fiche`, (check) => coherence(check, family, f, isTemplate));
+    for (const [name, F] of Object.entries(FORM_CASES)) {
+      if (!f.fits({ form: F.form || "blob" })) continue;
+      group(`${tag} ${name}`, (check) => { for (const [vn, v] of variants(f)) joins(check, f, vn, { ...f.meta.options, ...F, room: ROOM, ...v }, REST[name]); });
     }
   }
 }
 
-for (const [ap, vn] of clock.APPEAR.map((a, i) => [a, clock.VANISH[i]])) {
-  const o = { ...clock.meta.options, clkAppear: ap, clkVanish: vn }, T = o.duration * o.loops, N = Ni * o.loops;
-  report(`clock ${ap} / ${vn}`, diff(render(clock, o, 0), id0), diff(render(clock, o, (N - 1) * T / N), idL));
+// ---- the clock (once): every way it shows the time and hides it again, its length and lead at their extremes, every form
+for (const [name, F] of Object.entries(FORM_CASES)) {
+  const cases = [...clock.APPEAR.map((ap, i) => [`${ap} / ${clock.VANISH[i]}`, { clkAppear: ap, clkVanish: clock.VANISH[i] }]), ...EXTREMES];
+  group(`clock ${name}`, (check) => { for (const [label, more] of cases) {
+    const o = { ...clock.meta.options, ...F, room: ROOM, ...more };
+    check(label, diff(render(clock, o, 0), REST[name].first), diff(render(clock, o, lastOf(clock.total(o))), REST[name].last));
+  } });
 }
 
-{
-  const ob = objects.meta.options, list = [...ob.objects, { shape: "pyramid", x: 10, y: -55, size: 13, spinY: 1, spinX: 0, tilt: 0.35, float: 4, floatTurns: 1, hue: 140, glow: 1, layer: "back", ph: 0.33 }];
-  const ti = list.length - 1, without = { ...ob, objects: list.slice(0, ti), mode: "live", loops: 1 }, withIt = { ...ob, objects: list, mode: "live", loops: 1 };
-  const w0 = render(objects, without, 0), wL = render(objects, without, D - D / Ni), a0 = render(objects, withIt, 0), aL = render(objects, withIt, D - D / Ni);
-  report("objects live self-loop", diff(w0, render(objects, without, D)));
-  for (const st of objects.APPEAR) { const o = { ...ob, objects: list, mode: "appear", target: ti, loops: 2, appearStyle: st }, T = o.duration * 2, N = Ni * 2; report(`objects appear ${st}`, diff(render(objects, o, 0), w0), diff(render(objects, o, (N - 1) * T / N), aL)); }
-  for (const st of objects.REMOVE) { const o = { ...ob, objects: list, mode: "remove", target: ti, loops: 2, removeStyle: st }, T = o.duration * 2, N = Ni * 2; report(`objects remove ${st}`, diff(render(objects, o, 0), a0), diff(render(objects, o, (N - 1) * T / N), wL)); }
+// ---- objects: its live scene loops and is its rest with them; appear: rest without -> rest with; remove: the reverse
+for (const [name, F] of Object.entries(FORM_CASES)) {
+  group(`objects ${name}`, (check) => {
+    const lp = F.form ? Math.max(1, Math.round(F.liveLoops ?? forms.FORM_DEFAULTS.liveLoops)) : 1, base = { ...objects.meta.options, ...F, room: ROOM, mode: "live", loops: lp };
+    const list = [...base.objects, { shape: "gem", x: 40, y: -50, size: 11, spinY: 1, spinX: 0, tilt: 0.35, float: 4, floatTurns: 1, hue: 200, glow: 1, layer: "front", ph: 0.2 }], ti = list.length - 1;
+    const none = { ...base, objects: [] }, without = { ...base, objects: list.slice(0, ti) }, withIt = { ...base, objects: list }, P = objects.total(base);
+    const w0 = render(objects, without, 0), wL = render(objects, without, lastOf(P)), a0 = render(objects, withIt, 0), aL = render(objects, withIt, lastOf(P));
+    check("live = rest", diff(render(objects, none, 0), REST[name].first), diff(render(objects, none, lastOf(P)), REST[name].last));
+    check("live loop", diff(w0, render(objects, without, P)), diff(render(objects, without, P / 3), render(objects, without, P + P / 3)));
+    const appear = (label, more) => { const o = { ...withIt, mode: "appear", target: ti, loops: 2, ...more }; check(`appear ${label}`, diff(render(objects, o, 0), w0), diff(render(objects, o, lastOf(objects.total(o))), aL)); };
+    const remove = (label, more) => { const o = { ...withIt, mode: "remove", target: ti, loops: 2, ...more }; check(`remove ${label}`, diff(render(objects, o, 0), a0), diff(render(objects, o, lastOf(objects.total(o))), wL)); };
+    for (const st of objects.APPEAR) appear(st, { appearStyle: st });
+    for (const st of objects.REMOVE) remove(st, { removeStyle: st });
+    for (const [label, more] of EXTREMES) { appear(label, more); remove(label, more); }
+  });
 }
 
-for (const name of loops.LOOPS) {
-  const o = { ...loops.meta.options, loop: name }, T = o.duration * o.loops;
-  report(`loop ${name}`, diff(render(loops, o, 0), render(loops, o, T)), diff(render(loops, o, -1 / 30), render(loops, o, T - 1 / 30)));
-}
-
-// loops in three parts, in every form: rest -> entry -> the loop -> exit -> rest. The entry starts on the rest's first
-// frame and its last frame is the loop's last (so the loop's first comes next as if it had looped); the exit starts on the
-// loop's first frame and ends on the rest's last. In a new form "rest" is its live loop (a pose change melts through light)
-{
-  const room = [-160, -115, 160, 85], dt = D / Ni;
-  for (const [F, tag] of [[{}, ""], [{ form: "human" }, " human"], [{ form: "grounded" }, " ground"], [{ form: "human", huLegs: "legs", liveLoops: 1 }, " legs L1"],
-    [{ form: "grounded", grArms: "hips", liveLoops: 3 }, " ground L3"]]) {
-    const live = { ...transform.meta.options, ...F, room, mode: "live" }, P = transform.total(live);
-    const r0 = F.form ? render(transform, live, 0) : id0, rL = F.form ? render(transform, live, P - dt) : idL;
-    for (const name of loops.LOOPS) {
-      if (!loops.fitsForm({ ...F }, name)) continue;
-      const base = { ...loops.meta.options, ...F, room, loop: name, loops: F.liveLoops === 3 ? 3 : 2, ...(name === "sleep" ? { inLoops: 2, outLoops: 2 } : {}) };
-      const lp = { ...base, part: "loop" }, en = { ...base, part: "enter" }, ex = { ...base, part: "exit" };
-      const TL = loops.total(lp), Ti = loops.total(en), To = loops.total(ex);
-      report(`parts ${name}${tag}`, diff(render(loops, en, 0), r0), diff(render(loops, en, Ti - dt), render(loops, lp, TL - dt)),
-        diff(render(loops, ex, 0), render(loops, lp, 0)), diff(render(loops, ex, To - dt), rL));
+// ---- the transformation: rest -> transform -> the new form's live loop -> revert -> rest, every style, pose and timing
+const TF_CASES = { "": [{}, 2], "legs open": [{ huLegs: "legs", huArms: "open", huHairStrands: 7 }, 2], lotus: [{ huLegs: "lotus", huArms: "down", liveLoops: 1 }, 3],
+  "3 loops bald": [{ liveLoops: 3, huHair: 0, huArmTurns: 3, huTailTurns: 2, tfSpin: 2 }, 2],
+  // on its legs, with gravity and a floor: the fall, the landing, the jump back, every arm pose and floor look
+  ground: [{ form: "grounded" }, 2], "ground hips": [{ form: "grounded", grArms: "hips", grLook: "line", grFloor: 60, grSwayTurns: 2, liveLoops: 1 }, 3],
+  "ground wave": [{ form: "grounded", grArms: "wave", grGravity: 0.4, grStance: 2.5, huHairStrands: 7, grGlints: 6 }, 1] };
+for (const [name, [more, loops]] of Object.entries(TF_CASES)) {
+  group(`transformation ${name}`.trim(), (check) => {
+    const live = { ...forms.meta.options, ...more, room: ROOM, mode: "live" }, P = forms.total(live), l0 = render(forms, live, 0), lL = render(forms, live, lastOf(P));
+    check("live loop", diff(l0, render(forms, live, P)), diff(render(forms, live, P / 3), render(forms, live, P + P / 3)));
+    for (const [label, more] of [...forms.STYLES.map((st) => [st, { tfStyle: st, rvStyle: st }]), ...EXTREMES]) {
+      const o = { ...live, mode: "transform", loops, ...more }, r = { ...live, mode: "revert", loops, ...more }, T = forms.total(o);
+      check(label, diff(render(forms, o, 0), REST.blob.first), diff(render(forms, o, lastOf(T)), lL), diff(render(forms, r, 0), l0), diff(render(forms, r, lastOf(T)), REST.blob.last));
     }
-  }
+  });
 }
 
-// walking and running on the spot (the human form on its legs, tab Boucles): its floor of ice going by under its feet at
-// the speed of its steps, both ways, other speeds
-{
-  const G = { form: "grounded", room: [-160, -115, 160, 85] };
-  for (const [more, tag] of [[{ loop: "walk" }, "loop walk"], [{ loop: "run", gaDir: "left", loops: 3 }, "loop run left"], [{ loop: "run", gaRun: 24, gaStride: 0.75, gaSparks: 2.5 }, "loop sprint"], [{ loop: "walk", gaWalk: 2, gaStride: 1.4, loops: 1 }, "loop walk slow"]]) {
-    const o = { ...loops.meta.options, ...G, ...more }, T = o.duration * o.loops;
-    report(`gait ${tag}`, diff(render(loops, o, 0), render(loops, o, T)), diff(render(loops, o, T / 3 - 1 / 30), render(loops, o, T + T / 3 - 1 / 30)));
-  }
-}
-
-// the transformation: rest -> transform -> the new form's loop -> revert -> rest, every style, pose and timing
-{
-  const cases = [[{}, 2, ""], [{ huLegs: "legs", huArms: "open", huHairStrands: 7 }, 2, " legs open"], [{ huLegs: "lotus", huArms: "down", liveLoops: 1 }, 3, " lotus"],
-    [{ liveLoops: 3, huHair: 0, huArmTurns: 3, huTailTurns: 2, tfSpin: 2 }, 2, " 3 loops bald"],
-    // on its legs, with gravity and a floor: the fall, the landing, the jump back, every arm pose and floor look
-    [{ form: "grounded", room: [-160, -115, 160, 85] }, 2, " ground"],
-    [{ form: "grounded", room: [-160, -115, 160, 85], grArms: "hips", grLook: "line", grFloor: 60, grSwayTurns: 2, liveLoops: 1 }, 3, " ground hips"],
-    [{ form: "grounded", room: [-160, -115, 160, 85], grArms: "wave", grGravity: 0.4, grStance: 2.5, huHairStrands: 7, grGlints: 6 }, 1, " ground wave"]];
-  for (const [more, loops, tag] of cases) {
-    const live = { ...transform.meta.options, ...more, mode: "live" }, P = transform.total(live), M = Math.round(P / D) * Ni;
-    const l0 = render(transform, live, 0), lL = render(transform, live, (M - 1) * P / M);
-    report(`transform live self-loop${tag}`, diff(l0, render(transform, live, P)), diff(render(transform, live, P / 3), render(transform, live, P + P / 3)));
-    for (const st of transform.STYLES) {
-      const o = { ...live, mode: "transform", tfStyle: st, loops }, r = { ...live, mode: "revert", rvStyle: st, loops }, T = o.duration * loops, N = Ni * loops;
-      report(`transform ${st}${tag}`.slice(0, 34), diff(render(transform, o, 0), id0), diff(render(transform, o, (N - 1) * T / N), lL));
-      report(`revert ${st}${tag}`.slice(0, 34), diff(render(transform, r, 0), l0), diff(render(transform, r, (N - 1) * T / N), idL));
+// ---- lives (tab Vivre): in each form case, every animation it can play there, at home and after a move, things made and
+// taken away, played one after the other as the page asks them. Each segment starts on the frame of the rest it leaves
+// and ends on the frame before the rest it reaches (with the things there then); a loop joins its entry and its exit.
+const ob = (x, y, shape, layer = "back") => ({ shape, x, y, size: 11, spinY: 1, spinX: 0, tilt: 0.4, float: 4, floatTurns: 1, hue: 0, glow: 1, layer, ph: 0.3 });
+const ANIMS = [...ACTIONS.map((f) => ["actions:" + f.id, f]), ...LOOPS.map((f) => ["loops:" + f.id, f]), ["clock", null]];
+const lifeAt = (L, t) => render(life, { ...life.meta.options, life: L }, t);
+// the life at rest on hub h at time `as`: no segment, the things there at that moment
+const restAt = (L, h, as) => ({ ...L, segs: [], hub0: h, things: L.things.map((th) => ({ ...th, born: th.born <= as ? -Infinity : Infinity, dying: th.dying >= as ? Infinity : -Infinity })) });
+for (const [name, F] of Object.entries(FORM_CASES)) {
+  const { form = "blob", ...figure } = F, can = ([, f]) => !f || f.fits({ form });
+  const each = ANIMS.filter((a) => can(a) && !(a[1] && a[1].kind === "move")).map(([id]) => ({ id })), moves = ANIMS.filter(([, f]) => f && f.kind === "move");
+  const script = [{ id: "appear", ob: ob(-70, -30, "cube") }, ...moves.map(([id]) => ({ id, to: [-90, 20] })), { id: "form", form }, ...each,
+    ...moves.filter(can).map(([id]) => ({ id, to: [80, -30] })), ...each, { id: "appear", ob: ob(60, 20, "gem", "front") }, { id: "remove", thing: 1 }, { id: "form", form: "blob" }];
+  group(`life ${name}`, (check) => {
+    const L = life.createLife({ D, optsFor: life.plainOpts({ room: ROOM, ...figure }) });
+    for (const r of script) { const res = life.want(L, r, 0.5); check(`${r.id} accepted`, res.ok || res.why); }
+    for (const s of L.segs) {
+      const end = s.at + s.len, label = `${s.kind} ${s.label}`;
+      if (s.kind === "loop") check(label, diff(lifeAt(L, s.at - dt), lifeAt(L, end - dt)), diff(lifeAt(L, s.at), lifeAt(L, end)));
+      else check(label, s.kind === "exit" ? 0 : diff(lifeAt(L, s.at), lifeAt(restAt(L, s.hub0, s.at), s.at)), s.kind === "enter" ? 0 : diff(lifeAt(L, end - dt), lifeAt(restAt(L, s.hub1, end), end - dt)));
     }
-  }
-}
-
-// the other tabs in the transformation's new forms (levitating, and on its legs on its floor): "rest" is now the new
-// form's loop, so every animation from rest starts on its first frame and ends on its last; loops loop on themselves.
-// With other loop lengths too, so the figure's own clock has to be nudged to land on its loop
-{
-  const room = [-160, -115, 160, 85];
-  const formCases = [[{ form: "human" }, " human"], [{ form: "grounded" }, " ground"], [{ form: "human", huLegs: "lotus", liveLoops: 1 }, " lotus L1"], [{ form: "grounded", grArms: "hips", liveLoops: 3 }, " ground L3"]];
-  for (const [F, tag] of formCases) {
-    const live = { ...transform.meta.options, ...F, room, mode: "live" }, P = transform.total(live), M = Math.round(P / D) * Ni;
-    const r0 = render(transform, live, 0), rL = render(transform, live, (M - 1) * P / M);
-    const chain = (name, mod, o) => { const T = o.duration * o.loops, N = Ni * o.loops; report(`${name}${tag}`.slice(0, 34), diff(render(mod, o, 0), r0), diff(render(mod, o, (N - 1) * T / N), rL)); };
-    const selfLoop = (name, mod, o, T) => report(`${name}${tag}`.slice(0, 34), diff(render(mod, o, 0), render(mod, o, T)), diff(render(mod, o, T / 3 - 1 / 30), render(mod, o, T + T / 3 - 1 / 30)));
-    const lp = F.liveLoops ? 3 : 2;
-    for (const name of actions.ACTIONS) if (name !== "move" && actions.fitsForm({ ...F }, name)) chain(`action ${name}`, actions, { ...actions.meta.options, ...F, room, action: name, loops: lp });
-    chain("clock", clock, { ...clock.meta.options, ...F, room, loops: 3 });
-    for (const name of loops.LOOPS) if (loops.fitsForm({ ...F }, name)) { const o = { ...loops.meta.options, ...F, room, loop: name, loops: lp }; selfLoop(`loop ${name}`, loops, o, o.duration * o.loops); }
-    // objects: rest without -> appear -> rest with it -> remove -> rest without
-    {
-      const ob = objects.meta.options, list = [...ob.objects, { shape: "gem", x: 40, y: -50, size: 11, spinY: 1, spinX: 0, tilt: 0.35, float: 4, floatTurns: 1, hue: 200, glow: 1, layer: "front", ph: 0.2 }], ti = list.length - 1;
-      const without = { ...ob, ...F, room, objects: list.slice(0, ti), mode: "live", loops: 1 }, withIt = { ...without, objects: list };
-      const w0 = render(objects, without, 0), wL = render(objects, without, D - D / Ni), a0 = render(objects, withIt, 0), aL = render(objects, withIt, D - D / Ni);
-      report(`objects live self-loop${tag}`.slice(0, 34), diff(w0, render(objects, without, D)), diff(render(objects, without, D / 3), render(objects, without, D + D / 3)));
-      report(`objects live = rest${tag}`.slice(0, 34), diff(render(objects, { ...without, objects: [] }, 0), r0), 0);
-      const ap = { ...withIt, mode: "appear", target: ti, loops: 2, appearStyle: "laser" }, rm = { ...withIt, mode: "remove", target: ti, loops: 2, removeStyle: "dissolve" }, T = D * 2, N = Ni * 2;
-      report(`objects appear${tag}`.slice(0, 34), diff(render(objects, ap, 0), w0), diff(render(objects, ap, (N - 1) * T / N), aL));
-      report(`objects remove${tag}`.slice(0, 34), diff(render(objects, rm, 0), a0), diff(render(objects, rm, (N - 1) * T / N), wL));
-    }
-  }
-}
-
-// the life engine (tab Vivre): lives asked for one request after another, as the page does. Each segment starts on a
-// beat of the rest it leaves and must start on that rest's frame, and end on the frame before the next rest's first
-// (that rest drawn with the things there at that moment); loops' own joins are checked above
-{
-  const room = [-160, -115, 160, 85], dt = D / Ni, lifeOf = (L, t) => render(life, { ...life.meta.options, life: L }, t);
-  const restOf = (L, h, as) => ({ ...L, segs: [], hub0: h, things: L.things.map((th) => ({ ...th, born: th.born <= as ? -Infinity : Infinity, dying: th.dying >= as ? Infinity : -Infinity })) });
-  const ob = (x, y, shape, layer = "back") => ({ shape, x, y, size: 11, spinY: 1, spinX: 0, tilt: 0.4, float: 4, floatTurns: 1, hue: 0, glow: 1, layer, ph: 0.3 });
-  const scripts = {
-    blob: [{ id: "actions:aura" }, { id: "loops:magic", reps: 1 }, { id: "appear", ob: ob(-70, -30, "cube") }, { id: "loops:sleep", reps: 1 },
-      { id: "appear", ob: ob(60, 20, "gem", "front") }, { id: "actions:aura" }, { id: "remove", thing: 1 }, { id: "clock" }],
-    forms: [{ id: "form", form: "human" }, { id: "loops:magic", reps: 1 }, { id: "appear", ob: ob(70, -40, "crystal") }, { id: "form", form: "grounded" },
-      { id: "loops:sleep", reps: 1 }, { id: "actions:aura" }, { id: "clock" }, { id: "form", form: "blob" }],
-    // it goes about the scene and does things there, in every form: things it makes stay where they were made; on its legs
-    // it walks there, then walks and runs on the spot
-    moves: [{ id: "actions:move", to: [90, -30] }, { id: "actions:aura" }, { id: "appear", ob: ob(-60, -20, "cube") }, { id: "loops:magic", reps: 1 },
-      { id: "actions:move", to: [-100, 20] }, { id: "clock" }, { id: "remove", thing: 1 }, { id: "form", form: "human" }, { id: "actions:move", to: [30, -40] },
-      { id: "loops:sleep", reps: 1 }, { id: "form", form: "grounded" }, { id: "actions:move", to: [-80, 0] }, { id: "loops:walk", reps: 1 }, { id: "actions:move", to: [60, 0] },
-      { id: "loops:run", reps: 1 }, { id: "form", form: "blob" }],
-  };
-  for (const [name, script] of Object.entries(scripts)) {
-    const L = life.createLife({ D, optsFor: life.plainOpts({ room }) });
-    for (const r of script) { const res = life.want(L, r, 0.5); if (!res.ok) { fails++; console.log(`FAIL life ${name} refused ${r.id}: ${res.why}`); } }
-    for (const sg of L.segs) {
-      const end = sg.at + sg.len;
-      report(`life ${name} ${sg.kind} ${sg.label}`.slice(0, 34), sg.kind === "loop" || sg.kind === "exit" ? 0 : diff(lifeOf(L, sg.at), lifeOf(restOf(L, sg.hub0, sg.at), sg.at)),
-        sg.kind === "loop" || sg.kind === "enter" ? 0 : diff(lifeOf(L, end - dt), lifeOf(restOf(L, sg.hub1, end), end - dt)));
-    }
-  }
+  });
 }
 
 console.log(fails ? `\n${fails} failing` : "\nall seams exact");

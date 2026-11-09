@@ -35,23 +35,19 @@ export const meta = {
 
 /** The modules a life plays, by the tab they belong to. */
 const MODULES = { actions, loops, clock, objects, transform };
-const FORMS = ["blob", "human", "grounded"];
 const MARGIN = 0.15; // (s) nothing new starts sooner than this after now: the frame on screen never changes
 
 // ---- what it can do: every animation of the tabs that go from rest back to rest, or loop with an entry and an exit
 /** Every animation a life can play, generated from the modules' own lists: { id, family, tab, pick, kind, name }. */
 const CATALOG = [
   // (the move goes from one rest to another: its rest is somewhere else after it)
-  ...actions.ACTIONS.map((name) => ({ id: "actions:" + name, family: "actions", tab: "actions", pick: { action: name }, kind: name === "move" ? "move" : "once", name })),
-  ...loops.LOOPS.map((name) => ({ id: "loops:" + name, family: "loops", tab: "loops", pick: { loop: name }, kind: "loop", name })),
+  ...actions.ACTIONS.map((f) => ({ id: "actions:" + f.id, family: "actions", tab: "actions", pick: { action: f.id }, kind: f.kind, name: f.id, fiche: f })),
+  ...loops.LOOPS.map((f) => ({ id: "loops:" + f.id, family: "loops", tab: "loops", pick: { loop: f.id }, kind: "loop", name: f.id, fiche: f })),
   { id: "clock", family: "clock", tab: "clock", pick: {}, kind: "once", name: "clock" },
 ];
 const byId = new Map(CATALOG.map((c) => [c.id, c]));
 /** Why an animation can't be played in a form (null if it can). */
-function whyNot(entry, form) {
-  const mod = MODULES[entry.tab], key = entry.tab === "loops" ? entry.pick.loop : entry.tab === "actions" ? entry.pick.action : null;
-  return (key && mod.FORM_FIT && mod.FORM_FIT[form] && mod.FORM_FIT[form][key]) || null;
-}
+const whyNot = (entry, form) => (entry.fiche && entry.fiche.formFit[form]) || null;
 
 // ---- rests. A hub: { form, pos ([x, y]: where it stands, whole px from its home spot), since (when this rest began) }.
 // Everything it does at a pos is drawn there: the painter moved by pos, its tab's options worked out for that spot
@@ -66,7 +62,7 @@ const hubKey = (h) => `${h.form}|${posOf(h)}`;
  */
 export function createLife(cfg) {
   const t0 = cfg.t0 || 0, h = cfg.hub || {};
-  const hub = { form: FORMS.includes(h.form) ? h.form : "blob", pos: posOf(h), since: t0 };
+  const hub = { form: transform.FORMS.includes(h.form) ? h.form : "blob", pos: posOf(h), since: t0 };
   const things = (cfg.things || []).map((th, i) => ({ ...th, id: th.id ?? i + 1, born: -Infinity, dying: Infinity }));
   return { cfg, hub0: hub, segs: [], things, nextId: Math.max(1, ...things.map((th) => th.id + 1)), rests: new Map() };
 }
@@ -123,7 +119,7 @@ function plan(L, req, h) {
   };
   let why = null;
   switch (req.id) {
-    case "form": if (FORMS.includes(req.form)) toForm(req.form); else why = "Forme inconnue."; break;
+    case "form": if (transform.FORMS.includes(req.form)) toForm(req.form); else why = "Forme inconnue."; break;
     case "appear": steps.push({ kind: "appear", ob: req.ob, label: req.label, pick: req.pick }); break;
     case "remove": {
       const th = L.things.find((x) => x.id === req.thing && x.dying === Infinity);
@@ -161,7 +157,7 @@ function segment(L, step, h, at) {
   let h1 = h;
   if (k === "once") {
     s.o = optsOf(L, step.entry.tab, step.entry.pick, h); s.mod = MODULES[step.entry.tab];
-    s.len = step.entry.tab === "actions" ? actions.total(s.o) : s.o.duration * Math.max(1, Math.round(s.o.loops));
+    s.len = s.mod.total(s.o);
   } else if (k === "move") {
     // it goes there, and its rest is there now
     s.o = moveOpts(L, step.entry, step.to, h); s.mod = actions;
@@ -183,7 +179,7 @@ function segment(L, step, h, at) {
     const th = k === "appear" ? { id: L.nextId++, ob: step.ob, born: Infinity, dying: Infinity } : L.things.find((x) => x.id === step.thing);
     if (k === "appear") L.things.push(th);
     s.thing = th.id;
-    s.len = s.o.duration * Math.max(1, Math.round(s.o.loops));
+    s.len = objects.total(s.o);
     // the objects tab draws them all for this one: what is there with this one coming or going, in the order they were made
     const list = visible(L, at).filter((x) => x.id !== th.id).concat([th]).sort((a, b) => a.id - b.id), [px, py] = posOf(h);
     // (things are placed from the home spot; the objects tab draws them from where the creature stands)

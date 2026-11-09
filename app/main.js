@@ -137,31 +137,32 @@ const ANIMS = {
     ],
   },
 };
-const ACTION_LIST = [
-  ["move", "Se déplacer", "va jusqu’à la croix et y reste"],
-  ["aura", "Halo de lumière", "se charge de lumière"],
-];
-// how long each action lasts by default, in loops of the blob's rest
-const LOOPS_DEF = { move: 1 };
-const ACTION_PARAMS = {
-  // (the blob and the levitating figure glide there; on its legs it walks or runs there, along its floor)
-  move: [["moveTX", "Destination horizontale", 0, 100, 0.5, " %"], ["moveTY", "Destination verticale", 0, 100, 0.5, " %"],
-    ["moveSpeed", "Vitesse", 0.5, 8, 0.1, "× sa taille / s"], ["moveArc", "Trajet en courbe", 0, 1.5, 0.05, ""], ["moveLook", "Regarde où il va", 0, 2, 0.05, ""],
-    ["moveHops", "Petits bonds en chemin", 0, 8, 1, ""], ["moveHop", "Hauteur des bonds", 0, 16, 0.5, " px"],
-    ["moveGait", "Sur ses jambes, il", { select: [["walk", "Y va en marchant"], ["run", "Y va en courant"]] }],
-    ["moveWalk", "Vitesse de marche", 1.5, 7.5, 0.1, " km/h"], ["moveRun", "Vitesse de course", 6, 20, 0.5, " km/h"]],
-  aura: [["auraPower", "Puissance", 0, 2.5, 0.05, ""], ["auraRadius", "Rayon du halo", 0.5, 3.5, 0.05, ""], ["auraPulses", "Ondes de lumière", 1, 8, 1, ""],
-    ["auraRays", "Rayons", 0, 36, 1, ""], ["auraRise", "Élévation", 0, 60, 0.5, " % de la scène"],
-    ["auraEyes", "Yeux pendant le halo", { select: [["closed", "Fermés, concentré"], ["open", "Ouverts"], ["happy", "Plissés, heureux"]] }]],
-};
+// ---- the catalogue: every action and loop is a fiche (src/actions, src/loops) that says its name, settings and rows;
+// the page lists none of them
+const FAMILIES = { actions: PFX.actions.ACTIONS, loops: PFX.loops.LOOPS };
+const find = (family, id) => FAMILIES[family].find((f) => f.id === id);
+const ficheOf = (family, id) => find(family, id) || FAMILIES[family][0];
+// [id, name, description] for the pickers and Vivre's cards
+const listOf = (family) => FAMILIES[family].map((f) => [f.id, f.name, f.desc]);
+const ACTION_LIST = listOf("actions"), LOOP_LIST = listOf("loops");
+// settings a fiche sets on the scene (its page defaults) and each animation's length, kept in that family's store
+const pageDef = (family) => Object.assign({}, ...FAMILIES[family].map((f) => ({ ...f.page, ["loops_" + f.id]: f.loops })));
+// points of the scene (in %) and lengths in % of the scene's height become the effect's own px from its spot, so the
+// blob can reach any corner whatever the scene's size
+function sceneUnits(o, family, pl, k) {
+  for (const f of FAMILIES[family]) {
+    for (const [key, pt] of Object.entries(f.points)) if (pt.x) o[pt.x] = ((V[key] / 100) * SW - pl.cx) / k; else o[pt.y] = ((V[key] / 100) * SH - pl.cy) / k;
+    for (const key of f.scene) o[key] = (V[key] / 100) * (SH / k);
+  }
+}
 function actionGroups() {
-  const cur = ACTION_LIST.find((a) => a[0] === V.action) || ACTION_LIST[0];
+  const f = ficheOf("actions", V.action);
   return [
     { title: "Action", hint: "choisis ce qu’il fait", picker: true, rows: [
-      ["loops_" + cur[0], cur[0] === "move" ? "Durée de l’action (au moins : il prend le temps d’y aller)" : "Durée de l’action", 1, 8, 1, ""],
+      ["loops_" + f.id, f.kind === "move" ? "Durée de l’action (au moins : il prend le temps d’y aller)" : "Durée de l’action", 1, 8, 1, ""],
       ["lead", "Repos avant et après", 0, 0.3, 0.01, ""],
     ]},
-    { title: cur[1], hint: "réglages de l’action", key: "actparams", rows: ACTION_PARAMS[cur[0]] },
+    { title: f.name, hint: "réglages de l’action", key: "actparams", rows: f.rows },
     { ...PLACE, rows: PLACE.rows.filter((r) => r[0] !== "canvas"), hint: "la même que le blob né" },
   ];
 }
@@ -171,19 +172,11 @@ ANIMS.blob.groups[0] = { ...PLACE, rows: PLACE.rows.filter((r) => r[0] !== "canv
 const BLOB_KEYS = new Set(Object.keys(PFX.blob.meta.options));
 // (the form is shared by every tab, not an action's own: see bodyForm)
 const ACTION_KEYS = new Set(Object.keys(PFX.actions.meta.options).filter((k) => !BLOB_KEYS.has(k) && k !== "form"));
-// distances an action covers are set on the scene (points in %, lengths in % of the scene's height) and turned
-// into the effect's own pixels when drawn, so the blob can reach any corner whatever the scene's size
-const SCENE_ACTION_DEF = { moveTX: 78, moveTY: 42, auraRise: 5 };
-for (const [id] of ACTION_LIST)
-  SCENE_ACTION_DEF["loops_" + id] = LOOPS_DEF[id] || 2;
-// lengths set in % of the scene's height, turned into the effect's own pixels
-const SCENE_LENGTHS = ["auraRise"];
-for (const k of Object.keys(SCENE_ACTION_DEF)) ACTION_KEYS.add(k);
-const actionDef = () => ({ ...Object.fromEntries([...ACTION_KEYS].filter((k) => k in PFX.actions.meta.options).map((k) => [k, PFX.actions.meta.options[k]])), ...SCENE_ACTION_DEF });
-// where an action wants to go, as a scene point, if it has one
-const TARGETS = { move: ["moveTX", "moveTY"] };
-// an action's targets as a list of key pairs
-const targetKeys = (a) => (TARGETS[a] ? [TARGETS[a]] : []);
+const ACTION_PAGE = pageDef("actions");
+for (const k of Object.keys(ACTION_PAGE)) ACTION_KEYS.add(k);
+const actionDef = () => ({ ...Object.fromEntries([...ACTION_KEYS].filter((k) => k in PFX.actions.meta.options).map((k) => [k, PFX.actions.meta.options[k]])), ...ACTION_PAGE });
+// where an action wants to go, as a scene point its fiche names, if it has one
+const targetKeys = (a) => { const f = find("actions", a); return f && f.target ? [f.target] : []; };
 // ---- the objects tab: things the blob makes in its scene, which stay and float with it
 ANIMS.objects = { name: "Objets", fx: PFX.objects, file: "objets", id: "objects/objects", mode: "scene", groups: null };
 const SHAPE_LIST = [["cube", "Cube"], ["sphere", "Sphère"], ["pyramid", "Pyramide"], ["crystal", "Cristal"], ["column", "Colonne"], ["gem", "Gemme"]];
@@ -297,47 +290,23 @@ function objAnimMarkup(rows) {
 }
 // ---- the loops tab: the blob busy with something, for ever
 ANIMS.loops = { name: "Boucles", fx: PFX.loops, file: "boucle", id: "loops/index", mode: "scene", groups: null };
-const LOOP_LIST = [
-  ["sleep", "Sommeil", "dort, respire, bulles"], ["magic", "Magie", "cercle de runes, lumière"],
-  ["walk", "Marche", "sur place, le sol défile sous ses pas"], ["run", "Course", "sur place, foulées et temps de vol"]];
 const SHAPE_OPTS = [["sphere", "Sphère"], ["cube", "Cube"], ["pyramid", "Pyramide"], ["crystal", "Cristal"], ["column", "Colonne"], ["gem", "Gemme"]];
-// walking and running (the human form on its legs)
-const GAIT_DIRS = [["right", "Vers la droite"], ["left", "Vers la gauche"]];
-const GAIT_ROWS = {
-  walk: [["gaWalk", "Vitesse de marche", 1.5, 7.5, 0.1, " km/h"], ["gaDir", "Il marche", { select: GAIT_DIRS }], ["gaStride", "Longueur des pas", 0.7, 1.4, 0.01, "×"],
-    ["gaArms", "Balancement des bras", 0, 2.5, 0.05, ""], ["gaLean", "Se penche en avant", 0, 3, 0.05, ""], ["gaHair", "Les cheveux suivent ses pas", 0, 2.5, 0.05, ""],
-    ["gaPrints", "Empreintes de lumière sur le sol", 0, 2, 0.05, ""]],
-  run: [["gaRun", "Vitesse de course", 6, 30, 0.5, " km/h"], ["gaDir", "Il court", { select: GAIT_DIRS }], ["gaStride", "Longueur des foulées", 0.7, 1.4, 0.01, "×"],
-    ["gaBounce", "Les genoux amortissent (rebond)", 0, 2, 0.05, ""], ["gaHeel", "Les talons remontent", 0, 2, 0.05, ""], ["gaKnee", "Les genoux montent", 0, 2.5, 0.05, ""],
-    ["gaArms", "Balancement des bras", 0, 2.5, 0.05, ""], ["gaLean", "Se penche en avant", 0, 3, 0.05, ""], ["gaHair", "Les cheveux suivent ses foulées", 0, 2.5, 0.05, ""],
-    ["gaPrints", "Empreintes de lumière sur le sol", 0, 2, 0.05, ""], ["gaSparks", "Éclats de lumière à chaque foulée", 0, 2.5, 0.05, ""]],
-};
-const LOOP_PARAMS = {
-  walk: GAIT_ROWS.walk, run: GAIT_ROWS.run,
-  sleep: [["sleepBreaths", "Respirations par boucle", 1, 8, 1, ""], ["sleepDepth", "Profondeur du souffle", 0, 3, 0.05, ""], ["sleepSink", "Affaissement", 0, 30, 0.5, " px"],
-    ["sleepBubbles", "Bulles de sommeil", 0, 10, 1, ""], ["sleepDim", "Lumière qui baisse", 0, 1, 0.01, ""], ["sleepTwitch", "Petit sursaut dans son sommeil", 0, 2, 0.05, ""]],
-  magic: [["magicEyes", "Yeux", { select: [["closed", "Fermés, concentré"], ["open", "Ouverts"], ["happy", "Plissés"]] }], ["magicCircle", "Taille du cercle", 10, 90, 1, " px"],
-    ["magicTurns", "Tours du cercle par boucle", 0, 4, 1, ""], ["magicRunes", "Runes", 0, 16, 1, ""], ["magicPulses", "Pulsations par boucle", 1, 8, 1, ""],
-    ["magicSparkles", "Étincelles", 0, 80, 1, ""], ["magicRise", "Lévitation", 0, 40, 0.5, " px"], ["magicHue", "Teinte de la magie", 0, 360, 1, "°"]],
-};
 const LOOP_KEYS = new Set(Object.keys(PFX.loops.meta.options).filter((k) => !(k in PFX.blob.meta.options) && k !== "form"));
 const loopsDef = () => {
-  const d = Object.fromEntries([...LOOP_KEYS].map((k) => [k, PFX.loops.meta.options[k]]));
-  for (const [id] of LOOP_LIST) d["loops_" + id] = 2;
-  return d;
+  return { ...Object.fromEntries([...LOOP_KEYS].map((k) => [k, PFX.loops.meta.options[k]])), ...pageDef("loops") };
 };
 for (const k of Object.keys(loopsDef())) LOOP_KEYS.add(k);
 const LOOP_PARTS = [["loop", "La boucle"], ["enter", "Entrée : depuis le repos"], ["exit", "Sortie : retour au repos"]];
 // the part shown: the loop, its entry or its exit
 const loopPart = (src = V) => (src.part === "enter" || src.part === "exit" ? src.part : "loop");
 function loopGroups() {
-  const cur = LOOP_LIST.find((a) => a[0] === V.loop) || LOOP_LIST[0];
+  const f = ficheOf("loops", V.loop);
   return [
     { title: "Boucle", hint: "ce qu’il fait", pickerList: LOOP_LIST, pickerKey: "loop", rows: [
       ["part", "Morceau", { select: LOOP_PARTS }],
-      ["loops_" + cur[0], "Durée de la boucle", 1, 8, 1, ""],
+      ["loops_" + f.id, "Durée de la boucle", 1, 8, 1, ""],
       ["inLoops", "Durée de l’entrée", 1, 4, 1, ""], ["outLoops", "Durée de la sortie", 1, 4, 1, ""]] },
-    { title: cur[1], hint: "réglages", key: "loopparams", gaitNote: cur[0] === "walk" || cur[0] === "run", rows: LOOP_PARAMS[cur[0]] },
+    { title: f.name, hint: "réglages", key: "loopparams", gaitNote: !!f.gait, rows: f.rows },
     { ...PLACE, rows: PLACE.rows.filter((r) => r[0] !== "canvas"), hint: "la même que le blob né" },
   ];
 }
@@ -502,19 +471,18 @@ function tfModesMarkup(rows) {
 // ---- the creature's form in the other tabs: the blob, or one of the transformation's new forms, with that tab's
 // settings (its pose, size, hair, floor...). Everything from rest then starts and ends on the new form's loop
 // ("Forme en boucle"), so GIFs chain: blob né -> transformation -> its animations... -> retour au blob. What a form
-// can't do (flying on its legs...) comes from the effects (FORM_FIT): it is shown, and can't be picked
+// can't do (walking without legs...) comes from the fiches (formFit): it is shown, and can't be picked
 const BODY_FORMS = [["blob", "Blob né", "la petite créature de lumière"], ["human", "Forme humaine", "en lévitation, comme dans Transformation"],
   ["grounded", "Forme humaine au sol", "sur ses jambes, avec la gravité"]];
 const FORM_TABS = new Set(["actions", "objects", "loops", "clock"]);
-const FIT_OF = { action: PFX.actions.FORM_FIT, loop: PFX.loops.FORM_FIT };
-const FIT_LISTS = { action: ACTION_LIST, loop: LOOP_LIST };
+const FIT_FAMILY = { action: "actions", loop: "loops" };
 const formNow = () => (FORM_TABS.has(S.anim) && BODY_FORMS.some((f) => f[0] === S.shared.bodyForm) ? S.shared.bodyForm : "blob");
-const unfit = (key, id, form = formNow()) => (FIT_OF[key] && FIT_OF[key][form] && FIT_OF[key][form][id]) || null;
+const unfit = (key, id, form = formNow()) => { const f = FIT_FAMILY[key] && find(FIT_FAMILY[key], id); return (f && f.formFit[form]) || null; };
 // a choice its form can't do moves to the first one it can
 function fixFit(s = S) {
   const f = s.shared.bodyForm;
   for (const [store, key] of [[s.actions, "action"], [s.loops, "loop"]])
-    if (store && unfit(key, store[key], f)) store[key] = (FIT_LISTS[key].find(([id]) => !unfit(key, id, f)) || FIT_LISTS[key][0])[0];
+    if (store && unfit(key, store[key], f)) store[key] = (FAMILIES[FIT_FAMILY[key]].find((x) => !x.formFit[f]) || FAMILIES[FIT_FAMILY[key]][0]).id;
 }
 function setBodyForm(id) {
   if ((S.shared.bodyForm || "blob") === id) return;
@@ -537,11 +505,9 @@ function formMarkup(rows) {
   rows.insertAdjacentHTML("beforeend", `<p class="note">${cur === "blob" ? "Le blob né, avec ses réglages (Vivre › Forme › Régler le blob né). Choisis une forme humaine pour voir l’animation faite par elle (ses réglages : Vivre › Forme › Régler les formes humaines)."
     : `L’animation est faite par la ${cur === "grounded" ? "forme humaine au sol (sur ses jambes, avec la gravité, sur son sol de glace : elle marche, court, s’assoit)" : "forme humaine en lévitation"}, avec tous les réglages des formes humaines (silhouette, pose, cheveux${cur === "grounded" ? ", sol" : ""}, boucle de ${L} × ${(+V.duration).toFixed(1)} s). Partir du repos veut dire partir de sa « Forme en boucle » et y revenir.`}</p>`);
 }
-// settings a form on its legs has no use for (it keeps to its floor: no height to stroll in, nothing to rise by)
-const GROUNDED_IDLE = new Set(["auraRise", "magicRise", "moveTY", "moveSpeed", "moveArc", "moveHops", "moveHop", "moveLook"]);
-// and settings only a figure on its legs uses (walking somewhere), or that only the blob uses (hopping along)
-const GROUNDED_ONLY = new Set(["moveGait", "moveWalk", "moveRun"]), BLOB_ONLY = new Set(["moveHops", "moveHop"]);
-const rowShown = (k) => { const f = formNow(); return !(f === "grounded" && GROUNDED_IDLE.has(k)) && !(f !== "grounded" && GROUNDED_ONLY.has(k)) && !(f !== "blob" && BLOB_ONLY.has(k)); };
+// a row shows only in the forms its fiche names (a figure on its legs has no height to rise by; only it walks somewhere)
+const ROW_FORMS = Object.assign({}, ...FAMILIES.actions.map((f) => f.forms), ...FAMILIES.loops.map((f) => f.forms));
+const rowShown = (k) => !ROW_FORMS[k] || ROW_FORMS[k].includes(formNow());
 const formGroup = () => ({ title: "Forme", hint: (BODY_FORMS.find((f) => f[0] === (S.shared.bodyForm || "blob")) || BODY_FORMS[0])[1].toLowerCase(), key: "bodyform", open: true, formPicker: true, rows: [] });
 const RENDER = { title: "Rendu", hint: "fond, export", render: true, rows: [
   ["zoom", "Zoom de l’aperçu", 0, 6, 1, "×"],
@@ -694,7 +660,8 @@ function buildControls() {
   if (life) { lifeControls(); sceneGroup(); renderGroup(); wire(); syncUI(); return; }
   controls.insertAdjacentHTML("beforeend", `<h2 class="pagetitle">${pageName()}</h2>`);
   // (the move doesn't come back: it stays where it went)
-  const intro = S.anim === "actions" && V.action === "move" ? MOVE_INTRO : PAGE_INTRO[S.anim];
+  const own = S.anim === "actions" ? find("actions", V.action) : S.anim === "loops" ? find("loops", V.loop) : null;
+  const intro = (own && own.intro) || PAGE_INTRO[S.anim];
   if (intro) controls.insertAdjacentHTML("beforeend", `<p class="note intro">${intro}</p>`);
   settingsGroups();
   sceneGroup();
@@ -761,7 +728,7 @@ function settingsGroups() {
       const place = document.createElement("div");
       place.className = "row";
       place.innerHTML = `<div class="inline"><button type="button" id="center">Centrer</button><button type="button" id="fit">Ajuster à la scène</button><label class="check"><input type="checkbox" id="in-guides">Cadre et repères</label></div>
-        <p class="note">${TARGETS[V.action] && S.anim === "actions" ? "Glisse la créature pour la placer, et la cible pour choisir où va l’action." : "Glisse la créature dans l’aperçu pour la placer, ou utilise les flèches."}</p>`;
+        <p class="note">${S.anim === "actions" && targetKeys(V.action).length ? "Glisse la créature pour la placer, et la cible pour choisir où va l’action." : "Glisse la créature dans l’aperçu pour la placer, ou utilise les flèches."}</p>`;
       rows.appendChild(place);
     }
     if (g.palette) {
@@ -896,7 +863,7 @@ const view = $("view"), ctx = view.getContext("2d");
 let img = null;
 // how many of the blob's loops the page's animation lasts
 const loopsOf = () => Math.max(1, Math.round(S.anim === "transform" ? V["loops_" + V.mode] || 2 : S.anim === "clock" ? V.loops || 3 : S.anim === "loops" ? PFX.loops.total(OPTS) / V.duration
-  : S.anim === "actions" ? (V.action === "move" ? PFX.actions.total(OPTS) / V.duration : V["loops_" + V.action] || 2) : S.anim === "objects" ? V["loops_" + V.mode] || 1 : 1));
+  : S.anim === "actions" ? PFX.actions.total(OPTS) / V.duration : S.anim === "objects" ? V["loops_" + V.mode] || 1 : 1));
 const loopLen = () => V.duration * loopsOf();
 // an action is a whole number of the blob's loops, frame for frame
 const nFrames = () => Math.max(2, Math.round(V.duration * V.fps)) * loopsOf();
@@ -932,6 +899,7 @@ function effOpts(src = V) {
   if (S.anim === "loops" && src === V) {
     // the activity's own period; the part played (its entry and exit have their own lengths)
     o.loops = Math.max(1, Math.round(V["loops_" + V.loop] || 2)); o.part = loopPart();
+    sceneUnits(o, "loops", placement(), V.scale);
   }
   if (S.anim === "objects" && src === V) {
     const pl = placement(), k = V.scale, list = S.objects.list;
@@ -941,12 +909,11 @@ function effOpts(src = V) {
     if (!list.length) o.mode = "live";
   }
   if (S.anim === "actions" && src === V) {
-    const pl = placement(), k = V.scale, h = SH / k;
+    const pl = placement(), k = V.scale;
     o.loops = V["loops_" + V.action] || 2;
-    // the move: where it goes, and the scene it must stay in with all its body
-    o.moveX = ((V.moveTX / 100) * SW - pl.cx) / k; o.moveY = ((V.moveTY / 100) * SH - pl.cy) / k;
+    // the scene it must stay in with all its body (a move), and its settings set on the scene
     if (!o.room) { const g = grid(); o.room = [-g.ox, -g.oy, g.fw - g.ox, g.fh - g.oy]; }
-    for (const key of SCENE_LENGTHS) o[key] = (V[key] / 100) * h;
+    sceneUnits(o, "actions", pl, k);
   }
   return o;
 }
@@ -1285,16 +1252,18 @@ function lifeControls() {
   const fam = (title, hint, key, list, family, open, note) => {
     const [d, rows] = group({ title, hint }, "life-" + key, open), grid = lifeGrid(rows, title);
     if (note) rows.insertAdjacentHTML("afterbegin", `<p class="note">${note}</p>`);
-    for (const [id, name, desc] of list) lifeButton(grid, { id: family === "clock" ? "clock" : `${family}:${id}` }, name, desc,
-      // (the move goes to the cross)
-      family === "actions" && id === "move" ? () => lifeAsk({ id: "actions:move", to: lifeCross(), label: name }) : null,
-      [family, family === "actions" ? { action: id } : family === "loops" ? { loop: id } : {}]);
+    for (const f of list) {
+      const id = family === "clock" ? "clock" : `${family}:${f.id}`;
+      // (an action that goes somewhere goes to the cross)
+      lifeButton(grid, { id }, f.name, f.desc, f.kind === "move" ? () => lifeAsk({ id, to: lifeCross(), label: f.name }) : null,
+        [family, family === "actions" ? { action: f.id } : family === "loops" ? { loop: f.id } : {}]);
+    }
     controls.appendChild(d);
   };
-  fam("Actions", "une fois, du repos au repos", "actions", ACTION_LIST, "actions", true,
+  fam("Actions", "une fois, du repos au repos", "actions", FAMILIES.actions, "actions", true,
     "« Se déplacer » l’emmène jusqu’à la croix (clique dans la scène pour la placer) : il y reste, et fait la suite là-bas. Sous forme humaine au sol, il y va en marchant, de côté, le long de son sol.");
-  fam("En boucle", "il s’y met, continue, s’arrête", "loops", LOOP_LIST, "loops", true);
-  fam("Heure", "il affiche l’heure qu’il est", "clock", [["clock", "Afficher l’heure", "l’heure qu’il est, puis repos"]], "clock", false);
+  fam("En boucle", "il s’y met, continue, s’arrête", "loops", FAMILIES.loops, "loops", true);
+  fam("Heure", "il affiche l’heure qu’il est", "clock", [{ id: "clock", name: "Afficher l’heure", desc: "l’heure qu’il est, puis repos" }], "clock", false);
   {
     const [d, rows] = group({ title: "Forme", hint: "il se transforme" }, "life-form", false), grid = lifeGrid(rows, "Forme");
     for (const [id, name, desc] of BODY_FORMS) lifeButton(grid, { id: "form", form: id }, name, desc, () => lifeAsk({ id: "form", form: id, label: `devient ${FORM_NAMES[id]}` }));
@@ -1336,7 +1305,6 @@ function lifeControls() {
 // ---- navigation: Vivre is the page; every other view is the settings of one thing, opened from it (⚙), with the way back
 const COMPACT_PICK = new Set(["actions", "loops"]);
 const PAGE_NAMES = { blob: "Blob né", birth: "Naissance", actions: "Action", loops: "En boucle", clock: "Heure", objects: "Apparition des objets", transform: "Formes humaines" };
-const MOVE_INTRO = "Il part de son repos et va ailleurs dans la scène, où il reste : son repos est là-bas maintenant, et dans sa vie tout ce qu’il fait ensuite se fait là-bas. Le blob y glisse, la forme humaine en lévitation y vole, la forme humaine au sol y marche (ou y court), de côté, le long de son sol. Glisse la destination dans l’aperçu ; dans sa vie, il va jusqu’à la croix. L’aperçu le montre en boucle (il revient alors d’un coup à son départ) ; le GIF va du repos ici au repos là-bas.";
 const PAGE_INTRO = {
   blob: "Le blob né lui-même : la taille et la forme de son corps, ses mouvements au repos, ses yeux, sa lumière, ses couleurs. Toutes ses animations les gardent.",
   birth: "Sa naissance, avant qu’il vive : une forme sans membres qui se forme dans son halo. Elle ne fait pas partie de sa vie ; l’aperçu la montre en boucle.",

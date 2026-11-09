@@ -6,7 +6,7 @@
 import { fit, clamp, lerp, seg, bump, ease, rng, TAU, WHITE } from "../../pixelfx/src/core/index.js";
 import { meta as idleMeta, state } from "../blob/blob.js";
 import { prog as progAt } from "../shared/_time.js";
-import { bodyBack, bodyFront, bodyAmbient } from "../forms/forms.js";
+import { creature } from "../shared/_creature.js";
 import { hsl, fromHsl } from "../shared/_color.js";
 
 export const APPEAR = ["particles", "projector", "write", "pop", "crystal", "slot"];
@@ -37,7 +37,8 @@ export const meta = {
 };
 
 const E = ease.inOutSine;
-const total = (o) => o.duration * Math.max(1, Math.round(o.loops));
+/** Its length: a whole number of the blob's loops. */
+export const total = (o) => o.duration * Math.max(1, Math.round(o.loops));
 const prog = (o, t) => progAt(o, t, total(o));
 const hash = (a, b) => { const v = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return v - Math.floor(v); };
 
@@ -349,15 +350,4 @@ function clockLayer(p, o, t, st) {
   }
 }
 
-export function drawBack(p, t, o) {
-  const C = fit(o.palette, 8), M = (tt) => mods(o, tt);
-  bodyBack(p, t, o, M, C, total(o));
-  bodyAmbient(p, t, o, false, C);
-}
-
-export function draw(p, t, o) {
-  const C = fit(o.palette, 8), M = (tt) => mods(o, tt);
-  const st = bodyFront(p, t, o, M, C, total(o));
-  bodyAmbient(p, t, o, true, C);
-  clockLayer(p, o, t, st);
-}
+export const { drawBack, draw } = creature((o, t) => ({ M: (tt) => mods(o, tt), T: total(o), extra: (p, C, st, front) => front && clockLayer(p, o, t, st) }));

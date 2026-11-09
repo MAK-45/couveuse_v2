@@ -8,7 +8,7 @@
 import { fit, clamp, lerp, seg, bump, ease, noise2, rng, TAU, WHITE } from "../../pixelfx/src/core/index.js";
 import { meta as idleMeta, state } from "../blob/blob.js";
 import { prog as progAt } from "../shared/_time.js";
-import { bodyBack, bodyFront, bodyAmbient } from "../forms/forms.js";
+import { creature } from "../shared/_creature.js";
 import { hsl, fromHsl } from "../shared/_color.js";
 
 export const APPEAR = ["halo", "laser", "crystal", "orb"];
@@ -38,7 +38,8 @@ export const meta = {
 };
 
 const E = ease.inOutSine;
-const total = (o) => o.duration * Math.max(1, Math.round(o.loops));
+/** Its length: a whole number of the blob's loops. */
+export const total = (o) => o.duration * Math.max(1, Math.round(o.loops));
 // as for the actions: the lead-out outlasts a drop of light, so the last frame is the rest's
 const prog = (o, t) => progAt(o, t, total(o));
 const ln = (x, y, u, s, r = 1) => noise2(x + Math.cos(TAU * u) * r, y + Math.sin(TAU * u) * r, s);
@@ -367,18 +368,13 @@ function objectsOn(p, o, t, pl, layer) {
   });
 }
 
-export function drawBack(p, t, o) {
-  const C = fit(o.palette, 8), pl = plan(o, t);
-  bodyBack(p, t, o, pl.M, C, total(o));
-  bodyAmbient(p, t, o, false, C);
-  objectsOn(p, o, t, pl, "back");
-}
-
-export function draw(p, t, o) {
-  const C = fit(o.palette, 8), pl0 = plan(o, t);
-  const st = bodyFront(p, t, o, pl0.M, C, total(o)), tg = pl0.tp;
-  const pl = st.hands && st.hands.length && tg ? plan(o, t, st.hands.reduce((b, h) => (Math.hypot(h[0] - tg.x, h[1] - tg.y) < Math.hypot(b[0] - tg.x, b[1] - tg.y) ? h : b))) : pl0;
-  bodyAmbient(p, t, o, true, C);
-  objectsOn(p, o, t, pl, "front");
-  if (pl.tr && pl.tr.fx) pl.tr.fx(p, C, paletteFor(o, pl.target.hue || 0));
-}
+// in front, a figure works the change from its hand nearest the object
+export const { drawBack, draw } = creature((o, t) => {
+  const pl0 = plan(o, t);
+  return { M: pl0.M, T: total(o), extra(p, C, st, front) {
+    if (!front) return objectsOn(p, o, t, pl0, "back");
+    const tg = pl0.tp, pl = st.hands && st.hands.length && tg ? plan(o, t, st.hands.reduce((b, h) => (Math.hypot(h[0] - tg.x, h[1] - tg.y) < Math.hypot(b[0] - tg.x, b[1] - tg.y) ? h : b))) : pl0;
+    objectsOn(p, o, t, pl, "front");
+    if (pl.tr && pl.tr.fx) pl.tr.fx(p, C, paletteFor(o, pl.target.hue || 0));
+  } };
+});
