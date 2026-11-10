@@ -5,6 +5,7 @@ import { meta as idleMeta } from "../blob/blob.js";
 import { prog as progAt } from "../shared/_time.js";
 import { creature } from "../shared/_creature.js";
 import { options, merged } from "../shared/_fiche.js";
+import { lookOf, mixLook, glide } from "../shared/_look.js";
 
 const REST = { mods: () => ({}) };
 const BASE = { form: "blob", loops: 2, lead: 0.08 };
@@ -12,8 +13,10 @@ const META = { tags: ["creature", "blob", "action", "ice", "light", "loop"], siz
 const whole = (o) => Math.max(1, Math.round(o.loops));
 
 /**
- * An action fiche. def: { id, name, desc (its card in Vivre), kind: "once" (default) or "move" (it ends at rest somewhere
- * else: moveOf(o) says where, length(o) how many loops its way takes), loops (its default length), options (see
+ * An action fiche. def: { id, name, desc (its card in Vivre), kind: "once" (default), "move" (it ends at rest somewhere
+ * else: moveOf(o) says where, length(o) how many loops its way takes) or "look" (it ends at rest with another look: the
+ * creature's colours, look: { to(o) → the look it ends with, window: [a, b] the part of its length, 0..1, in which its
+ * tones glide there }), loops (its default length), options (see
  * shared/_fiche.js), formFit ({ form: "pourquoi pas, en français" }), intro? (its settings page's introduction),
  * play(o, { T, prog }) → { mods(t), back?(p, C, t, st), front?(p, C, t, st) } }: its modifiers at t (neutral when
  * prog(t) is 0 or 1) and what it draws behind and in front of the creature (st: where its body is, its hands, head...).
@@ -46,8 +49,10 @@ export function family(list) {
 
 // what the creature adapter needs at t: the action's modifiers and length, where the motes follow it, what it draws
 const frame = (ficheOf) => (o, t) => {
-  const f = ficheOf(o), act = f ? f.act(o) : REST;
-  return { M: (tt) => act.mods(tt), T: f ? f.total(o) : o.duration * whole(o), drift: drift(act, t),
+  const f = ficheOf(o), act = f ? f.act(o) : REST, T = f ? f.total(o) : o.duration * whole(o);
+  // a look change: the tones glide from the look it starts with to the one it ends with, in its window
+  const look = f && f.look ? mixLook(lookOf(o), f.look.to(o), glide(t / T, ...f.look.window)) : null;
+  return { M: (tt) => act.mods(tt), T, drift: drift(act, t), look,
     extra: (p, C, st, front) => { const h = front ? act.front : act.back; if (h) h.call(act, p, C, t, st); } };
 };
 // the motes round it follow where it goes (ax, ay: it went somewhere else, all of it)

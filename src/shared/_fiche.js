@@ -1,12 +1,13 @@
 // What every fiche (GLOSSARY.md) shares: its options, written once, and the catalogue they make together.
 //
 // An option is  key: [default, label, min, max, step, unit?, how?]  (a slider),  key: [default, label, { select }, how?]
-// (a list), or  key: [default]  (no row on the page). The optional `how` says how the page sets it:
+// (a list), key: [default, label, { palette: true }]  (a palette of eight tones, set as the newborn's: a list of
+// presets and eight swatches), or  key: [default]  (no row on the page). The optional `how` says how the page sets it:
 //   scene: n   a length in % of the scene's height (n % is the page's default; the effect's default stays in px)
 //   x: key / y: key   a point of the scene, in %, that the page turns into that effect option (px from its spot) and
 //                     lets you drag in the preview; such a setting exists only on the page
 //   forms: [...]      the forms whose page shows the row (others hide it)
-const isHow = (v) => v && typeof v === "object" && !Array.isArray(v) && !("select" in v) && !("color" in v);
+const isHow = (v) => v && typeof v === "object" && !Array.isArray(v) && !("select" in v) && !("color" in v) && !("palette" in v);
 
 /** A fiche's options: its effect defaults, page defaults and rows. reserved: the host's own keys (a fiche can't reuse one). */
 export function options(spec, reserved = {}) {

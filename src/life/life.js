@@ -18,6 +18,7 @@ import * as loops from "../loops/index.js";
 import * as clock from "../clock/clock.js";
 import * as objects from "../objects/objects.js";
 import * as transform from "../forms/forms.js";
+import { lookOf, isLook, withLook, mixLook, glide, lookKey } from "../shared/_look.js";
 
 export const meta = {
   name: "Ice creature life",
@@ -49,25 +50,30 @@ const byId = new Map(CATALOG.map((c) => [c.id, c]));
 /** Why an animation can't be played in a form (null if it can). */
 const whyNot = (entry, form) => (entry.fiche && entry.fiche.formFit[form]) || null;
 
-// ---- rests. A hub: { form, pos ([x, y]: where it stands, whole px from its home spot), since (when this rest began) }.
+// ---- rests. A hub: { form, pos ([x, y]: where it stands, whole px from its home spot), since (when this rest began),
+// look (its colours: { palette, eyeColor, pupilColor }, see shared/_look.js) }.
 // Everything it does at a pos is drawn there: the painter moved by pos, its tab's options worked out for that spot
-// (cfg.optsFor gets the hub)
+// (cfg.optsFor gets the hub), in the look it has there.
 const posOf = (h) => (Array.isArray(h.pos) ? [Math.round(h.pos[0]) || 0, Math.round(h.pos[1]) || 0] : [0, 0]);
-const hubKey = (h) => `${h.form}|${posOf(h)}`;
+const hubKey = (h) => `${h.form}|${posOf(h)}|${lookKey(h.look)}`;
+// the look a creature starts with when nothing says otherwise: the blob's own
+const DEFAULT_LOOK = lookOf(idle.meta.options);
 
 /**
  * A new life. cfg: { D: the blob's loop (s), optsFor(tab, pick, hub): that tab's options for its effect as the page
- * builds them (its settings, the creature's look and place, the scene), hub: { form, pos } to start from,
- * things: [{ id, ob }] already in the scene, t0: when it starts }.
+ * builds them (its settings, the scene; the creature's look and place are laid over them), hub: { form, pos, look } to
+ * start from, look: the creature's look when the hub has none, things: [{ id, ob }] already in the scene, t0: when it starts }.
  */
 export function createLife(cfg) {
   const t0 = cfg.t0 || 0, h = cfg.hub || {};
-  const hub = { form: transform.FORMS.includes(h.form) ? h.form : "blob", pos: posOf(h), since: t0 };
+  // its look: the one it was left with, else the page's (cfg.look), else the blob's
+  const hub = { form: transform.FORMS.includes(h.form) ? h.form : "blob", pos: posOf(h), since: t0, look: lookIn(h.look) || lookIn(cfg.look) || DEFAULT_LOOK };
   const things = (cfg.things || []).map((th, i) => ({ ...th, id: th.id ?? i + 1, born: -Infinity, dying: Infinity }));
   return { cfg, hub0: hub, segs: [], things, nextId: Math.max(1, ...things.map((th) => th.id + 1)), rests: new Map() };
 }
 
-const optsOf = (L, tab, pick, hub) => ({ ...L.cfg.optsFor(tab, pick, hub) });
+// a tab's options for its effect from rest hub: the page's, with the creature's look at that rest laid over them
+const optsOf = (L, tab, pick, hub) => withLook({ ...L.cfg.optsFor(tab, pick, hub) }, hub.look);
 // how long one loop of a rest lasts: its beats
 function restLen(L, h) {
   const D = L.cfg.D;
@@ -111,7 +117,7 @@ function closeLoop(L, now) {
 // ---- what a request needs: the steps that take it from the rest it is in to doing what's asked. (An action or a loop
 // needs nothing here: the catalogue brings it. A new kind of step, such as a companion: its case in plan() and segment(),
 // and its request in the lives of tests/seams.mjs.)
-const STEP_LABEL = { move: "se déplace", revert: "redevient le blob", transform: "prend forme humaine", appear: "fait apparaître un objet", remove: "fait disparaître un objet" };
+const STEP_LABEL = { move: "se déplace", revert: "redevient le blob", transform: "prend forme humaine", appear: "fait apparaître un objet", remove: "fait disparaître un objet", recolour: "change de couleur" };
 function plan(L, req, h) {
   const steps = [];
   const toForm = (form) => {
@@ -130,6 +136,8 @@ function plan(L, req, h) {
       break;
     }
     case "stop": break;
+    // its colours change to req.look, at its next rest (the page asks so when its colours are set by hand)
+    case "look": steps.push({ kind: "recolour", look: req.look, label: req.label }); break;
     default: {
       const entry = byId.get(req.id);
       if (!entry) { why = "Animation inconnue."; break; }
@@ -160,6 +168,9 @@ function segment(L, step, h, at) {
   if (k === "once") {
     s.o = optsOf(L, step.entry.tab, step.entry.pick, h); s.mod = MODULES[step.entry.tab];
     s.len = s.mod.total(s.o);
+    // an action that ends with another look: its rest after it is that look, reached in its window
+    const lk = step.entry.fiche && step.entry.fiche.look;
+    if (lk) { h1 = { ...h, look: lk.to(s.o) }; s.look = { from: h.look, to: h1.look, window: lk.window }; }
   } else if (k === "move") {
     // it goes there, and its rest is there now
     s.o = moveOpts(L, step.entry, step.to, h); s.mod = actions;
@@ -175,6 +186,10 @@ function segment(L, step, h, at) {
     s.o = optsOf(L, "transform", k === "transform" ? { mode: "transform", form: step.form } : { mode: "revert", form: h.form }, h); s.mod = transform;
     s.len = transform.total(s.o); h1 = { ...h, form: k === "transform" ? step.form : "blob" };
     if (k === "transform") s.label = step.form === "grounded" ? "prend forme humaine, sur ses jambes" : "prend forme humaine, en lévitation";
+  } else if (k === "recolour") {
+    // the rest it stands in, its colours gliding to the new look over one of its loops (nothing else moves)
+    s.o = { ...rest(L, h).o }; s.mod = objects; s.len = restLen(L, h);
+    h1 = { ...h, look: step.look }; s.look = { from: h.look, to: step.look, window: [0, 1] };
   } else {
     // a thing made (appear) or taken away (remove)
     s.o = optsOf(L, "objects", { ...step.pick, mode: k }, h); s.mod = objects;
@@ -270,21 +285,36 @@ export function status(L, t) {
 }
 // the things in the scene at t (and those it may still take away)
 const visible = (L, t) => L.things.filter((th) => th.born <= t && t < th.dying).sort((a, b) => a.id - b.id);
-/** What to keep for next time: where it is and what it made (from the end of the score). */
+/** What to keep for next time: where it is, its look and what it made (from the end of the score). */
 export function snapshot(L) {
   const h = tail(L);
-  return { hub: { form: h.form, pos: posOf(h) }, things: L.things.filter((th) => th.dying === Infinity).map(({ id, ob }) => ({ id, ob })) };
+  return { hub: { form: h.form, pos: posOf(h), look: h.look }, things: L.things.filter((th) => th.dying === Infinity).map(({ id, ob }) => ({ id, ob })) };
 }
+/** The look the creature ends with (its rest at the end of the score). */
+export const tailLook = (L) => tail(L).look;
+/** Whether nothing is asked beyond now: it is at rest, and what it does next can start on its rest. */
+export function settled(L, now) {
+  const s = L.segs[L.segs.length - 1];
+  return !s || endOf(s) <= now + MARGIN;
+}
+/** A look as the life draws it, from the page's or a saved one (null if it isn't one). */
+export const lookIn = (v) => (isLook(v) ? { palette: [...v.palette], eyeColor: v.eyeColor, pupilColor: v.pupilColor } : null);
 
 // ---- drawing a frame
+// the look at a point of the score: where a segment changes it, its tones glide from one look to the other in its window
+function lookAt(x) {
+  const s = x.seg;
+  if (!s || !s.look) return x.hub.look;
+  return mixLook(s.look.from, s.look.to, glide(x.ttau / s.len, ...s.look.window));
+}
 // the things there while a segment plays: those made and not taken away
 function thingsOn(p, L, x, t, layer) {
   const s = x.seg;
   if (s && (s.kind === "appear" || s.kind === "remove")) return; // the objects tab draws them all for these
   const list = visible(L, t);
   if (!list.length) return;
-  const r = rest(L, x.hub);
-  for (const th of list) if ((th.ob.layer || "back") === layer) objects.drawObject(p, r.o, th.ob, x.ttau);
+  const r = rest(L, x.hub), o = withLook(r.o, lookAt(x));
+  for (const th of list) if ((th.ob.layer || "back") === layer) objects.drawObject(p, o, th.ob, x.ttau);
 }
 // a module draws where the creature stands: the painter moved by the rest's pos while it draws
 function at(p, pos, fn) {
@@ -297,7 +327,9 @@ function layerOf(p, t, o, front) {
   const L = o.life || demoLife(o);
   if (!L) return front ? idle.draw(p, t, o) : idle.drawBack(p, t, o);
   const x = locate(L, t), pos = posOf(x.hub);
-  at(p, pos, () => (front ? x.mod.draw(p, x.tau, x.o) : x.mod.drawBack(p, x.tau, x.o)));
+  // (an action that changes the look glides its own body; a recolour, which draws the rest, glides it here)
+  const mo = x.seg && x.seg.kind === "recolour" ? withLook(x.o, lookAt(x)) : x.o;
+  at(p, pos, () => (front ? x.mod.draw(p, x.tau, mo) : x.mod.drawBack(p, x.tau, mo)));
   thingsOn(p, L, x, t, front ? "front" : "back");
 }
 export function drawBack(p, t, o) { layerOf(p, t, o, false); }
@@ -321,7 +353,7 @@ function demoLife(o) {
   if (!Array.isArray(o.script)) return null;
   let L = DEMOS.get(o);
   if (!L) {
-    L = createLife({ D: o.duration, optsFor: plainOpts({ room: o.room, palette: o.palette }), hub: o.hub, things: o.things });
+    L = createLife({ D: o.duration, optsFor: plainOpts({ room: o.room, palette: o.palette }), hub: o.hub, things: o.things, look: lookOf(o) });
     for (const r of o.script) want(L, r, r.at || 0);
     DEMOS.set(o, L);
   }

@@ -59,6 +59,10 @@ JSON), avec « Revenir à la vie » pour revenir. Ces pages de réglages sont :
   - **Se déplacer** : il va ailleurs dans la scène et y reste. Le blob y glisse en arc, avec de petits bonds s’il veut ;
     la forme en lévitation y vole ; la forme au sol y marche ou y court, de profil, le long de son sol.
   - **Halo de lumière** : il se charge de lumière, puis revient au repos.
+  - **Changer de couleur** : un cercle de runes tourne sous lui, dans la couleur qu’il prend ; sa lumière glisse vers la
+    nouvelle palette (huit teintes, et ses yeux). Cette couleur reste : c’est celle qu’il a pour la suite, dans toutes ses
+    formes, dans sa page Blob né et dans ses exports. Une couleur réglée à la main dans Blob né prend effet à son prochain
+    repos.
 - **Boucles**, chacune avec son entrée depuis le repos et sa sortie vers le repos : **Sommeil**, **Magie**, **Marche** et
   **Course**. La marche et la course ont leurs premiers et leurs derniers pas.
 - **Heure** : il affiche une heure choisie ou celle de l’export, puis revient au repos.

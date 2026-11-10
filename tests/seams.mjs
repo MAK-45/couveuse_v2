@@ -22,6 +22,7 @@ import { ACTIONS } from "../src/actions/index.js";
 import { LOOPS } from "../src/loops/index.js";
 import { fiche as actionTemplate } from "../src/actions/_template.js";
 import { fiche as loopTemplate } from "../src/loops/_template.js";
+import { lookFor, lookOf } from "../src/shared/_look.js";
 
 const W = 320, H = 200, ROOM = [-160, -115, 160, 85], D = idle.meta.options.duration, Ni = 120, dt = D / Ni; // Ni frames a blob's loop
 // the forms everything is tested in: each of forms.FORMS, plus the figure's own loop over 1 or 3 of the blob's (its clock
@@ -30,6 +31,8 @@ const FORM_CASES = { ...Object.fromEntries(forms.FORMS.map((f) => [f, f === "blo
   "lotus L1": { form: "human", huLegs: "lotus", liveLoops: 1 }, "hips L3": { form: "grounded", grArms: "hips", liveLoops: 3 } };
 const DESTS = [null, [-130, 40], [17, -61], [300, -200]]; // where a move goes (null: its own default; the last one past the edge)
 const EXTREMES = [["court, sans repos", { lead: 0, loops: 1 }], ["long, long repos", { lead: 0.3, loops: 8 }]]; // the other tabs' length rows
+// another palette (warm, for the palette rows of the fiches and the looks the lives change to)
+const ALT_PALETTE = ["#1a0a00", "#3a1400", "#7a2c00", "#c75a10", "#f4a24a", "#ffd39a", "#fff4e0", "#ffffff"];
 
 function render(mod, o, t, at = [0, 0]) {
   const f = createFrame(W, H); clearFrame(f);
@@ -56,7 +59,8 @@ const REST = {};
 for (const [name, F] of Object.entries(FORM_CASES)) {
   const mod = F.form ? forms : idle, o = F.form ? { ...forms.meta.options, ...F, room: ROOM, mode: "live" } : { ...idle.meta.options };
   const P = F.form ? forms.total(o) : D;
-  REST[name] = { first: render(mod, o, 0), last: render(mod, o, lastOf(P)), there: (d) => render(mod, F.form ? { ...o, room: moved(ROOM, d) } : o, lastOf(P), d) };
+  REST[name] = { first: render(mod, o, 0), last: render(mod, o, lastOf(P)), there: (d) => render(mod, F.form ? { ...o, room: moved(ROOM, d) } : o, lastOf(P), d),
+    recoloured: (look) => render(mod, { ...o, ...look }, lastOf(P)) }; // its rest in another look (an action that changes it)
 }
 group("blob idle loop", (check) => check("t = 0 / t = D", diff(render(idle, idle.meta.options, 0), render(idle, idle.meta.options, D))));
 
@@ -71,13 +75,17 @@ function variants(f) {
   for (const [key, , a, b] of f.rows) {
     if (f.points[key]) continue;
     if (typeof a === "number") { const k = f.scene.includes(key) ? H / 100 : 1; min[key] = a * k; max[key] = b * k; }
-    else if (a && a.select) for (const [v] of a.select) if (v !== f.defaults[key]) lists.push([`${key} ${v}`, { [key]: v }]);
+    else if (a && a.select) { for (const [v] of a.select) if (v !== f.defaults[key]) lists.push([`${key} ${v}`, { [key]: v }]); }
+    else if (a && a.palette) lists.push([`${key} autre`, { [key]: ALT_PALETTE }]);
   }
   return [...out, ["min", min], ["max", max], ...lists];
 }
 function joins(check, f, label, o, R) {
   if (f.kind === "once") {
     check(label, diff(render(f, o, 0), R.first), diff(render(f, o, lastOf(f.total(o))), R.last));
+  } else if (f.kind === "look") {
+    // from its rest to its rest in the look it ends with (drawn there), its tones gliding in its window
+    check(label, diff(render(f, o, 0), R.first), diff(render(f, o, lastOf(f.total(o))), R.recoloured(f.look.to(o))));
   } else if (f.kind === "move") {
     for (const to of DESTS) {
       const m = { ...o, moveTo: to }, d = f.moveOf(m);
@@ -92,7 +100,7 @@ function joins(check, f, label, o, R) {
 }
 const fileOf = (family, f) => new URL(`../src/${family}/${f.id}.js`, import.meta.url);
 function coherence(check, family, f, isTemplate) {
-  const kinds = family === "loops" ? ["loop"] : ["once", "move"], text = (s) => typeof s === "string" && s.trim().length > 0;
+  const kinds = family === "loops" ? ["loop"] : ["once", "move", "look"], text = (s) => typeof s === "string" && s.trim().length > 0;
   check("id in camelCase", /^[a-z][a-zA-Z0-9]*$/.test(f.id));
   check(isTemplate ? "not in the catalogue" : `its file src/${family}/${f.id}.js`, isTemplate ? !FAMILIES[family].some((x) => x.id === f.id) : existsSync(fileOf(family, f)));
   check("name and desc (its card)", text(f.name) && text(f.desc));
@@ -102,6 +110,7 @@ function coherence(check, family, f, isTemplate) {
   for (const [key, label, a, b, step] of f.rows) {
     const v = key in f.page ? f.page[key] : f.defaults[key];
     if (typeof a === "number") check(`${key}: ${a} ≤ ${v} ≤ ${b}`, text(label) && step > 0 && a <= v && v <= b);
+    else if (a && a.palette) check(`${key}: eight tones`, text(label) && Array.isArray(v) && v.length === 8);
     else check(`${key}: ${v} in its list`, text(label) && !!a.select && a.select.some(([x]) => x === v));
   }
   check("defaults in its meta", Object.entries(f.defaults).every(([k, v]) => f.meta.options[k] === v));
@@ -172,8 +181,11 @@ const restAt = (L, h, as) => ({ ...L, segs: [], hub0: h, things: L.things.map((t
 for (const [name, F] of Object.entries(FORM_CASES)) {
   const { form = "blob", ...figure } = F, can = ([, f]) => !f || f.fits({ form });
   const each = ANIMS.filter((a) => can(a) && !(a[1] && a[1].kind === "move")).map(([id]) => ({ id })), moves = ANIMS.filter(([, f]) => f && f.kind === "move");
+  // (the looks: another palette in the middle of the life, the blob's own back at its end)
   const script = [{ id: "appear", ob: ob(-70, -30, "cube") }, ...moves.map(([id]) => ({ id, to: [-90, 20] })), { id: "form", form }, ...each,
-    ...moves.filter(can).map(([id]) => ({ id, to: [80, -30] })), ...each, { id: "appear", ob: ob(60, 20, "gem", "front") }, { id: "remove", thing: 1 }, { id: "form", form: "blob" }];
+    { id: "look", look: lookFor(ALT_PALETTE), label: "couleur autre" },
+    ...moves.filter(can).map(([id]) => ({ id, to: [80, -30] })), ...each, { id: "look", look: lookOf(idle.meta.options), label: "couleur d’origine" },
+    { id: "appear", ob: ob(60, 20, "gem", "front") }, { id: "remove", thing: 1 }, { id: "form", form: "blob" }];
   group(`life ${name}`, (check) => {
     const L = life.createLife({ D, optsFor: life.plainOpts({ room: ROOM, ...figure }) });
     for (const r of script) { const res = life.want(L, r, 0.5); check(`${r.id} accepted`, res.ok || res.why); }

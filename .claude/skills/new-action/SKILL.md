@@ -12,7 +12,8 @@ If the author hasn't chosen « une fois » or « en boucle » yet, ask first (sk
    numbered comments: its card (French name, short desc), its length, its options (syntax in `src/shared/_fiche.js`,
    good defaults, French labels), `formFit` only for what truly can't be done in a form (the reason in French), and
    `play(o, { prog })`: every change is an envelope of `prog(t)` that is 0 at both ends, `quiet: 1` while it acts.
-   An action that ends somewhere else: `kind: "move"`, `moveOf`, `length` (see `move.js`).
+   An action that ends somewhere else: `kind: "move"`, `moveOf`, `length` (see `move.js`). An action that ends with other
+   colours (the creature's tones and eyes): `kind: "look"` and `look: { to(o), window }` (see `couleur.js`).
 3. Make it for every form: figures use their arms (`armUp`, `armOpen`, `hold`, `reach` + `reachK`), its effects come from
    `st.hands` / `st.head`, on its legs it stays on its floor (`dy: 0` when `o.form === "grounded"`).
 4. List it in `src/actions/index.js` (the order of the cards in Vivre). Nothing else to edit: its card in Vivre, its

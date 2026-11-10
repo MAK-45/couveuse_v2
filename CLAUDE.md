@@ -64,8 +64,9 @@ To look at the page: Playwright and Chromium are installed (`require("playwright
 
 - `src/` our effects, one folder per concept (a file starting with `_` is a helper, not an effect):
   - `shared/`: `_time.js` (progress, lead-in and lead-out, `settle`, `phases`), `_fiche.js` (a fiche's options),
-    `_creature.js` (the creature drawn in its form, for every page), `_color.js`
-  - `actions/`: `index.js` the catalogue, `_action.js` their host, one fiche per action (`move.js`, `aura.js`),
+    `_creature.js` (the creature drawn in its form, for every page), `_color.js`, `_look.js` (the creature's tones and
+    eyes, and their glide from one look to the next), `_floor.js` (rings, runes and motes on the floor)
+  - `actions/`: `index.js` the catalogue, `_action.js` their host, one fiche per action (`move.js`, `aura.js`, `couleur.js`),
     `_template.js`
   - `loops/`: `index.js` the catalogue, `_loop.js` their host (entry, loop, exit), `_gait.js` (walking and running),
     `sleep.js`, `magic.js`, `walk.js`, `run.js`, `_template.js`

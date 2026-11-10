@@ -16,6 +16,11 @@ _À éviter_ : temps, beat
 Le corps qu’elle a : le blob né, la forme humaine en lévitation, la forme humaine au sol.
 _À éviter_ : mode, apparence
 
+**Teintes** :
+Les huit couleurs de sa lumière (sa palette) et la couleur de ses yeux : son look. « Changer de couleur » les change pour la suite ;
+une teinte réglée dans Blob né prend effet à son prochain repos.
+_À éviter_: palette (dans les textes), apparence
+
 **Croix** :
 Le point cliqué dans la scène de Vivre ; le prochain objet y apparaît, « Se déplacer » y va.
 _À éviter_ : cible, curseur

@@ -156,13 +156,15 @@ function sceneUnits(o, family, pl, k) {
   }
 }
 function actionGroups() {
-  const f = ficheOf("actions", V.action);
+  const f = ficheOf("actions", V.action), pal = f.rows.find((r) => r[2] && r[2].palette);
   return [
     { title: "Action", hint: "choisis ce qu’il fait", picker: true, rows: [
       ["loops_" + f.id, f.kind === "move" ? "Durée de l’action (au moins : il prend le temps d’y aller)" : "Durée de l’action", 1, 8, 1, ""],
       ["lead", "Repos avant et après", 0, 0.3, 0.01, ""],
     ]},
-    { title: f.name, hint: "réglages de l’action", key: "actparams", rows: f.rows },
+    { title: f.name, hint: "réglages de l’action", key: "actparams", rows: f.rows.filter((r) => r !== pal) },
+    // a palette of its own: the newborn's presets and swatches, for the tones the action takes
+    ...(pal ? [{ title: pal[1], hint: "les teintes qu’il prend", key: "actpal", palette: pal[0], rows: [] }] : []),
     { ...PLACE, rows: PLACE.rows.filter((r) => r[0] !== "canvas"), hint: "la même que le blob né" },
   ];
 }
@@ -532,6 +534,8 @@ function sanitize(v) {
   for (const k of ["shared", "life", "birth", "blob", "actions", "objects", "loops", "clock", "transform"]) s[k] = known(f[k], v[k]);
   if (!ACTION_LIST.some((a) => a[0] === s.actions.action)) s.actions.action = f.actions.action;
   if (!LOOP_LIST.some((a) => a[0] === s.loops.loop)) s.loops.loop = f.loops.loop;
+  // the palette an action takes (eight tones)
+  if (!Array.isArray(s.actions.couleurPalette) || s.actions.couleurPalette.length !== 8) s.actions.couleurPalette = [...f.actions.couleurPalette];
   for (const o of [s.objects, s.life]) {
     if (!PFX.objects.APPEAR.includes(o.appearStyle)) o.appearStyle = f.objects.appearStyle;
     if (!PFX.objects.REMOVE.includes(o.removeStyle)) o.removeStyle = f.objects.removeStyle;
@@ -545,7 +549,7 @@ function sanitize(v) {
   if (!PFX.transform.GR_LOOKS.includes(s.transform.grLook)) s.transform.grLook = f.transform.grLook;
   // the creature in its form, where it stood; things an older save left elsewhere are gone
   const lh = s.life.hub || {};
-  s.life.hub = { form: BODY_FORMS.some((x) => x[0] === lh.form) ? lh.form : "blob", pos: Array.isArray(lh.pos) && lh.pos.length === 2 ? lh.pos.map((v) => Math.round(+v) || 0) : [0, 0] };
+  s.life.hub = { form: BODY_FORMS.some((x) => x[0] === lh.form) ? lh.form : "blob", pos: Array.isArray(lh.pos) && lh.pos.length === 2 ? lh.pos.map((v) => Math.round(+v) || 0) : [0, 0], look: PFX.life.lookIn(lh.look) };
   s.life.things = (Array.isArray(s.life.things) ? s.life.things : []).filter((th) => th && th.ob && !(th.linked && th.place != null && th.place !== "home")).map(({ id, ob }) => ({ id, ob }));
   if (!Array.isArray(s.objects.list)) s.objects.list = f.objects.list;
   s.objects.list = s.objects.list.filter((ob) => ob && typeof ob === "object").map((ob) => ({ ...OBJECT_DEF(), ...ob }));
@@ -683,6 +687,7 @@ function sceneGroup() {
 }
 // a settings page: its own groups (the creature's form for the preview first, where it has one)
 function settingsGroups() {
+  palKey = "palette";
   const groups0 = S.anim === "transform" ? transformGroups() : S.anim === "clock" ? clockGroups() : S.anim === "loops" ? loopGroups() : S.anim === "objects" ? objectGroups() : S.anim === "actions" ? actionGroups() : ANIMS[S.anim].groups;
   // the tabs that can draw a new form start with the choice of form
   const own = groups0.filter((g) => !(g.place && S.anim !== "blob" && S.anim !== "birth"));
@@ -732,6 +737,9 @@ function settingsGroups() {
       rows.appendChild(place);
     }
     if (g.palette) {
+      // (the key of the palette this group sets: the creature's, or an action's own)
+      const pk = g.palette === true ? "palette" : g.palette;
+      palKey = pk;
       const pr = document.createElement("div");
       pr.className = "presets";
       for (const [name, pal] of Object.entries(PRESETS)) {
@@ -739,7 +747,7 @@ function settingsGroups() {
         b.className = "preset"; b.type = "button";
         const f = PFX.fit(pal, 8).map(PFX.toHex);
         b.innerHTML = `<i style="background:linear-gradient(90deg,${f.join(",")})"></i>${name}`;
-        b.onclick = () => { setV("palette", f); syncPalette(); changed(); };
+        b.onclick = () => { setV(pk, f); syncPalette(); changed(); };
         pr.appendChild(b);
       }
       rows.appendChild(pr);
@@ -748,7 +756,7 @@ function settingsGroups() {
       for (let i = 0; i < 8; i++) {
         const c = document.createElement("input");
         c.type = "color"; c.setAttribute("aria-label", `Teinte ${i + 1} sur 8, de la plus sombre à la plus claire`);
-        c.oninput = () => { const p = [...V.palette]; p[i] = c.value; setV("palette", p); changed(); };
+        c.oninput = () => { const p = [...V[pk]]; p[i] = c.value; setV(pk, p); changed(); };
         sw.appendChild(c);
       }
       rows.appendChild(sw);
@@ -810,7 +818,9 @@ $("reset").onclick = () => {
   if (S.anim === "life") { S.life = lifeDef(); LIFE = null; lifeSig = ""; refreshV(); buildControls(); changed(); say("Vivre : il repart du repos, chez lui, en blob né, sans objet."); return; }
   const f = fresh(); if (S.anim === "objects") { const keep = { list: S.objects.list, sel: S.objects.sel, nextId: S.objects.nextId }; S.objects = { ...f.objects, ...keep }; } else S[S.anim] = f[S.anim]; refreshV(); buildControls(); changed(); say(`${ANIMS[S.anim].name} : réglages d’origine.`); };
 
-function syncPalette() { const sw = $("swatches"); if (sw) [...sw.children].forEach((c, i) => (c.value = PFX.toHex(PFX.hex(V.palette[i])))); accent(); }
+// the palette the swatches of this page show and set (the creature's, or an action's own)
+let palKey = "palette";
+function syncPalette() { const sw = $("swatches"); if (sw) [...sw.children].forEach((c, i) => (c.value = PFX.toHex(PFX.hex(V[palKey][i])))); accent(); }
 function syncUI() {
   for (const [k, o] of Object.entries(inputs)) {
     if (o.kind === "select") o.inp.value = String(V[k]);
@@ -870,6 +880,7 @@ const nFrames = () => Math.max(2, Math.round(V.duration * V.fps)) * loopsOf();
 function effOpts(src = V) {
   const o = { ...src };
   o.palette = src.palette.map((c) => PFX.toHex(PFX.hex(c)));
+  if (Array.isArray(src.couleurPalette)) o.couleurPalette = src.couleurPalette.map((c) => PFX.toHex(PFX.hex(c)));
   // the creature's form: the blob, or the transformation's new form with that tab's settings (its floor in % of the
   // scene's height, as px below the spot; the scene's bounds for the floor)
   if (FORM_TABS.has(S.anim) && src === V) {
@@ -1155,17 +1166,34 @@ function optsAs(tab, pick, hub) {
 }
 const lifeNow = () => (lifePaused ? lifeAt : lifeAt + ((performance.now() - lifeBase) / 1000) * (+V.speed || 1));
 function lifeStart() {
-  LIFE = PFX.life.createLife({ D: Math.max(0.5, +S.blob.duration || 4), optsFor: optsAs, hub: S.life.hub, things: S.life.things, t0: 0 });
+  LIFE = PFX.life.createLife({ D: Math.max(0.5, +S.blob.duration || 4), optsFor: optsAs, hub: S.life.hub, look: blobLook(), things: S.life.things, t0: 0 });
   lifeOpts = { light: V.light ?? 1, life: LIFE };
   lifeBase = performance.now(); lifeAt = 0; lifePaused = false; shown = -1; lifeLast = 0;
   $("play").textContent = "Pause";
 }
 function lifeSave() { const s = PFX.life.snapshot(LIFE); S.life.hub = s.hub; S.life.things = s.things; persist(); }
+// the creature's colours as the blob's page has them: the look the life follows (its rests take it on)
+const blobLook = () => ({ palette: [...S.blob.palette], eyeColor: S.blob.eyeColor, pupilColor: S.blob.pupilColor });
+const lookSig = (l) => [...l.palette, l.eyeColor, l.pupilColor].join();
+// an action that changed the creature's look (its colours were `before`) sets the page's colours to the new look
+function adoptLook(before) {
+  const after = PFX.life.tailLook(LIFE);
+  if (lookSig(after) === before) return;
+  S.blob.palette = [...after.palette]; S.blob.eyeColor = after.eyeColor; S.blob.pupilColor = after.pupilColor;
+  persist();
+}
+// the colours set by hand on the blob's page take effect at its next rest: once nothing else is asked beyond now
+function lifeSync(t) {
+  if (lookSig(blobLook()) === lookSig(PFX.life.tailLook(LIFE)) || !PFX.life.settled(LIFE, t)) return;
+  PFX.life.want(LIFE, { id: "look", look: blobLook(), label: "change de couleur" }, t);
+  lifeSave();
+}
 function lifeAsk(req) {
   if (!LIFE) lifeStart();
+  const before = lookSig(PFX.life.tailLook(LIFE));
   const r = PFX.life.want(LIFE, req, lifeNow());
   if (!r.ok) say(r.why, true);
-  else { lifeSave(); say(`Demandé : ${req.label || "c’est noté"}. Il le fera à son tour, sans saut.`); }
+  else { adoptLook(before); lifeSave(); say(`Demandé : ${req.label || "c’est noté"}. Il le fera à son tour, sans saut.`); }
   lifeStatus();
 }
 function lifeStatus() {
@@ -1202,6 +1230,7 @@ function lifeStatus() {
 function lifeTick(now) {
   if (!LIFE) lifeStart();
   const t = lifeNow(), fps = +V.fps || 30, i = Math.floor(t * fps + 1e-6);
+  lifeSync(t);
   if (i !== shown) {
     img.data.set(renderScene("life", lifeOpts, i / fps, bgValue()));
     ctx.putImageData(img, 0, 0);
@@ -1298,7 +1327,7 @@ function lifeControls() {
     controls.appendChild(d);
   }
   on("lifeStop", "onclick", () => lifeAsk({ id: "stop", label: "s’arrête" }));
-  on("lifeClear", "onclick", () => { if (LIFE) { PFX.life.clearQueue(LIFE, lifeNow()); lifeSave(); lifeStatus(); say("File vidée : il finit ce qu’il fait."); } });
+  on("lifeClear", "onclick", () => { if (LIFE) { const before = lookSig(PFX.life.tailLook(LIFE)); PFX.life.clearQueue(LIFE, lifeNow()); adoptLook(before); lifeSave(); lifeStatus(); say("File vidée : il finit ce qu’il fait."); } });
   lifeStatus();
 }
 

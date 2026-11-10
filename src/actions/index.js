@@ -3,6 +3,7 @@
 import { family } from "./_action.js";
 import { fiche as move } from "./move.js";
 import { fiche as aura } from "./aura.js";
+import { fiche as couleur } from "./couleur.js";
 
-export const ACTIONS = [move, aura];
+export const ACTIONS = [move, aura, couleur];
 export const { meta, drawBack, draw, total, moveOf } = family(ACTIONS);

@@ -40,8 +40,8 @@ pages of their own that draw the creature through the same adapter.
 
 `life/life.js` keeps a **score**: segments laid end to end; a frame is a pure function of (t, score).
 
-- A **hub** is a rest `{ form, pos, since }`: its form, where it stands (`pos`, whole px from its home spot), when this
-  rest began. Its beats are `since + n · R` (R: the blob's loop, or the figure's live loop). The rest is drawn by the
+- A **hub** is a rest `{ form, pos, since, look }`: its form, where it stands (`pos`, whole px from its home spot), when this
+  rest began, its look (its eight tones and its eyes, `shared/_look.js`). Its beats are `since + n · R` (R: the blob's loop, or the figure's live loop). The rest is drawn by the
   objects page's live scene with nothing in it.
 - A **segment** `{ at, len, kind, mod, o, hub0, hub1, label }` plays one page's animation with that page's options:
   "once" (actions, clock), "move" (« Se déplacer »: the hub after it has the new `pos`), "enter" / "loop" (repeated until
@@ -51,6 +51,10 @@ pages of their own that draw the creature through the same adapter.
   `status()` what it does and what follows, `snapshot()` what to keep, `trim()` and `clearQueue()` forget.
 - **Things** (objects) `{ id, ob, born, dying }` stay where they were made. The engine draws them after the module's back
   and front layers; during "appear" and "remove" the objects page draws them all.
+- **Looks**: an action of kind `look` (« Changer de couleur ») and a `recolour` step (asked by the blob's page when its
+  colours are set by hand, once nothing else is asked) end at a rest with another look. `lookAt()` glides the tones from
+  one look to the next in the segment's window; the creature glides its own body (`creature()` in `_action.js`), a
+  recolour glides the rest it draws, and things glide with them. Pages draw the look they are given (`withLook`).
 - **Options**: `cfg.optsFor(tab, pick, hub)`. The page's is `optsAs()`: that page's own `effOpts()` for that spot, so a
   life plays exactly what each page shows. The tests and the render tool use `plainOpts()` (each module's defaults).
 
@@ -80,8 +84,10 @@ new form), neutral at both ends.
 | src/shared/_time.js | — | `prog`, `leadIn` / `leadOut` (`LEAD_MIN`, `DROP_LIFE`), `settle`, `phases` |
 | src/shared/_fiche.js | — | `options(spec)`: a fiche's defaults, page defaults and rows; `merged(list)` |
 | src/shared/_creature.js | — | `creature(frame)`: the creature drawn by an animation, the same way in every page |
-| src/shared/_color.js | — | `hsl`, `fromHsl` |
-| src/actions/ | Actions | `index.js` (the catalogue), `_action.js` (host), `move.js`, `aura.js`, `_template.js` |
+| src/shared/_color.js | — | `hsl`, `fromHsl`, `mixHex` |
+| src/shared/_look.js | — | the creature's look (eight tones, two eyes): `lookOf`, `withLook`, `lookFor`, `mixLook`, `glide` |
+| src/shared/_floor.js | — | rings on the floor, the runes standing on them, the motes rising off them (ground effects) |
+| src/actions/ | Actions | `index.js` (the catalogue), `_action.js` (host), `move.js`, `aura.js`, `couleur.js`, `_template.js` |
 | src/loops/ | Boucles | `index.js`, `_loop.js` (host), `_gait.js`, `sleep.js`, `magic.js`, `walk.js`, `run.js`, `_template.js` |
 | src/forms/forms.js | Transformation | the forms and the form engine (above) |
 | src/blob/blob.js | Blob né | the blob at rest: `blobBack`, `blobFront`, `state`, `ambient`, eyes, sparks, drips |
@@ -110,6 +116,9 @@ with one palette per frame, `makePng()`, `makeJson()`), saved through `window.cl
   of thing with its own module, drawn by `thingsOn()`, planned by `plan()` / `segment()`, saved by `snapshot()`.
 - **An animation that ends elsewhere** (like the move): kind "move", `moveOf` and `length` in its fiche; its last frames
   are its rest drawn there (`ax` / `ay`, a pure translation), and `segment()` gives the hub after it the new `pos`.
+- **An action that changes the look** (kind `look`, like « Changer de couleur »): `look: { to(o), window: [a, b] }` in its
+  fiche; its rest after it is that look (`to(o)`), and the life glides the tones in the window. Its test checks its last
+  frame against the rest drawn in that look.
 - **A new kind of step in the life** (a state such as sitting, holding a thing): a hub field if it is a rest of its own
   (its drawing in `rest()`, its beats in `restLen()`), its steps in `plan()` and `segment()`, its reasons in French, its
   requests in the tests' lives. Keep every join on a beat and the drawing order (module back, things back, module front,
