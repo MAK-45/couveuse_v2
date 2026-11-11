@@ -43,7 +43,7 @@ export function settle(m, k) {
  * melt: 0..1 (1 exactly while the pose switches, so nothing of either pose shows), swap: the activity's pose is on,
  * s: 0..1 how far the melt has gone from the pose at rest to the activity's (for where the light gathers).
  */
-export function phases(part, T, lead = 0.08, pose = false, meltLen = 1.1) {
+export function phases(part, T, lead = 0.08, pose = false, meltLen = 1.6) {
   const L = pose ? Math.min(meltLen, T * 0.4) : 0, a0 = Math.max(LEAD_MIN, lead * T), full = T - DROP_LIFE;
   if (part === "enter") {
     const m0 = a0, m1 = a0 + L / 2, m2 = a0 + L, r0 = pose ? m1 : a0, r1 = Math.max(r0 + 0.3, full);
@@ -53,9 +53,12 @@ export function phases(part, T, lead = 0.08, pose = false, meltLen = 1.1) {
   const n2 = Math.max(0.6, full), n1 = n2 - L / 2, f1 = pose ? n1 : n2, f0 = Math.min(Math.max(LEAD_MIN, lead * T), f1 - 0.3), n0 = n2 - L;
   return (t) => ({ k: t <= f0 ? 1 : t >= f1 ? 0 : 1 - E((t - f0) / (f1 - f0)), melt: pose ? meltAt(t, n0, n2) : 0, swap: !pose || t < n1, s: pose ? 1 - E(seg(t, n0, n2)) : 0 });
 }
-/** A melt into light over [a, b]: up, a plateau at exactly 1 around the middle (where a pose may switch), down. */
+/** A melt into light over [a, b]: up over its first 40 %, a plateau at exactly 1 over the middle 20 % (where a pose may
+ * switch), down over its last 40 %. Each ramp eases in and out over its whole length, so the figure gives way to light
+ * gradually, never at once (a steeper curve read as the figure popping into a round blob). */
+const MELT_RAMP = 0.4;
 function meltAt(t, a, b) {
   if (t <= a || t >= b) return 0;
-  const v = Math.sin((Math.PI * (t - a)) / (b - a)) * 1.35;
-  return v >= 1 ? 1 : E(v);
+  const s = Math.min(t - a, b - t) / ((b - a) * MELT_RAMP);
+  return s >= 1 ? 1 : E(s);
 }
