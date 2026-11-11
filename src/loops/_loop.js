@@ -19,7 +19,7 @@ import { options, merged } from "../shared/_fiche.js";
 
 const REST = { mods: () => ({}) };
 // the part, its lengths in the blob's loops, and how long the figure takes to melt into light and back for a pose
-const BASE = { form: "blob", loops: 2, part: "loop", inLoops: 1, outLoops: 1, lead: 0.08, meltTime: 1.1 };
+const BASE = { form: "blob", loops: 2, part: "loop", inLoops: 1, outLoops: 1, lead: 0.08, meltTime: 2 };
 const META = { tags: ["creature", "blob", "loop", "idle", "activity", "ice", "light"], size: [320, 180], origin: [160, 100], duration: 8, loop: true, fps: 30, bg: "black" };
 
 /** The activity's period (o.loops of the blob's loops), and its phase 0..1 at any time (negative too). */
@@ -86,7 +86,7 @@ function planOf(f, o) {
     Object.assign(pl, { at: g.at, own: g.mods });
   } else if (part !== "loop") {
     const m0 = act.mods(0), pose = poseChange(o, m0);
-    pl.at = phases(part, T, o.lead ?? 0.08, pose, o.meltTime ?? 1.1);
+    pl.at = phases(part, T, o.lead ?? 0.08, pose, o.meltTime ?? 2);
     if (pose && o.form === "grounded") {
       const keep = {};
       for (const k of POSE_KEYS) if (k in m0) keep[k] = m0[k];
