@@ -19,7 +19,7 @@ import { options, merged } from "../shared/_fiche.js";
 
 const REST = { mods: () => ({}) };
 // the part, its lengths in the blob's loops, and how long the figure takes to melt into light and back for a pose
-const BASE = { form: "blob", loops: 2, part: "loop", inLoops: 1, outLoops: 1, lead: 0.08, meltTime: 1.8 };
+const BASE = { form: "blob", loops: 2, part: "loop", inLoops: 1, outLoops: 1, lead: 0.08, meltTime: 1.1 };
 const META = { tags: ["creature", "blob", "loop", "idle", "activity", "ice", "light"], size: [320, 180], origin: [160, 100], duration: 8, loop: true, fps: 30, bg: "black" };
 
 /** The activity's period (o.loops of the blob's loops), and its phase 0..1 at any time (negative too). */
