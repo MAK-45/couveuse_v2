@@ -56,6 +56,6 @@ export function phases(part, T, lead = 0.08, pose = false, meltLen = 1.1) {
 /** A melt into light over [a, b]: up, a plateau at exactly 1 around the middle (where a pose may switch), down. */
 function meltAt(t, a, b) {
   if (t <= a || t >= b) return 0;
-  const v = Math.sin((Math.PI * (t - a)) / (b - a)) * 1.35;
-  return v >= 1 ? 1 : E(v);
+  const v = Math.sin((Math.PI * (t - a)) / (b - a)) * 1.12;
+  return v >= 1 ? 1 : v;
 }
