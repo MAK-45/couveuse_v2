@@ -39,9 +39,11 @@ _À éviter_ : effet, geste
 Une animation qui dure tant qu’on ne demande rien d’autre, avec une **entrée** depuis le repos et une **sortie** vers le repos.
 _À éviter_ : activité, loop
 
-**Fonte en lumière** :
-La façon dont la forme humaine change de posture sans à-coup : elle fond en lumière, change de pose, reprend forme.
-_À éviter_ : morph, fondu
+**Changement de posture** :
+La façon dont la forme humaine change de posture sans à-coup : elle passe d’une pose à l’autre par un vrai mouvement
+(elle s’assoit, ses genoux s’ouvrent, ses jambes se croisent), chaque partie du corps allant d’une pose à l’autre ; elle
+ne redevient jamais blob pour ça.
+_À éviter_ : fonte en lumière, morph, fondu
 
 **Quart de tour** :
 La façon dont la forme humaine au sol se met de profil pour marcher ou courir, et se retourne vers nous.

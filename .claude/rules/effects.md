@@ -14,7 +14,7 @@ paths:
   `blobFront`. A fiche gives `mods(t)` (they move and light it in every form) and `back` / `front` hooks that get `st`:
   `x, y` the middle of its body, `sx, sy` its size against the blob's, `hands`, `head`, `headR`, `feet`, `top`, `floor`, `U`.
 - Figure-only modifiers (the blob ignores them): `armUp`, `armOpen`, `hold`, `reach` + `reachK`; poses `legs`, `arms`,
-  `seat` (never faded: the loop host melts the figure to switch them); `gait`, `turn` (walking, running). On its legs `dx`
+  `seat` (taken little by little by the loop host: `poseK`, the body going part by part to the pose); `gait`, `turn` (walking, running). On its legs `dx`
   is steps, `dy < 0` a jump, `dy > 0` bent knees: set `dy: 0` where the blob only floats up.
 - `ax`, `ay` carry all of it as a pure translation: a dither on the floor reads its column from `room[0]`.
 - Painter: `p.disc(x, y, r, c, a)` needs `a`; colours are numbers (`hex(fromHsl(...))`, `fit(...)`), strings fail

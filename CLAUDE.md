@@ -89,8 +89,8 @@ To look at the page: Playwright and Chromium are installed (`require("playwright
 4. GIFs get one palette per frame, from that frame only: identical frames encode identically, so GIFs chain.
 5. Walking and running: whole strides and whole tiles of floor a loop; a foot down never slides (`gaitLine`).
 6. In a new form, rest is the Transformation's `live` loop: every modifier enters as `x * 1` / `x + 0` at rest.
-7. Loops in three parts: the entry ends on the loop's last frame, the exit starts on its first; a pose switches only
-   while the figure is melted into light.
+7. Loops in three parts: the entry ends on the loop's last frame, the exit starts on its first; a pose (sitting down,
+   legs crossed) is taken little by little, each part of the body going from the rest pose to the activity's.
 8. The life: a segment starts on a beat of the rest it leaves and lasts whole loops; nothing starts sooner than
    `now + MARGIN`; where it stands (`pos`) is a pure translation of all it draws.
 

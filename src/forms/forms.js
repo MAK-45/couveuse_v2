@@ -190,6 +190,52 @@ function field(L, x, y, far) {
   SD = s; SW = w;
 }
 
+// a leg's parts are named (thigh t, shin s, foot f, sole o, and its side), so two poses of the figure can be matched part
+// for part; a part one pose has and the other hasn't grows from (or goes into) the end of that leg's shin
+const tag = (L, j, sd) => { L[L.length - 1].j = j + sd; };
+const FOLLOW = { f: "s", o: "s" };
+// what a pose asks of the figure (another tab's modifiers), and the modifiers without it
+const POSE = ["legs", "arms", "seat"];
+const unposed = (m) => { const r = { ...m }; for (const q of POSE) delete r[q]; delete r.poseK; return r; };
+const partAt = (q, f, ox = 0, oy = 0, s = 1) => {
+  const P = [];
+  if (q.t === 0) cone(P, lerp(ox, q.ax, s), lerp(oy, q.ay, s), q.ra * f, lerp(ox, q.bx, s), lerp(oy, q.by, s), q.rb * f, q.k * f);
+  else oval(P, lerp(ox, q.cx, s), lerp(oy, q.cy, s), Math.max(1e-3, q.rx * f), Math.max(1e-3, q.ry * f), q.k * f);
+  return P[0];
+};
+const endOf = (L, j) => { const q = j && L.find((p) => p.j === j); return q ? (q.t === 0 ? [q.bx, q.by] : [q.cx, q.cy]) : null; };
+function blendParts(La, Lb, s) {
+  const out = [], ub = Lb.filter((q) => !q.j), byJ = new Map(Lb.filter((q) => q.j).map((q) => [q.j, q])), used = new Set();
+  let iu = 0;
+  for (const a of La) {
+    const b = a.j ? byJ.get(a.j) : ub[iu++];
+    if (b && b.t === a.t) {
+      used.add(b);
+      if (a.t === 0) cone(out, lerp(a.ax, b.ax, s), lerp(a.ay, b.ay, s), lerp(a.ra, b.ra, s), lerp(a.bx, b.bx, s), lerp(a.by, b.by, s), lerp(a.rb, b.rb, s), lerp(a.k, b.k, s));
+      else oval(out, lerp(a.cx, b.cx, s), lerp(a.cy, b.cy, s), lerp(a.rx, b.rx, s), lerp(a.ry, b.ry, s), lerp(a.k, b.k, s));
+      out[out.length - 1].j = a.j;
+    } else if (s < 1) {
+      // (going into the end of the other pose's shin, or shrinking where it is)
+      const to = a.j && endOf(Lb, FOLLOW[a.j[0]] + a.j.slice(1));
+      out.push(to ? partAt(a, 1 - s, to[0], to[1], 1 - s) : partAt(a, 1 - s));
+    }
+  }
+  if (s > 0) for (const b of Lb) if (!used.has(b) && b.j) {
+    const from = endOf(La, FOLLOW[b.j[0]] + b.j.slice(1));
+    out.push(from ? partAt(b, s, from[0], from[1], s) : partAt(b, s));
+  }
+  return out;
+}
+// the figure between two of its poses (B already in A's space), s 0 (A) .. 1 (B)
+function blendFig(A, B, s) {
+  const L = blendParts(A.L, B.L, s), Hl = blendParts(A.Hl, B.Hl, s), mx = (a, b) => [lerp(a[0], b[0], s), lerp(a[1], b[1], s)];
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  for (const q of [...L, ...Hl]) { x0 = Math.min(x0, q.x0); x1 = Math.max(x1, q.x1); y0 = Math.min(y0, q.y0); y1 = Math.max(y1, q.y1); }
+  return { L, Hl, U: A.U, head: { x: lerp(A.head.x, B.head.x, s), y: lerp(A.head.y, B.head.y, s), rx: lerp(A.head.rx, B.head.rx, s), ry: lerp(A.head.ry, B.head.ry, s) },
+    hands: A.hands.map((h, i) => (B.hands[i] ? mx(h, B.hands[i]) : h)), tips: s < 0.5 ? A.tips : B.tips, heart: mx(A.heart, B.heart),
+    chest: lerp(A.chest, B.chest, s), hips: lerp(A.hips, B.hips, s), box: [x0, y0, x1, y1] };
+}
+
 // ---- the human figure, in its own pixels (y down, origin on the blob's centre), posed at clock h.
 // g: how far each part has grown out of the body (0 tucked in, 1 full, a little over in a pop)
 const ARM_POSE = { float: [0.5, 0.95, 0.3], open: [1.2, 1.5, 0.15], down: [0.16, 0.08, 0.02] };
@@ -250,9 +296,9 @@ function human(o, st, h, P, g, Q = null) {
       const k1 = 0.72 * U * gl, k2 = (bent ? 0.52 : 0.66) * U * gl, k3 = 0.17 * U * gl;
       const x1 = hx0 + sd * Math.sin(a1) * k1, y1 = hy0 + Math.cos(a1) * k1, x2 = x1 + sd * Math.sin(a2) * k2, y2 = y1 + Math.cos(a2) * k2;
       const x3 = x2 + sd * Math.sin(a3) * k3, y3 = y2 + Math.cos(a3) * k3;
-      cone(L, hx0, hy0, 0.13 * U * rs, x1, y1, 0.085 * U * rs, J * 0.45);
-      cone(L, x1, y1, 0.08 * U * rs, x2, y2, 0.048 * U * rs, J * 0.3);
-      cone(L, x2, y2, 0.05 * U * rs, x3, y3, 0.026 * U * rs, J * 0.2);
+      cone(L, hx0, hy0, 0.13 * U * rs, x1, y1, 0.085 * U * rs, J * 0.45); tag(L, "t", sd);
+      cone(L, x1, y1, 0.08 * U * rs, x2, y2, 0.048 * U * rs, J * 0.3); tag(L, "s", sd);
+      cone(L, x2, y2, 0.05 * U * rs, x3, y3, 0.026 * U * rs, J * 0.2); tag(L, "f", sd);
       tips.push([x3, y3]);
     }
   } else if (o.huLegs === "lotus") {
@@ -260,9 +306,9 @@ function human(o, st, h, P, g, Q = null) {
       const bob = 0.03 * U * tsw * Math.sin(TAU * u * nT + (sd > 0 ? 0 : 1.7)), rs = lerp(0.6, 1, clamp(gl));
       const hx0 = sd * 0.14 * U * ww, hy0 = hips, kx = hx0 + sd * 0.58 * U * gl, ky = hy0 + (0.2 * U + bob) * gl;
       const ax = lerp(hx0, -sd * 0.16 * U, gl), ay = hy0 + (0.36 * U + bob * 0.5) * gl;
-      cone(L, hx0, hy0, 0.16 * U * rs, kx, ky, 0.12 * U * rs, J * 0.7);
-      cone(L, kx, ky, 0.115 * U * rs, ax, ay, 0.07 * U * rs, J * 0.5);
-      oval(L, ax - sd * 0.06 * U * gl, ay + 0.02 * U, 0.1 * U * rs, 0.055 * U * rs, J * 0.3);
+      cone(L, hx0, hy0, 0.16 * U * rs, kx, ky, 0.12 * U * rs, J * 0.7); tag(L, "t", sd);
+      cone(L, kx, ky, 0.115 * U * rs, ax, ay, 0.07 * U * rs, J * 0.5); tag(L, "s", sd);
+      oval(L, ax - sd * 0.06 * U * gl, ay + 0.02 * U, 0.1 * U * rs, 0.055 * U * rs, J * 0.3); tag(L, "o", sd);
       tips.push([kx, ky + 0.1 * U], [ax, ay + 0.05 * U]);
     }
   } else if (gl > 0.02) {
@@ -392,10 +438,10 @@ function stander(o, st, h, P, g, X) {
       tx += nx - ax; ty2 += ny - ay; ax = nx; ay = ny;
     }
     const fl = X.feet ? (X.step ? X.step.flat[fi] : X.flat) * (1 - (X.air || 0)) : 0;
-    cone(L, hjx, hjy, 0.13 * U * rs, kx, ky, 0.085 * U * rs * (1 + 0.2 * bend), J * 0.45);
-    cone(L, kx, ky, 0.08 * U * rs * (1 + 0.15 * bend), ax, ay, 0.048 * U * rs, J * 0.3);
-    cone(L, ax, ay, 0.05 * U * rs, tx, ty2, lerp(0.026, 0.04, fl) * U * rs, J * 0.2);
-    if (fl > 0) oval(L, tx - sd * 0.01 * U, ty2, lerp(0.03, 0.095, fl) * U, lerp(0.03, 0.045, fl) * U, J * 0.2);
+    cone(L, hjx, hjy, 0.13 * U * rs, kx, ky, 0.085 * U * rs * (1 + 0.2 * bend), J * 0.45); tag(L, "t", sd);
+    cone(L, kx, ky, 0.08 * U * rs * (1 + 0.15 * bend), ax, ay, 0.048 * U * rs, J * 0.3); tag(L, "s", sd);
+    cone(L, ax, ay, 0.05 * U * rs, tx, ty2, lerp(0.026, 0.04, fl) * U * rs, J * 0.2); tag(L, "f", sd);
+    if (fl > 0) { oval(L, tx - sd * 0.01 * U, ty2, lerp(0.03, 0.095, fl) * U, lerp(0.03, 0.045, fl) * U, J * 0.2); tag(L, "o", sd); }
     tips.push([tx, ty2]);
   }
   // hair of light: weightless while it floats (as the levitating form), then falling to its shoulders and swaying
@@ -863,51 +909,65 @@ function build(o, t, ext = null) {
   const m = st.m, k = ext ? ch.kb * (1 - m.morph) : ch.kb, spiral = ch.front !== null;
   // the figure's own squash: a little of the idle's breath and bounce, and the change's size
   const bsx = st.sx / (m.sx * m.grow), bsy = st.sy / (m.sy * m.grow);
-  let fsx = (1 + (bsx - 1) * 0.3) * ch.scale, fsy = (1 + (bsy - 1) * 0.3) * ch.scale, tilt = (st.tilt - m.rot) * o.huTilt, ox = st.x, oy = st.y, X = null;
-  // another tab's squash, size and turn (the change's own are undone above: they were the blob's)
-  if (ext && !G) { fsx *= m.grow * (1 + (m.sx - 1) * 0.6); fsy *= m.grow * (1 + (m.sy - 1) * 0.6); tilt += m.rot; }
-  // another tab may change its pose for a while: its legs (lotus...) and arms (down...), or, on the floor, sit down
-  // cross-legged on it (seat)
-  const fo = ext && (m.legs || m.arms) ? { ...o, huLegs: m.legs || o.huLegs, huArms: m.arms || o.huArms } : o, seat = !!(ext && G && m.seat > 0.5);
-  // walking or running (m.gait, on its legs): it turns side on and works out its own pose, on the spot (its floor goes by).
-  // m.turn (0 facing us .. 1 side on) while it turns to set off or after it has stopped: the figure facing us and the one
-  // side on are both posed and their fields blend, so it turns as one body, never melting nor jumping (at 0 it is the
-  // figure facing us exactly, at 1 the one side on)
-  const gaitM = ext && G && !seat && m.gait ? m.gait : null, tw = gaitM ? (m.turn == null ? 1 : clamp(m.turn)) : 0;
-  const gait = tw >= 1 ? gaitM : null, turning = tw > 0 && tw < 1;
-  if (seat) {
-    const g = m.grow;
-    fsx = g; fsy = g; tilt = clamp(m.rot, -0.5, 0.5); ox = m.dx + m.ax; oy = G.FY - (BOTTOM.lotus + 0.06) * G.Lw.U * g;
-  } else if (gait) {
-    // (on the spot, its floor going by, or carried along it by ax as it goes)
-    fsx = ch.scale; fsy = ch.scale; tilt = 0; ox = m.ax; oy = 0;
-    X = { gm: 1, grav: 1, lift: 0, hairUp: 0, hairGrav: 1, kick: 0, crouch: 0, gl: 1, flat: 1, sx: 0, pel: 0, feet: null, fy: G.FY, gait };
-  } else if (G) {
-    // gravity takes over from the blob's float: no more sway, tilt or squash; it falls and stands
-    fsx = lerp(fsx, ch.scale, G.gm); fsy = lerp(fsy, ch.scale, G.gm); tilt *= 1 - G.gm;
-    ({ ox, oy, X } = grounding(o, st, G, fsy, tilt, ext ? { m, vx: ext.vx } : null));
-    if (ext) {
-      // its size round the floor under it (it stays standing on it), round its middle up in the air; there a turn is a flip
+  const fsx0 = (1 + (bsx - 1) * 0.3) * ch.scale, fsy0 = (1 + (bsy - 1) * 0.3) * ch.scale, tilt0 = (st.tilt - m.rot) * o.huTilt;
+  // the figure as the modifiers mm pose it, and where it stands (its squash, turn and frame on the screen)
+  const posedBy = (m) => {
+    let fsx = fsx0, fsy = fsy0, tilt = tilt0, ox = st.x, oy = st.y, X = null;
+    // another tab's squash, size and turn (the change's own are undone above: they were the blob's)
+    if (ext && !G) { fsx *= m.grow * (1 + (m.sx - 1) * 0.6); fsy *= m.grow * (1 + (m.sy - 1) * 0.6); tilt += m.rot; }
+    // another tab may change its pose for a while: its legs (lotus...) and arms (down...), or, on the floor, sit down
+    // cross-legged on it (seat)
+    const fo = ext && (m.legs || m.arms) ? { ...o, huLegs: m.legs || o.huLegs, huArms: m.arms || o.huArms } : o, seat = !!(ext && G && m.seat > 0.5);
+    // walking or running (m.gait, on its legs): it turns side on and works out its own pose, on the spot (its floor goes by).
+    // m.turn (0 facing us .. 1 side on) while it turns to set off or after it has stopped: the figure facing us and the one
+    // side on are both posed and their fields blend, so it turns as one body, never melting nor jumping (at 0 it is the
+    // figure facing us exactly, at 1 the one side on)
+    const gaitM = ext && G && !seat && m.gait ? m.gait : null, tw = gaitM ? (m.turn == null ? 1 : clamp(m.turn)) : 0;
+    const gait = tw >= 1 ? gaitM : null, turning = tw > 0 && tw < 1;
+    if (seat) {
       const g = m.grow;
-      if (g !== 1) { const ay = lerp(G.FY, oy, X.air); oy = ay + (oy - ay) * g; fsx *= g; fsy *= g; }
-      tilt += (m.rot - TAU * Math.round(m.rot / TAU)) * X.air;
+      fsx = g; fsy = g; tilt = clamp(m.rot, -0.5, 0.5); ox = m.dx + m.ax; oy = G.FY - (BOTTOM.lotus + 0.06) * G.Lw.U * g;
+    } else if (gait) {
+      // (on the spot, its floor going by, or carried along it by ax as it goes)
+      fsx = ch.scale; fsy = ch.scale; tilt = 0; ox = m.ax; oy = 0;
+      X = { gm: 1, grav: 1, lift: 0, hairUp: 0, hairGrav: 1, kick: 0, crouch: 0, gl: 1, flat: 1, sx: 0, pel: 0, feet: null, fy: G.FY, gait };
+    } else if (G) {
+      // gravity takes over from the blob's float: no more sway, tilt or squash; it falls and stands
+      fsx = lerp(fsx, ch.scale, G.gm); fsy = lerp(fsy, ch.scale, G.gm); tilt *= 1 - G.gm;
+      ({ ox, oy, X } = grounding(o, st, G, fsy, tilt, ext ? { m, vx: ext.vx } : null));
+      if (ext) {
+        // its size round the floor under it (it stays standing on it), round its middle up in the air; there a turn is a flip
+        const g = m.grow;
+        if (g !== 1) { const ay = lerp(G.FY, oy, X.air); oy = ay + (oy - ay) * g; fsx *= g; fsy *= g; }
+        tilt += (m.rot - TAU * Math.round(m.rot / TAU)) * X.air;
+      }
     }
-  }
-  // a pose another tab changes under a melt into light (m.anchor = [x, y] of the frame, [x, y] of the middle, see
-  // loops/_loop.js): the frame gathers to that point as it melts, so neither the pose it leaves nor the one it takes
-  // shows while it switches (at morph 1 nothing of the figure is left)
-  if (ext && G && m.anchor && m.morph > 0) { ox = lerp(ox, m.anchor[0], m.morph); oy = lerp(oy, m.anchor[1], m.morph); }
-  // its arms, as another tab asks (raised, spread, holding, one reaching for a point given in the scene)
-  let Q = null;
-  if (ext && (m.armUp > 0 || m.armOpen > 0 || m.hold > 0 || (m.reach && m.reachK > 0))) {
-    Q = { up: m.armUp || 0, open: m.armOpen || 0, hold: m.hold || 0, rk: 0 };
-    if (m.reach && m.reachK > 0) {
-      const ex = m.reach[0] - ox, ey = m.reach[1] - oy, c0 = Math.cos(tilt), s0 = Math.sin(tilt), rx = (ex * c0 + ey * s0) / fsx, ry = (-ex * s0 + ey * c0) / fsy;
-      Object.assign(Q, { rk: m.reachK, reach: [rx, ry], rsd: m.reachSide || (rx >= 0 ? 1 : -1) });
+    // its arms, as another tab asks (raised, spread, holding, one reaching for a point given in the scene)
+    let Q = null;
+    if (ext && (m.armUp > 0 || m.armOpen > 0 || m.hold > 0 || (m.reach && m.reachK > 0))) {
+      Q = { up: m.armUp || 0, open: m.armOpen || 0, hold: m.hold || 0, rk: 0 };
+      if (m.reach && m.reachK > 0) {
+        const ex = m.reach[0] - ox, ey = m.reach[1] - oy, c0 = Math.cos(tilt), s0 = Math.sin(tilt), rx = (ex * c0 + ey * s0) / fsx, ry = (-ex * s0 + ey * c0) / fsy;
+        Object.assign(Q, { rk: m.reachK, reach: [rx, ry], rsd: m.reachSide || (rx >= 0 ? 1 : -1) });
+      }
+      if (X) X.Q = Q;
     }
-    if (X) X.Q = Q;
+    const fig = gait ? strider(o, st, ph.h, P, gait, G.FY) : G && !seat ? stander(o, st, ph.h, P, ch.g, X) : human(seat ? { ...fo, huLegs: "lotus" } : fo, st, ph.h, P, ch.g, Q);
+    return { fig, fsx, fsy, tilt, ox, oy, X, Q, gaitM, tw, gait, turning };
+  };
+  // a pose another tab asks for (legs crossed, arms down, sitting on its floor) is taken little by little (m.poseK 0..1):
+  // the figure as it is at rest and the one in the pose are both posed, and each part of the body goes from where the
+  // one has it to where the other does (its hips go down, its knees open, its feet cross), never melting nor jumping
+  const pk = ext && POSE.some((q) => m[q] != null) && m.poseK != null ? clamp(m.poseK) : 1;
+  let R = posedBy(pk > 0 ? m : unposed(m));
+  if (pk > 0 && pk < 1) {
+    const A = posedBy(unposed(m)), B = R, kx = 1 / A.fsx, ky = 1 / A.fsy, ca = Math.cos(A.tilt), sa = Math.sin(A.tilt), cb = Math.cos(B.tilt), sb = Math.sin(B.tilt);
+    // B carried into A's own space: its screen point, then back through A's frame
+    moveFig(B.fig, (x, y) => { const bx = x * B.fsx, by = y * B.fsy, ex = B.ox + bx * cb - by * sb - A.ox, ey = B.oy + bx * sb + by * cb - A.oy; return [(ex * ca + ey * sa) * kx, (-ex * sa + ey * ca) * ky]; }, Math.min(B.fsx * kx, B.fsy * ky));
+    R = { ...A, fig: blendFig(A.fig, B.fig, pk) };
   }
-  let fig = gait ? strider(o, st, ph.h, P, gait, G.FY) : G && !seat ? stander(o, st, ph.h, P, ch.g, X) : human(seat ? { ...fo, huLegs: "lotus" } : fo, st, ph.h, P, ch.g, Q);
+  let { fig, fsx, fsy, tilt, ox, oy, X } = R;
+  const { Q, gaitM, tw, gait, turning } = R;
   // turning: the figure side on too, brought into the space of the one facing us (both stand upright on the floor; its frame
   // is at (ax, 0)), and what the drawing needs of the figure (head, hands, feet, heart) taken between the two
   let figB = null, turnWx = null;
@@ -936,7 +996,6 @@ function build(o, t, ext = null) {
   if (ext && G && k < 1) {
     let [mx, my] = toScreen(0, (fig.chest + fig.hips) / 2);
     my += Math.max(0, m.dy);
-    if (m.anchor && m.morph > 0) { mx = lerp(mx, m.anchor[2], m.morph); my = lerp(my, m.anchor[3], m.morph); }
     bs = { ...st, x: mx, y: Math.min(my, G.FY - S * st.sy * 0.98), tilt: m.rot };
   }
   const cb = Math.cos(-bs.tilt), sb = Math.sin(-bs.tilt);

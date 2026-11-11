@@ -62,8 +62,10 @@ The entry and the exit are windows of the activity's own time, so they join the 
 (`phases()`) never wraps: 0 before the entry, 1 after it, 1 before the exit, 0 after it. For the last 1.7 s of an entry
 k = 1 (the modifiers are exactly the loop's, so the drops alive at the join fell the same way), and the last 1.7 s of an
 exit are rest. Modifiers that can be faded go back to rest by k (`settle()`); what the activity draws fades by k
-(`p.fade`). A pose can't be faded: it switches while the figure is melted into light (`morph` exactly 1 on a plateau), on
-its legs its frame gathered at `anchor`.
+(`p.fade`). A pose (sitting down, legs crossed, arms down) is taken as far as k too (`poseK`): the figure at rest and the one in
+the pose are both built and each part of the body goes from where the one has it to where the other does (`blendFig`
+in forms.js; a leg's parts are named, so they match), so at k = 0 it is the rest exactly and at k = 1 the loop's pose,
+and it never melts nor jumps in between.
 
 ## The life
 

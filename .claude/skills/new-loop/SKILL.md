@@ -13,7 +13,7 @@ If the author hasn't chosen « une fois » or « en boucle » yet, ask first (sk
    done in a form, and `play(o)`: the loop alone, time read through `phase(o, t)`, every count through `whole()`,
    particles with `cycle(t, loopLen(o), …)`.
 3. Its entry and exit come by themselves (`_loop.js`: its intensity draws the modifiers back to rest, its drawing fades).
-   A pose (`seat`, `legs`, `arms`) switches under a melt into light by itself. Only if the art needs its own entry and
+   A pose (`seat`, `legs`, `arms`) is taken little by little by itself (the body goes part by part from rest to it). Only if the art needs its own entry and
    exit, give `play` a `parts(part, T)` like walking and running (`_gait.js`).
 4. Make it for every form: figures use their arms, effects come from `st.hands` / `st.head`, on its legs it stays on its
    floor (`dy: 0` when `o.form === "grounded"`).

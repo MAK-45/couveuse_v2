@@ -1,5 +1,5 @@
 // « Sommeil » : low and still, eyes shut, deep slow breaths, bubbles of sleep, now and then a twitch. A figure curls up as
-// it floats; on its legs it sits down cross-legged on its floor and nods off (a pose: it melts into light to take it).
+// it floats; on its legs it sits down cross-legged on its floor and nods off (a pose: it really sits down, its knees opening).
 import { bump, TAU, WHITE } from "../../pixelfx/src/core/index.js";
 import { loop, phase, whole, gnd, ring } from "./_loop.js";
 

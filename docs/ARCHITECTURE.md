@@ -25,7 +25,7 @@ why) and `play`. Its host builds everything else:
   and makes the fiche a pixelfx effect. `family(list)` is the actions page's effect, playing the fiche `o.action` names.
 - `loops/_loop.js`: `loop(def)` gives it its period and its three parts (`o.part` "enter" / "loop" / "exit": the
   activity's intensity from `phases()` draws its modifiers back to rest with `settle()` and fades its drawing; a pose
-  switches under a melt into light), and the rest when its form can't play it. `family(list)` is the loops page's effect
+  is taken little by little with it, `poseK`, the figure going part by part from its rest pose to the activity's), and the rest when its form can't play it. `family(list)` is the loops page's effect
   (`o.loop`). `loops/_gait.js` gives walking and running their own entry and exit (a quarter turn, steps on a
   `gaitLine`).
 - `shared/_creature.js`: the one adapter that draws the creature for every page: its body in its form (`bodyBack` /

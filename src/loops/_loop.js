@@ -6,20 +6,20 @@
 // the loop starts; the exit starts where the loop ends (its clock goes on) and ends on the rest's frame. In between, the
 // activity's intensity k (phases(), shared/_time.js) draws each of its modifiers back to rest (settle()) and fades what it
 // draws; k = 1 for the last 1.7 s of the entry, so the drops of light alive at the join are the loop's. A pose the activity
-// needs (sitting cross-legged on the floor, legs crossed, arms down) can't be faded: the figure melts into light (morph 1),
-// the pose switches while nothing of the figure shows, and on its legs its frame gathers at a point going from where one
-// pose has it to where the other does (anchor), so the light doesn't jump. A fiche may bring its own parts instead
-// (act.parts(part, T), like walking and running: a quarter turn and their first and last steps).
-import { lerp, TAU } from "../../pixelfx/src/core/index.js";
+// needs (sitting cross-legged on the floor, legs crossed, arms down) is taken with k too (poseK): the figure goes from its
+// rest pose to the activity's part by part (forms.js), its hips going down, its knees opening, never melting nor jumping.
+// A fiche may bring its own parts instead (act.parts(part, T), like walking and running: a quarter turn and their first
+// and last steps).
+import { TAU } from "../../pixelfx/src/core/index.js";
 import { meta as idleMeta } from "../blob/blob.js";
-import { formAnchor, isForm, FORM_DEFAULTS } from "../forms/forms.js";
+import { isForm, FORM_DEFAULTS } from "../forms/forms.js";
 import { phases, settle } from "../shared/_time.js";
 import { creature } from "../shared/_creature.js";
 import { options, merged } from "../shared/_fiche.js";
 
 const REST = { mods: () => ({}) };
-// the part, its lengths in the blob's loops, and how long the figure takes to melt into light and back for a pose
-const BASE = { form: "blob", loops: 2, part: "loop", inLoops: 1, outLoops: 1, lead: 0.08, meltTime: 2 };
+// the part, and its lengths in the blob's loops
+const BASE = { form: "blob", loops: 2, part: "loop", inLoops: 1, outLoops: 1, lead: 0.08 };
 const META = { tags: ["creature", "blob", "loop", "idle", "activity", "ice", "light"], size: [320, 180], origin: [160, 100], duration: 8, loop: true, fps: 30, bg: "black" };
 
 /** The activity's period (o.loops of the blob's loops), and its phase 0..1 at any time (negative too). */
@@ -85,13 +85,8 @@ function planOf(f, o) {
     const g = act.parts(part, T);
     Object.assign(pl, { at: g.at, own: g.mods });
   } else if (part !== "loop") {
-    const m0 = act.mods(0), pose = poseChange(o, m0);
-    pl.at = phases(part, T, o.lead ?? 0.08, pose, o.meltTime ?? 2);
-    if (pose && o.form === "grounded") {
-      const keep = {};
-      for (const k of POSE_KEYS) if (k in m0) keep[k] = m0[k];
-      pl.anchors = [formAnchor(o, null), formAnchor(o, () => keep)];
-    }
+    pl.at = phases(part, T, o.lead ?? 0.08);
+    pl.pose = poseChange(o, act.mods(0));
   }
   PLANS.set(o, pl);
   return pl;
@@ -102,15 +97,12 @@ function modsOf(pl) {
   if (pl.own) return pl.own;
   return (tt) => {
     const a = pl.at(tt), m = act.mods(pl.clock(tt));
-    if (a.k >= 1 && a.swap && !(a.melt > 0)) return m;
+    if (a.k >= 1) return m;
     const out = settle(m, a.k);
-    if (a.swap) for (const key of POSE_KEYS) if (key in m) out[key] = m[key];
+    // (its pose, taken as far as k)
+    if (pl.pose && a.k > 0) { for (const key of POSE_KEYS) if (key in m) out[key] = m[key]; out.poseK = a.k; }
     // drops of light falling while it does anything don't show (as for an action)
-    out.quiet = a.k > 0 || a.melt > 0 ? 1 : 0;
-    if (a.melt > 0) {
-      out.morph = a.melt;
-      if (pl.anchors) out.anchor = pl.anchors[0].map((v, i) => lerp(v, pl.anchors[1][i], a.s));
-    }
+    out.quiet = a.k > 0 ? 1 : 0;
     return out;
   };
 }

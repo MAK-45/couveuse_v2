@@ -36,28 +36,17 @@ export function settle(m, k) {
 
 /**
  * The timetable of one part of a three-part animation, in seconds over its length T (a whole number of the blob's
- * loops): the intensity k (no wrapping: before the part it is what came before, after it what comes next), and, when
- * the body must change pose (a figure sitting down...), a melt into light around the moment the pose switches.
- *   part "enter": rest -> in full. k is 0 until the pose has switched, then rises, and is 1 for the last DROP_LIFE.
- *   part "exit":  in full -> rest. k falls, the pose switches back once k is 0, and the last DROP_LIFE is rest.
- * melt: 0..1 (1 exactly while the pose switches, so nothing of either pose shows), swap: the activity's pose is on,
- * s: 0..1 how far the melt has gone from the pose at rest to the activity's (for where the light gathers).
+ * loops): the intensity k (no wrapping: before the part it is what came before, after it what comes next). A pose the
+ * activity needs (a figure sitting down...) is taken as far as k too.
+ *   part "enter": rest -> in full. k rises after the lead-in, and is 1 for the last DROP_LIFE.
+ *   part "exit":  in full -> rest. k falls, and the last DROP_LIFE is rest.
  */
-export function phases(part, T, lead = 0.08, pose = false, meltLen = 2) {
-  const L = pose ? Math.min(meltLen, T * 0.4) : 0, a0 = Math.max(LEAD_MIN, lead * T), full = T - DROP_LIFE;
+export function phases(part, T, lead = 0.08) {
+  const a0 = Math.max(LEAD_MIN, lead * T), full = T - DROP_LIFE;
   if (part === "enter") {
-    const m0 = a0, m1 = a0 + L / 2, m2 = a0 + L, r0 = pose ? m1 : a0, r1 = Math.max(r0 + 0.3, full);
-    return (t) => ({ k: t <= r0 ? 0 : t >= r1 ? 1 : E((t - r0) / (r1 - r0)), melt: pose ? meltAt(t, m0, m2) : 0, swap: !pose || t >= m1, s: pose ? E(seg(t, m0, m2)) : 1 });
+    const r1 = Math.max(a0 + 0.3, full);
+    return (t) => ({ k: t <= a0 ? 0 : t >= r1 ? 1 : E((t - a0) / (r1 - a0)) });
   }
-  // exit: k falls over [f0, f1]; the pose switches back at f1 (k = 0 there), the melt around it; rest after
-  const n2 = Math.max(0.6, full), n1 = n2 - L / 2, f1 = pose ? n1 : n2, f0 = Math.min(Math.max(LEAD_MIN, lead * T), f1 - 0.3), n0 = n2 - L;
-  return (t) => ({ k: t <= f0 ? 1 : t >= f1 ? 0 : 1 - E((t - f0) / (f1 - f0)), melt: pose ? meltAt(t, n0, n2) : 0, swap: !pose || t < n1, s: pose ? 1 - E(seg(t, n0, n2)) : 0 });
-}
-/** A melt into light over [a, b]: a slow rise (the figure pours itself into its light little by little, never at once), a
- *  plateau at exactly 1 around the middle (where a pose may switch), and as slow a way back. */
-const MELT_RISE = 0.42;
-function meltAt(t, a, b) {
-  if (t <= a || t >= b) return 0;
-  const u = (t - a) / (b - a), v = Math.min(u, 1 - u) / MELT_RISE;
-  return v >= 1 ? 1 : E(v);
+  const f1 = Math.max(0.6, full), f0 = Math.min(a0, f1 - 0.3);
+  return (t) => ({ k: t <= f0 ? 1 : t >= f1 ? 0 : 1 - E((t - f0) / (f1 - f0)) });
 }
