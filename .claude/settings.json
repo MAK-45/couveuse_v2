@@ -6,9 +6,21 @@
       "Bash(npm test)",
       "Bash(npm run check:fx)",
       "Bash(npm run render:*)",
-      "Bash(node tests/seams.mjs)",
-      "Bash(node pixelfx/tools/render.mjs:*)",
-      "Bash(node pixelfx/tools/check.mjs:*)"
+      "Bash(node tests/seams.mjs)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/protect-pixelfx.mjs\"",
+            "statusMessage": "pixelfx/ reste intact"
+          }
+        ]
+      }
     ]
   }
 }

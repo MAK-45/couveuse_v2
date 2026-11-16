@@ -1,5 +1,6 @@
 node_modules/
 pixelfx/records/
+records/
 *.gif
 !docs/**/*.gif
 .DS_Store
